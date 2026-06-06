@@ -1,0 +1,75 @@
+name: Claude Issue → PR
+
+# Issue に `claude` ラベルが付くと Claude Code が実装ブランチを作成して PR を提出する。
+# 既存 Issue で再依頼したいときは Issue / PR コメント本文に `@claude ...` を含めるとこのワークフローが反応する。
+#
+# 前提:
+# - リポジトリ Secrets に `ANTHROPIC_API_KEY` を登録済みであること
+# - Settings → Actions → General → Workflow permissions で "Read and write permissions" を許可
+# - "Allow GitHub Actions to create and approve pull requests" にチェック
+# - ラベル `claude` を事前に作成しておく（または初回手動付与で自動作成）
+
+on:
+  issues:
+    types: [labeled, opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  implement:
+    # 起動条件:
+    #  - Issue に `claude` ラベルが後から付いた瞬間（labeled）
+    #  - Issue 新規作成時、本文に @claude 言及あり、または作成時点で `claude` ラベル付き
+    #    （ISSUE_TEMPLATE の labels: ["claude"] のように作成時に付くラベルは labeled を
+    #     発火せず opened ペイロードに含まれるため、opened 側でもラベルを判定する）
+    #  - Issue / PR コメントで @claude 言及あり
+    if: >-
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude') ||
+      (github.event_name == 'issues' && github.event.action == 'opened' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.labels.*.name, 'claude'))) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE NUMBER: ${{ github.event.issue.number }}
+            ISSUE TITLE: ${{ github.event.issue.title }}
+            ISSUE BODY: |
+              ${{ github.event.issue.body }}
+            TRIGGER COMMENT (if any): |
+              ${{ github.event.comment.body }}
+
+            あなたはこのリポジトリの実装担当 Claude です。以下の手順で Issue を処理してください。
+
+            1. リポジトリの `CLAUDE.md` / `AGENTS.md` / `README.md` を必ず先に読み、現フェーズと Must Always / Must Never を把握する。
+            2. Issue の内容を確認し、対応方針を Issue にコメントで日本語で投稿する（実装前の宣言）。
+               - 不明点や前提に迷いがある場合は実装に進まず、Issue コメントで質問だけ残して終了する。
+            3. 実装方針に問題がなければ、新規ブランチ `task/issue-${{ github.event.issue.number }}-<short-slug>` を作成して実装。
+               - コミットメッセージは Conventional Commits 風（例: `feat: ...`, `fix: ...`）。
+               - 末尾に `Refs: #${{ github.event.issue.number }}` を含めること。
+            4. ビルド / テストコマンドが `CLAUDE.md` に定義されていれば必ず実行し、失敗時は修正してから次へ進む。
+            5. `gh pr create` で Pull Request を作成。
+               - タイトル: Issue タイトルを踏襲（70 文字以内）
+               - 本文: `.github/PULL_REQUEST_TEMPLATE.md` のフォーマットに沿い、冒頭に `Closes #${{ github.event.issue.number }}` を入れる
+               - base ブランチはデフォルトブランチ
+            6. PR 作成後、PR コメントで `@codex review` をメンションし日本語レビューを依頼する。
+            7. 最後に Issue へ「PR #<番号> を提出しました」と日本語コメントで報告する。
+
+            重要:
+            - `CLAUDE.md` の Must Never に触れる変更（フォルダ構成変更・代替ビルドシステム導入等）は実施しない。判断に迷ったら Issue コメントで確認し中断する。
+            - Issue の指示が曖昧で実装範囲が広すぎる場合は、最小スコープに絞り、残りを PR 本文の `Future` セクションに列挙する。
+
+          claude_args: |
+            --allowedTools "Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(pnpm:*),Bash(yarn:*),Bash(bun:*),Bash(make:*),Bash(cmake:*),Bash(cargo:*),Bash(go:*),Bash(python:*),Bash(uv:*),Bash(pytest:*),Bash(./scripts/:*),Read,Write,Edit,Glob,Grep"
