@@ -6,17 +6,17 @@
 
 | Placeholder | 意味 | 例 |
 |---|---|---|
-| `{{OWNER}}` | GitHub user / org | `hang-up33` |
-| `{{REPO}}` | リポジトリ名 | `my-new-project` |
-| `{{PROJECT_NAME}}` | 人間可読プロジェクト名 | `My New Project` |
-| `{{DEFAULT_BRANCH}}` | 既定ブランチ | `main` |
-| `{{BRANCH_PREFIX}}` | タスクブランチ接頭辞 | `task` / `feature` |
-| `{{BUILD_CMD}}` | ビルド検証コマンド | `npm run build` / `cmake --build build` |
-| `{{TEST_CMD}}` | テスト / lint コマンド | `npm test` |
-| `{{SCREENSHOT_DIR}}` | スクリーンショット置き場 | `docs/screenshots` |
-| `{{APP_BINARY_HINT}}` | アプリ起動コマンド例 | `./build/app` |
-| `{{CODEX_BOT_LOGIN}}` | Codex bot のログイン名 | `chatgpt-codex-connector[bot]` |
-| `{{REVIEW_LANG}}` | Codex のレビュー言語 | `日本語` / `English` |
+| `hang-up33` | GitHub user / org | `hang-up33` |
+| `phantom_nexus` | リポジトリ名 | `my-new-project` |
+| `Phantom Nexus` | 人間可読プロジェクト名 | `My New Project` |
+| `main` | 既定ブランチ | `main` |
+| `task` | タスクブランチ接頭辞 | `task` / `feature` |
+| `./gradlew build` | ビルド検証コマンド | `npm run build` / `cmake --build build` |
+| `./gradlew test` | テスト / lint コマンド | `npm test` |
+| `docs/screenshots` | スクリーンショット置き場 | `docs/screenshots` |
+| `./gradlew run` | アプリ起動コマンド例 | `./build/app` |
+| `chatgpt-codex-connector[bot]` | Codex bot のログイン名 | `chatgpt-codex-connector[bot]` |
+| `日本語` | Codex のレビュー言語 | `日本語` / `English` |
 
 これらは `apply-template.sh` を一度走らせれば全ファイルで `sed` 置換される。対象拡張子：`*.md` / `*.json` / `*.sh` / `*.ps1`。
 
@@ -96,5 +96,5 @@ GUI スクリーンショット運用をしないプロジェクト（CLI ツー
 テンプレ自体の破壊的変更（placeholder の rename 等）が発生した場合は、ここに「いつ / 何が変わった / 既存利用者が手で当てるべき差分」を時系列で追記する。
 
 <!-- 例：
-- 2026-06-01: `{{TEST_CMD}}` を新規追加。既存派生プロジェクトで使いたい場合は CLAUDE.md / next-task SKILL に `{{TEST_CMD}}` を埋め、apply-template.sh に対応行を足す。
+- 2026-06-01: `./gradlew test` を新規追加。既存派生プロジェクトで使いたい場合は CLAUDE.md / next-task SKILL に `./gradlew test` を埋め、apply-template.sh に対応行を足す。
 -->

@@ -10,12 +10,12 @@ description: タスク完了時に Codex GitHub App によるレビューを前�
 ## 適用タイミング（When to Use）
 
 - タスクの実装・ビルド検証・README 進捗反映・kaizen-close が完了し、PR にする段階
-- ドキュメント・設定変更のみの場合は `{{BRANCH_PREFIX}}/<N>-...` ではなく `docs/<短い名>` ブランチで PR を作る運用も可
+- ドキュメント・設定変更のみの場合は `task/<N>-...` ではなく `docs/<短い名>` ブランチで PR を作る運用も可
 - 既存 PR への追加コミットではなく、**新規 PR を作る** とき
 
 ## 前提
 
-- **ChatGPT Codex（Web 版）** を使用。chatgpt.com の Codex → Settings から `{{OWNER}}/{{REPO}}` を GitHub OAuth 連携済み（GitHub の Installed Apps 一覧には "ChatGPT" / "OpenAI Codex" などの名前で出現する。マーケットプレイス検索ではヒットしない）
+- **ChatGPT Codex（Web 版）** を使用。chatgpt.com の Codex → Settings から `hang-up33/phantom_nexus` を GitHub OAuth 連携済み（GitHub の Installed Apps 一覧には "ChatGPT" / "OpenAI Codex" などの名前で出現する。マーケットプレイス検索ではヒットしない）
 - Codex 側の自動レビュー設定が有効で、`ready-for-review` で PR を push すれば手動操作なしに Codex が PR コメントでレビューを返す
 - `gh` CLI で認証済み（`gh auth status` で確認）
 - リモート `origin` が GitHub の本リポジトリを指していること
@@ -26,7 +26,7 @@ description: タスク完了時に Codex GitHub App によるレビューを前�
 
 | 項目 | 値 |
 |---|---|
-| ブランチ名 | `{{BRANCH_PREFIX}}/<N>-<短い名>`（例：`{{BRANCH_PREFIX}}/2-login-form`） |
+| ブランチ名 | `task/<N>-<短い名>`（例：`task/2-login-form`） |
 | PR タイトル | `<タスク識別子>: <短い説明>`（コミット先頭行と同じ） |
 | PR 状態 | **ready-for-review**（draft にしない — Codex に即レビューさせるため） |
 | マージ戦略 | Squash and merge（Claude はマージしない、ユーザーが行う） |
@@ -39,15 +39,15 @@ description: タスク完了時に Codex GitHub App によるレビューを前�
 git branch --show-current
 ```
 
-- `{{DEFAULT_BRANCH}}` 上にいる場合、または別の `{{BRANCH_PREFIX}}/...` ブランチにいる場合は、新ブランチに切り替えが必要
-- 既に該当 `{{BRANCH_PREFIX}}/<N>-...` ブランチにいるならスキップ
+- `main` 上にいる場合、または別の `task/...` ブランチにいる場合は、新ブランチに切り替えが必要
+- 既に該当 `task/<N>-...` ブランチにいるならスキップ
 
 ### 2. ブランチ作成（未作成なら）
 
 ```sh
-git checkout {{DEFAULT_BRANCH}}
+git checkout main
 git pull --ff-only
-git checkout -b {{BRANCH_PREFIX}}/<N>-<短い名>
+git checkout -b task/<N>-<短い名>
 ```
 
 ### 3. コミット
@@ -69,7 +69,7 @@ EOF
 ### 4. push
 
 ```sh
-git push -u origin {{BRANCH_PREFIX}}/<N>-<短い名>
+git push -u origin task/<N>-<短い名>
 ```
 
 ### 5. PR 作成
@@ -87,7 +87,7 @@ cat <<'EOF' | sed "s|__SHA__|${SHA}|g" > /tmp/pr_body.md
 - <変更点の箇条書き 2>
 
 ## Screenshot
-![<タスク識別子>: <短い説明>](https://raw.githubusercontent.com/{{OWNER}}/{{REPO}}/__SHA__/{{SCREENSHOT_DIR}}/<N>-<短い名>.png)
+![<タスク識別子>: <短い説明>](https://raw.githubusercontent.com/hang-up33/phantom_nexus/__SHA__/docs/screenshots/<N>-<短い名>.png)
 
 <スクショの簡単な説明：何が描画されている画面か>
 
@@ -96,7 +96,7 @@ cat <<'EOF' | sed "s|__SHA__|${SHA}|g" > /tmp/pr_body.md
 - 完了基準: <ビルド成功・動作確認内容>
 
 ## Test plan
-- [ ] `{{BUILD_CMD}}` 成功
+- [ ] `./gradlew build` 成功
 - [ ] <UI 確認手順がある場合はそれ>
 - [ ] README の進捗表が ✅ に更新されている
 
@@ -144,7 +144,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 2. **取得**：3 種類すべてを取る（Codex は指摘の有無で投稿先 API が変わる）。`SINCE` と `HEAD_SHA` はループ前に確定した値を使う。
    ```sh
    # 1) reviews API：指摘ありの review summary が来る（state / 本文）。commit_id で絞る
-   gh api --paginate repos/{{OWNER}}/{{REPO}}/pulls/<N>/reviews \
+   gh api --paginate repos/hang-up33/phantom_nexus/pulls/<N>/reviews \
      --jq '.[] | select(.commit_id == "<HEAD-SHA>") | {state, body}'
    # 2) review comments API：inline コメント本体（指摘の中身）。
    #    **必ず original_commit_id で絞る（commit_id ではない）**。inline コメントの
@@ -153,15 +153,15 @@ HEAD_SHA=$(git rev-parse HEAD)
    #    新 HEAD のものとして再マッチし「同じ指摘がまた来た」と誤検出する。
    #    `original_commit_id` は投稿時コミット固定なので、当該 HEAD への **新規** inline
    #    だけを正しく拾える。created_at >= SINCE の併用でさらに堅い。
-   gh api --paginate repos/{{OWNER}}/{{REPO}}/pulls/<N>/comments \
+   gh api --paginate repos/hang-up33/phantom_nexus/pulls/<N>/comments \
      --jq '.[] | select(.original_commit_id == "<HEAD-SHA>") | {path, line, body}'
    # 3) issue comments API：PR 会話タブのコメント。Codex は **指摘なしのときここに
    #    "Didn't find any major issues" を投稿する** ことが多く、reviews API に
    #    クリーン文言が載らないラウンドがあるため必ず併せて見る。
    #    **commit_id を持たないので必ず時刻で絞る**。過去ラウンドのクリーン文言を
    #    拾うと、最新 HEAD のレビューが未完了でもループを誤終了する。
-   gh api --paginate "repos/{{OWNER}}/{{REPO}}/issues/<N>/comments?since=${SINCE}" \
-     --jq '.[] | select(.user.login == "{{CODEX_BOT_LOGIN}}") | {created_at, body}'
+   gh api --paginate "repos/hang-up33/phantom_nexus/issues/<N>/comments?since=${SINCE}" \
+     --jq '.[] | select(.user.login == "chatgpt-codex-connector[bot]") | {created_at, body}'
    ```
    - `--paginate` を必ず付ける：gh api の per_page 既定値は 30 で、指摘が多い PR では先頭ページ以外を取りこぼし「指摘なし」と誤判定してループが早期終了する恐れがある
    - issue comments の `?since=...` は `updated_at >= since` のフィルタとして GitHub 側で適用される。`--jq 'select(.created_at >= "<SINCE>")'` で同等のクライアント側絞り込みも可（両方付けて二重防御するのが堅い）
@@ -172,7 +172,7 @@ HEAD_SHA=$(git rev-parse HEAD)
    - inline 0 件で、reviews 本文 / inline 本文に P0〜P3 / Major / Minor / `[Major]` / `[Minor]` 等の指摘 badge が含まれる → 修正フロー (4) へ
    - 上のいずれにも該当せず、かつ Codex が当該 HEAD 以降に issue comments / reviews のどちらかへ `"Didn't find any major issues"` 等のクリーン文言を投稿 → ループ脱出して完了報告
    - **どのシグナルも出ていない**（reviews も inline も issue comment もまだ無い）→ Codex がまだレビュー中。手順 1 の待機に戻る（ループは脱出しない）
-4. **修正**：該当箇所を編集 → `{{BUILD_CMD}}` 成功確認 → 修正ファイルを明示的に `git add` → コミット
+4. **修正**：該当箇所を編集 → `./gradlew build` 成功確認 → 修正ファイルを明示的に `git add` → コミット
 5. **push**：`git push`（force-push は基本しない、追加コミットで対応）
 6. **再依頼**：`gh pr comment <N> --body "@codex review"`
 7. **「ループ前の確定」に戻る** — `SINCE` と `HEAD_SHA` を **必ず再取得** してから手順 1 の待機へ。再取得しないと旧ラウンドの値で判定して誤動作する
@@ -194,7 +194,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ## やってはいけないこと（Must Never）
 
-- `{{DEFAULT_BRANCH}}` に直接 push / コミットする
+- `main` に直接 push / コミットする
 - PR を draft で作る（Codex のレビュー開始が遅れる）
 - PR を Claude 側でマージする（マージはユーザーの責任）
 - `git add .` / `git add -A` で広く取り込む
