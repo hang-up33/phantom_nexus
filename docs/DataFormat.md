@@ -1,0 +1,97 @@
+# DataFormat — データ仕様（唯一の真実は `Shared/Schema`）
+
+本書は Phantom Nexus の外部データ（JSON）仕様。**実体の真実は `Shared/Schema` / `Shared/Types`** にあり、本書はその人間向けの説明。
+データ仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
+
+- 形式：**JSON**（LibGDX 組込み `com.badlogic.gdx.utils.Json` で読み込む。追加の JSON ライブラリは入れない）
+- 文字コード：UTF-8
+- 配置：キャラは `Assets/Characters/<id>.json`、ステージは `Assets/Stages/<id>.json`
+- 座標系・単位：別途 `Shared/Constants` に定義（ピクセル / フレーム[60fps 基準]）
+
+> 本書は **Phase 4（Task 15: キャラクター JSON 定義）で正式版に更新**する。以下は第一設計書の例に基づくドラフト。
+
+---
+
+## トップレベル構造（FightingGame）
+
+```
+FightingGame
+├─ Characters    キャラクター定義
+├─ Animations    アニメーション（スプライト/フレーム）
+├─ States        ステート（待機/歩き/ジャンプ/攻撃/のけぞり 等）
+├─ Commands      コマンド入力（波動拳/溜め/同時押し）
+├─ Hitboxes      攻撃判定
+├─ Hurtboxes     食らい判定
+├─ Stages        ステージ
+├─ Sounds        BGM / SE
+└─ BattleRules   HP・タイマー・ラウンド等の対戦ルール
+```
+
+MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を基本とする（上記は概念上の全体像）。
+
+---
+
+## Character（第一設計書の例 / MVP ドラフト）
+
+```json
+{
+  "character": {
+    "id": "fighter001",
+    "name": "Sample Fighter",
+    "hp": 1000,
+    "walkSpeed": 4.0,
+    "jumpPower": 12.0,
+    "animations": {
+      "idle": "idle.png",
+      "walk": "walk.png",
+      "punch": "punch.png"
+    },
+    "moves": [
+      {
+        "id": "standing_punch",
+        "command": "A",
+        "damage": 50,
+        "startup": 4,
+        "active": 3,
+        "recovery": 10
+      }
+    ]
+  }
+}
+```
+
+### フィールド（MVP 想定 / Task 15 で確定）
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `id` | string | ✅ | キャラ一意 ID（ファイル名と一致推奨） |
+| `name` | string | ✅ | 表示名 |
+| `hp` | int | ✅ | 最大 HP |
+| `walkSpeed` | float | ✅ | 歩行速度（px/frame） |
+| `jumpPower` | float | ✅ | ジャンプ初速 |
+| `animations` | object | ✅ | ステート名 → スプライト（`Assets/Characters/` 相対） |
+| `moves[]` | array | ✅ | 技定義（下記） |
+
+### Move
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `id` | string | ✅ | 技 ID |
+| `command` | string | ✅ | 発生コマンド（MVP は単キー。Task 19 で波動拳等に拡張） |
+| `damage` | int | ✅ | ダメージ |
+| `startup` | int | ✅ | 発生フレーム |
+| `active` | int | ✅ | 攻撃判定の持続フレーム |
+| `recovery` | int | ✅ | 硬直フレーム |
+
+> hitbox / hurtbox の矩形（オフセット・幅・高さ・有効フレーム）は Task 11〜12・15 で本書に追記する。
+
+---
+
+## バリデーション方針（`Shared/Schema`）
+
+- 必須フィールド欠落・型不一致・負値などはロード時にエラーとし、**どのファイル/フィールドが原因か**をログ出力する（第一設計書「JSON/YAML バリデーション」）。
+- 不明な追加フィールドは将来拡張のため無視（前方互換）。
+
+## 変更履歴
+
+- (Bootstrap) 第一設計書の共通データ仕様に基づく初版ドラフトを作成。

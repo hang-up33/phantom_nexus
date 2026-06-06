@@ -9,12 +9,12 @@
 ## Screenshot
 <!-- GUI に変化があるタスクは必須。push 後の commit SHA を埋めた raw URL で参照する。
      GUI 変化が無いタスク（CLI / バックエンド / ロジックのみ）はこのセクションごと削除可。
-![<タスク識別子>: <短い説明>](https://raw.githubusercontent.com/{{OWNER}}/{{REPO}}/<commit-sha>/{{SCREENSHOT_DIR}}/<N>-<短い名>.png)
+![<タスク識別子>: <短い説明>](https://raw.githubusercontent.com/hang-up33/phantom_nexus/<commit-sha>/docs/screenshots/<N>-<短い名>.png)
 -->
 
 ## Test plan
-- [ ] `{{BUILD_CMD}}` 成功
-<!-- - [ ] `{{TEST_CMD}}` 成功 -->
+- [ ] `./gradlew build` 成功
+<!-- - [ ] `./gradlew test` 成功 -->
 - [ ] README の進捗表が更新されている
 <!-- - [ ] <UI / 動作確認手順があればここに> -->
 

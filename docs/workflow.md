@@ -13,7 +13,7 @@ main
 ```
 
 - 1 タスク = 1 ブランチ = 1 PR
-- すべて `main`（または設定した `{{DEFAULT_BRANCH}}`）から派生
+- すべて `main`（または設定した `main`）から派生
 - マージは **Squash and merge**（main 上で 1 タスク = 1 コミット）
 
 ## 全体フロー
@@ -72,7 +72,7 @@ main
 
 | 用途 | 命名 | 例 |
 |---|---|---|
-| 通常タスク | `{{BRANCH_PREFIX}}/<N>-<短い名>` | `task/3-dashboard` |
+| 通常タスク | `task/<N>-<短い名>` | `task/3-dashboard` |
 | ドキュメント / 設定 | `docs/<短い名>` | `docs/codex-auto-review` |
 | バグ修正（任意） | `fix/<短い名>` | `fix/login-validation` |
 
@@ -106,13 +106,14 @@ Codex は指摘の有無で投稿先 API が変わるため、3 種類すべて�
 
 ## 動作証跡（スクリーンショット）
 
-GUI 変化がある PR には必ず添付：
+GUI 変化がある PR には必ず添付。本プロジェクトの既定は **Windows**（`.ps1`）。詳細・macOS 手順は [CLAUDE.md](../CLAUDE.md)「動作証跡スクリーンショット運用」を参照：
 
-```sh
-{{APP_BINARY_HINT}} &
-sleep 2
-scripts/capture-app-window.sh <process-name> {{SCREENSHOT_DIR}}/<N>-<短い名>.png
-kill %1
+```powershell
+Start-Process -FilePath ".\gradlew.bat" -ArgumentList "run"
+Start-Sleep -Seconds 8
+powershell -ExecutionPolicy Bypass -File scripts/capture-app-window.ps1 -WindowTitle "Phantom Nexus" -OutPath "docs/screenshots/<N>-<短い名>.png"
 ```
+
+（macOS では `scripts/capture-app-window.sh <process-name> docs/screenshots/<N>-<短い名>.png` を使う。`.sh` は macOS 専用で Windows では動作しない）
 
 PR 本文では **commit SHA 固定の raw URL** で参照（ブランチ削除後も生きる）。
