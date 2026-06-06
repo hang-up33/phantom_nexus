@@ -13,7 +13,7 @@ description: 次の 1 タスクを実装する標準ワークフロー。設計�
 
 | Phase | # | タスク | 主モジュール |
 |---|---|---|---|
-| 0 基盤準備 | 1 | リポジトリ作成 / Bootstrap（テンプレ適用・Docs 骨格） | （済） |
+| 0 基盤準備 | 1 | リポジトリ作成 / Bootstrap（テンプレ適用・docs 骨格） | （済） |
 | 1 基盤 | 2 | Gradle プロジェクト作成 | Infra/Build |
 | | 3 | LibGDX 初期画面作成 | GameRuntime/Core,Rendering |
 | | 4 | ウィンドウ表示 | GameRuntime/Core |
@@ -36,7 +36,7 @@ description: 次の 1 タスクを実装する標準ワークフロー。設計�
 | | 20 | 必殺技ステート | Battle |
 | | 21 | 簡易 AI | GameRuntime |
 | 6 検証・整備 | 22 | キャラクター追加検証（2 体目 JSON） | Assets/Characters |
-| | 23 | ドキュメント整備 | Docs |
+| | 23 | ドキュメント整備 | docs |
 
 - データ仕様変更を伴うタスク（15,16,19,22）は **同 PR で `docs/DataFormat.md` を更新**。
 - 戦闘仕様変更を伴うタスク（10〜14,20,21）は **同 PR で `docs/BattleSystem.md` を更新**。

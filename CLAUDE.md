@@ -20,7 +20,7 @@
 3. **継続的改善（kaizen）の遵守** — タスク完了報告の前に、得た知見を CLAUDE.md / README / メモリ / 設定のいずれかに反映する（[kaizen-close](.claude/skills/kaizen-close/SKILL.md) スキルで標準化）。
 4. **既存資産の保護** — フォルダ構成変更禁止・既存コード削除禁止（例外は明示されたプレースホルダーのみ）。
 5. **計画してから実装** — 複雑なタスクはエージェントに計画させてから手を動かす。
-6. **データ/戦闘仕様を変えたら必ず Docs を更新** — データ仕様変更時は [docs/DataFormat.md](docs/DataFormat.md)、戦闘仕様変更時は [docs/BattleSystem.md](docs/BattleSystem.md) を同じ PR 内で更新する。
+6. **データ/戦闘仕様を変えたら必ず docs を更新** — データ仕様変更時は [docs/DataFormat.md](docs/DataFormat.md)、戦闘仕様変更時は [docs/BattleSystem.md](docs/BattleSystem.md) を同じ PR 内で更新する。
 
 ---
 
