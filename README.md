@@ -42,7 +42,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 
 | # | タスク | 状態 |
 |---|---|---|
-| 1 | リポジトリ作成 / Bootstrap（テンプレ適用・docs 骨格） | 🟦 進行中 |
+| 1 | リポジトリ作成 / Bootstrap（テンプレ適用・docs 骨格） | ✅ 完了 |
 | 2 | Gradle プロジェクト作成 | ⬜ |
 | 3 | LibGDX 初期画面作成 | ⬜ |
 | 4 | ウィンドウ表示 | ⬜ |
