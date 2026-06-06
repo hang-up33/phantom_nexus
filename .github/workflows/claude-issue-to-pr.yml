@@ -72,4 +72,4 @@ jobs:
             - Issue の指示が曖昧で実装範囲が広すぎる場合は、最小スコープに絞り、残りを PR 本文の `Future` セクションに列挙する。
 
           claude_args: |
-            --allowedTools "Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(pnpm:*),Bash(yarn:*),Bash(bun:*),Bash(make:*),Bash(cmake:*),Bash(cargo:*),Bash(go:*),Bash(python:*),Bash(uv:*),Bash(pytest:*),Bash(./scripts/:*),Read,Write,Edit,Glob,Grep"
+            --allowedTools "Bash(gh:*),Bash(git:*),Bash(./gradlew:*),Bash(gradle:*),Bash(npm:*),Bash(pnpm:*),Bash(yarn:*),Bash(bun:*),Bash(make:*),Bash(cmake:*),Bash(cargo:*),Bash(go:*),Bash(python:*),Bash(uv:*),Bash(pytest:*),Bash(./scripts/:*),Read,Write,Edit,Glob,Grep"
