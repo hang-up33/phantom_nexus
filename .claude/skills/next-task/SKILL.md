@@ -79,13 +79,13 @@ description: 次の 1 タスクを実装する標準ワークフロー。設計�
 
 7. **動作確認 + スクリーンショット**
    - 実行可能なタスクなら起動して目視（または最小の自動検証）
-   - **GUI に変化があるタスクは必ずスクリーンショットを撮る**（撮影手順は [CLAUDE.md](../../../CLAUDE.md)「動作証跡スクリーンショット運用」を参照）：
-     ```sh
-     ./gradlew run &
-     sleep 2
-     scripts/capture-app-window.sh <process-name> docs/screenshots/<N>-<短い名>.png
-     kill %1
+   - **GUI に変化があるタスクは必ずスクリーンショットを撮る**。本プロジェクトの既定は **Windows**（`.ps1`）。詳細・macOS 手順は [CLAUDE.md](../../../CLAUDE.md)「動作証跡スクリーンショット運用」を参照：
+     ```powershell
+     Start-Process -FilePath ".\gradlew.bat" -ArgumentList "run"
+     Start-Sleep -Seconds 8
+     powershell -ExecutionPolicy Bypass -File scripts/capture-app-window.ps1 -WindowTitle "Phantom Nexus" -OutPath "docs/screenshots/<N>-<短い名>.png"
      ```
+     （macOS では `scripts/capture-app-window.sh <process-name> docs/screenshots/<N>-<短い名>.png` を使う。`.sh` は macOS 専用で Windows では動作しない）
    - 撮ったスクショは Read ツールで内容を確認してから採用する（黒画面・他ウィンドウが混入していないか）
    - GUI 変化が無いタスク（CLI / バックエンド / ロジックのみ）はスクショ省略可
 
