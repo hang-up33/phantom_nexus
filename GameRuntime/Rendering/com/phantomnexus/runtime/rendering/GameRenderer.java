@@ -13,6 +13,7 @@ import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.RoundManager;
+import com.phantomnexus.runtime.debug.DebugOverlay;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
@@ -101,11 +102,12 @@ public class GameRenderer {
      * @param anim1        プレイヤー 1 のアニメーション状態
      * @param anim2        プレイヤー 2 のアニメーション状態
      * @param round        ラウンド進行 / 勝敗（タイマー・結果表示）
+     * @param debug        デバッグ当たり判定オーバーレイ（有効時に判定枠を重ね描き）
      * @param controlsHint 操作ガイド（HUD）
      * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
-                            RoundManager round, String controlsHint, String statusLine) {
+                            RoundManager round, DebugOverlay debug, String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
 
@@ -128,6 +130,9 @@ public class GameRenderer {
         drawHpBar(p2, false);
         shapes.end();
 
+        // --- デバッグ当たり判定枠（有効時のみ。Line で重ね描き。投影は上で設定済み）---
+        debug.drawBoxes(shapes, p1, p2);
+
         // --- テキスト（タイトル / 名前 + アニメ状態ラベル / HP 数値 / 入力 HUD） ---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
@@ -146,6 +151,9 @@ public class GameRenderer {
         }
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
         drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        if (debug.isEnabled()) {
+            drawCentered("DEBUG: push(blue) hurt(green) hit(red)", GameConstants.WORLD_WIDTH / 2f, 120f);
+        }
         if (round.isFinished()) {
             drawResultBanner(p1, p2, round);
         }
