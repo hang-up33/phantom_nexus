@@ -10,3 +10,10 @@ gradlew text eol=lf
 
 # Gradle wrapper jar はバイナリ（改行変換を禁止して破損を防ぐ）
 *.jar binary
+
+# PowerShell スクリプトは CRLF 固定。加えて、日本語コメント/文字列を含む .ps1 は
+# 必ず UTF-8 BOM 付きで保存する（BOM はファイル内容として保持される）。
+# Windows PowerShell 5.1 は BOM 無しスクリプトを OS の ANSI コードページ（日本語環境は
+# cp932/Shift-JIS）で読むため、BOM が無いと UTF-8 の日本語がモジバケしパース不能になる。
+# 詳細は CLAUDE.md「ビルド / 環境の罠」を参照。
+*.ps1 text eol=crlf
