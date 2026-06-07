@@ -35,18 +35,34 @@ public class GameRenderer {
         font.getData().setScale(2.0f);
     }
 
-    /** 1 フレーム分の描画。背景クリア → タイトル文字を画面中央に描画。 */
-    public void render() {
+    /**
+     * 1 フレーム分の描画。背景クリア → タイトル + 操作ガイド + 現在の入力状態を描画する。
+     *
+     * @param controlsHint キー割当の操作ガイド（{@code PlayerInput.describe()} 由来）
+     * @param activeLine   そのフレームで押下中の論理アクション一覧（入力配線の動作確認用）
+     */
+    public void render(String controlsHint, String activeLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-        final String title = GameConstants.WINDOW_TITLE;
-        layout.setText(font, title);
-        font.draw(batch, layout,
-                (GameConstants.WORLD_WIDTH - layout.width) / 2f,
-                (GameConstants.WORLD_HEIGHT + layout.height) / 2f);
+
+        final float centerX = GameConstants.WORLD_WIDTH / 2f;
+        // タイトル（大）
+        font.getData().setScale(2.0f);
+        drawCentered(GameConstants.WINDOW_TITLE, centerX, GameConstants.WORLD_HEIGHT / 2f + 80f);
+        // 操作ガイド / 入力状態（小）
+        font.getData().setScale(1.0f);
+        drawCentered(controlsHint, centerX, GameConstants.WORLD_HEIGHT / 2f - 20f);
+        drawCentered(activeLine, centerX, GameConstants.WORLD_HEIGHT / 2f - 60f);
+
         batch.end();
+    }
+
+    /** 指定文字列を中心 X（{@code centerX}）・ベースライン Y（{@code y}）に水平センタリングで描く。 */
+    private void drawCentered(String text, float centerX, float y) {
+        layout.setText(font, text);
+        font.draw(batch, layout, centerX - layout.width / 2f, y);
     }
 
     /** ウィンドウリサイズ時にビューポートを追従させる。 */
