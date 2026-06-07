@@ -9,7 +9,7 @@
 
 **Phantom Nexus** は、MUGEN のようにキャラクター・ステージ・技・当たり判定・AI を **外部データ（JSON）** として追加・編集できる、拡張性の高い 2D 格闘ゲーム基盤。固定キャラ制ではなく「ユーザーが独自キャラを足せる格闘ゲームエンジン」を目指す。技術スタックは Java / LibGDX / Gradle、対象は Windows PC（将来 Linux・macOS）。詳細は [README.md](README.md) と第一設計書を参照。
 
-**現在のフェーズ**：MVP 実装中（1対1対戦・HP・攻撃/食らい判定・外部 JSON 読込までに集中。コマンド技/AI/エディタは MVP 後に段階追加）
+**現在のフェーズ**：設計書タスク 1〜23 を完了（MVP ＋ コマンド技/必殺技/簡易 AI ＋ 2 体目検証 ＋ ドキュメント整備）。1対1対戦・移動/ジャンプ・通常攻撃/必殺技（波動拳=飛び道具）・HP ゲージ・攻撃/食らい/押し合い判定・ラウンド勝敗・外部 JSON 駆動（キャラ/ステージ）・デバッグ当たり判定表示・簡易 AI までが動作。次フェーズ候補は Tools（CharacterViewer / HitboxEditor）・スプライト描画・複数技/コマンドの JSON 化・サウンド等。
 
 ---
 
@@ -223,6 +223,13 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
 - 過渡状態（ジャンプ頂点・攻撃 active 等）は `-f` の値を変えて狙う（既定 90 ≒ 1.5 秒@60fps の静止）。`-W`/`-H` で仮想解像度も変更可。
 - **入力を伴う過渡状態は `-k`（`phantom.screenshot.hold`）で起動時から押下注入する**。書式は `p1.up`・`p2.left`・`attack`（接頭辞省略時は p1）をカンマ/空白区切り。例：ジャンプ頂点は `-k p1.up -f 21`（頂点 ≒ `jumpPower/GRAVITY` フレーム後）。立ち上がり発動（ジャンプ/攻撃）は最初の 1 フレームだけ just-pressed として消費され、以降は押しっぱなし扱いになる（`PlayerInput.setForcedHold`）。
 - **近接が必要な過渡状態（被弾・接触など）は `-x p1x=<X> -x p2x=<X>` で初期中心 X をオーバーライドする**（`phantom.screenshot.p1x`/`p2x`）。既定 spawn（420/860）は間合いが広く攻撃の active 区間（数フレーム）に相手へ届かないため、被弾スクショは両者を近づけて撮る。例：`-k attack -x p1x=600 -x p2x=720 -f 14` で P1 のパンチが P2 に当たり HP 減少＋hitstun を撮れる。`-x` は `-Dphantom.screenshot.<key>=<val>` に展開され、`Infra/Build/build.gradle` の run タスク転送リストに `p1x`/`p2x` を追加済み（新プロパティを足す時は同リストも要更新）。
+- **撮影オーバーライド一覧**（`scripts/capture-app-screenshot-linux.sh` の `-x key=val` → `-Dphantom.screenshot.<key>`。新規追加時は `Infra/Build/build.gradle` の run タスク転送リストにも要追記）：
+  - `p1x` / `p2x`：初期中心 X（近接が必要な被弾・接触の再現）
+  - `timelimit`：ラウンド制限時間（秒）。タイムアップ結果バナーを短時間で撮る（例 `-x timelimit=1 -f 80`）
+  - `debug=true`：デバッグ当たり判定表示を起動時 ON（F1 トグルの代替）
+  - `ai=false`：P2 の AI を無効化（コマンド/飛び道具の撮影で P2 を静止させる）
+  - `script=start-end:tok+tok;...`：タイムド入力スクリプト（コマンド技の再現）。例（波動拳）：`-x "script=1-12:p1.down;8-18:p1.down+p1.right;19-30:p1.right;22-22:p1.attack" -f 42`。区間は重ねてよく、各フレームで和集合を `setForcedHold`。攻撃は単フレーム指定（連続フレームに置くと毎フレーム発火する）。
+- **強制エッジは 1 フレーム 1 回しか消費されない** — `PlayerInput.isPressed`（forced 時）は `forcedEdgePending.remove` で消費するため、同一フレームに 2 回呼ぶと 2 回目は false。Core は攻撃/ジャンプ入力を 1 回だけ読み、その値を `Fighter.update` と入力履歴の両方に使い回す（`updateFighterInput`）。
 - 撮影後は **必ず Read ツールで PNG を目視**（黒画面・崩れが無いか）。ALSA の `cannot find card` 警告は音源無しによる無害ログ。
 - 注意：対話的に動かす確認はローカル Windows が確実。web は静止画前提。
 
