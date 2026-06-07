@@ -30,6 +30,8 @@ import java.util.EnumSet;
  *       近接が必要な過渡状態（被弾・接触マーカー等）を静止スクショで再現するために使う。</li>
  *   <li>{@code phantom.screenshot.timelimit} — ラウンド制限時間（秒）のオーバーライド。
  *       タイムアップ結果表示を短時間で撮るために使う。</li>
+ *   <li>{@code phantom.screenshot.debug} — {@code true} でデバッグ当たり判定表示を起動時から ON。
+ *       ヘッドレス撮影では F1 トグルを押せないための代替。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -44,6 +46,7 @@ public final class ScreenshotController {
     private final Float p1SpawnX;
     private final Float p2SpawnX;
     private final Integer timeLimit;
+    private final boolean debug;
     private int frameCount;
     private boolean done;
 
@@ -58,6 +61,8 @@ public final class ScreenshotController {
         this.p2SpawnX = isEnabled() ? parseFloatOrNull(System.getProperty("phantom.screenshot.p2x")) : null;
         // 制限時間オーバーライド（撮影モード時のみ）。タイムアップ結果表示を短時間で撮るため。
         this.timeLimit = isEnabled() ? parsePositiveIntOrNull(System.getProperty("phantom.screenshot.timelimit")) : null;
+        // デバッグ当たり判定表示の強制 ON（撮影モード時のみ）。F1 トグルの代替（ヘッドレス撮影用）。
+        this.debug = isEnabled() && "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.debug")));
         // hold は撮影モード（path 指定）時のみ解釈する。通常起動に hold だけ残っていても
         // プレイヤー入力を固定しない（撮影無効時は常に空集合）。
         if (isEnabled()) {
@@ -85,6 +90,11 @@ public final class ScreenshotController {
     /** 制限時間（秒）の撮影用オーバーライド。未指定 / 撮影無効時は {@code fallback}。タイムアップ結果の撮影用。 */
     public int timeLimitSeconds(int fallback) {
         return timeLimit != null ? timeLimit : fallback;
+    }
+
+    /** デバッグ当たり判定表示を起動時から ON にするか（撮影モードの {@code debug=true} 指定時）。 */
+    public boolean debugEnabled() {
+        return debug;
     }
 
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */

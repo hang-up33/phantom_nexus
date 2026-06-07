@@ -78,7 +78,8 @@ application {
 // 指定が無ければ何もしない（通常の `./gradlew run` には一切影響しない）。
 tasks.named('run', JavaExec) {
     ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold',
-     'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit'].each { key ->
+     'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit',
+     'phantom.screenshot.debug'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {
             systemProperty key, value

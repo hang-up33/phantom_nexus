@@ -1,9 +1,12 @@
 package com.phantomnexus.runtime.core;
 
 import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.RoundManager;
+import com.phantomnexus.runtime.debug.DebugOverlay;
 import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.PlayerInput;
@@ -35,6 +38,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private FighterAnimator animator1;
     private FighterAnimator animator2;
     private RoundManager round;
+    private DebugOverlay debugOverlay;
     private String controlsHint;
     private ScreenshotController screenshot;
 
@@ -63,13 +67,21 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 対戦ルール / ラウンド管理（Task 14）。撮影時は制限時間をオーバーライド可能（結果表示の撮影用）。
         BattleRules rules = new BattleRules(screenshot.timeLimitSeconds(BattleRules.defaults().getTimeLimitSeconds()), 1);
         round = new RoundManager(rules);
-        controlsHint = "P1 " + p1Input.describe() + "      P2 Arrows + RCtrl";
+        // デバッグ当たり判定表示（Task 18）。既定 OFF・F1 でトグル。撮影時は debug=true で強制 ON。
+        debugOverlay = new DebugOverlay();
+        debugOverlay.setEnabled(screenshot.debugEnabled());
+        controlsHint = "P1 " + p1Input.describe() + "      P2 Arrows + RCtrl   [F1] hitboxes";
     }
 
     @Override
     public void render() {
+        // デバッグ表示のトグル（グローバルキー。プレイヤー入力とは別系統のため Gdx を直接参照）。
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
+            debugOverlay.toggle();
+        }
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, round, controlsHint, statusLine());
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, round, debugOverlay,
+                controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
