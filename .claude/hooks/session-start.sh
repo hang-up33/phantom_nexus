@@ -1,7 +1,8 @@
 #!/bin/bash
-# Claude Code on the web 用 SessionStart フック。
-# web セッション開始時に Gradle のビルド依存（foojay プラグイン・JDK17 toolchain）を
+# Claude Code on the web 用 SessionStart フック（settings.json の matcher で startup 限定）。
+# 新規セッション起動時に Gradle のビルド依存（foojay プラグイン・JDK17 toolchain）を
 # ウォームアップし、`./gradlew build` が緑になることを検証する。
+# resume / clear / compact では発火させない（毎回の同期ビルドで作業がブロックされるのを防ぐ）。
 # あわせてヘッドレス GUI スクショ（scripts/capture-app-screenshot-linux.sh）に必要な
 # Xvfb の存在を保証する（Mesa ソフトウェア GL は基盤イメージに同梱済み）。
 # コンテナ状態はフック完了後にキャッシュされるため、以降のセッションは温まった状態で始まる。
