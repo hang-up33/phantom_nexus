@@ -19,6 +19,7 @@ public class Fighter {
     private float velocityY;  // 垂直速度（px/frame）。上向きが正
     private boolean grounded = true;
     private boolean facingRight;
+    private int moveDir;      // 直近フレームに適用した左右移動方向（-1/0/+1）。アニメ状態導出に使用
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -34,6 +35,7 @@ public class Fighter {
      * @param jumpPressed このフレームでジャンプ入力の立ち上がりがあったか。接地時のみ発動する。
      */
     public void update(int moveDir, boolean jumpPressed) {
+        this.moveDir = moveDir;
         // 左右移動（MVP は空中横移動も許可）
         x += moveDir * def.getWalkSpeed();
         clampToStage();
@@ -94,5 +96,15 @@ public class Fighter {
     /** 接地中か（ジャンプ可否・着地判定・後続のアニメーション状態に使用）。 */
     public boolean isGrounded() {
         return grounded;
+    }
+
+    /** 直近フレームに適用した左右移動方向（-1 = 左 / 0 = 静止 / +1 = 右）。 */
+    public int getMoveDir() {
+        return moveDir;
+    }
+
+    /** 接地中に左右入力で移動しているか（アニメーションの walk 状態導出に使用）。 */
+    public boolean isWalking() {
+        return grounded && moveDir != 0;
     }
 }

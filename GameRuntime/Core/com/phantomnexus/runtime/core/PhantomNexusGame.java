@@ -5,6 +5,7 @@ import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.PlayerInput;
+import com.phantomnexus.runtime.rendering.FighterAnimator;
 import com.phantomnexus.runtime.rendering.GameRenderer;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
@@ -24,6 +25,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private PlayerInput p2Input;
     private Fighter fighter1;
     private Fighter fighter2;
+    private FighterAnimator animator1;
+    private FighterAnimator animator2;
     private String controlsHint;
     private ScreenshotController screenshot;
 
@@ -42,23 +45,29 @@ public class PhantomNexusGame extends ApplicationAdapter {
         Character akane = new Character("fighter002", "Akane", 1000, 4.0f, 12.0f, 100f, 240f);
         fighter1 = new Fighter(aoi, GameConstants.P1_SPAWN_X, true);
         fighter2 = new Fighter(akane, GameConstants.P2_SPAWN_X, false);
+        // アニメーション状態機械（Task 9）。各ファイターの実行時状態から idle/walk/jump を導出する。
+        animator1 = new FighterAnimator();
+        animator2 = new FighterAnimator();
         controlsHint = "P1 " + p1Input.describe() + "      P2 Arrows + RCtrl";
     }
 
     @Override
     public void render() {
         update();
-        renderer.renderScene(fighter1, fighter2, controlsHint, statusLine());
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
 
-    /** 入力 → 移動・ジャンプ → 向き直しの 1 フレーム更新。 */
+    /** 入力 → 移動・ジャンプ → 向き直し → アニメーション進行の 1 フレーム更新。 */
     private void update() {
         fighter1.update(moveDir(p1Input), p1Input.isPressed(InputAction.UP));
         fighter2.update(moveDir(p2Input), p2Input.isPressed(InputAction.UP));
         fighter1.faceTowards(fighter2);
         fighter2.faceTowards(fighter1);
+        // 描画状態の更新（移動・向き確定後にファイター状態からアニメ状態を導出して 1 tick 進める）。
+        animator1.update(fighter1);
+        animator2.update(fighter2);
     }
 
     /** 左右入力を移動方向（-1 / 0 / +1）に変換する。 */
