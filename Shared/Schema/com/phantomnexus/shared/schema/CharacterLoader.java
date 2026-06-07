@@ -7,15 +7,11 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
 /**
- * キャラクター JSON のローダ（Task 16）。**データ I/O の単一の真実**（`Shared/Schema`）。
+ * キャラクター JSON のローダ（Task 16 / Task 24）。**データ I/O の単一の真実**（{@code Shared/Schema}）。
  *
  * <p>{@code Assets/Characters/<id>.json} を LibGDX 組込みの {@link Json}（追加ライブラリ無し）で
- * {@link Character} POJO へデシリアライズし、必須フィールドを検証する。バリデーション失敗時は
- * どのファイル / フィールドが原因かを含む {@link SchemaException} を投げる（[docs/DataFormat.md](../../../../../../docs/DataFormat.md)）。
- *
- * <p>JSON は {@code processResources} によりクラスパス（{@code build/resources/main/Characters/...}）へ
- * 配置されるため {@link Gdx#files} の {@code classpath} で読む（パッケージ JAR でも解決できる）。
- * 前方互換のため未知フィールドは無視する（{@link Json#setIgnoreUnknownFields(boolean)}）。
+ * {@link Character} POJO へデシリアライズし、必須フィールドを検証する。Task 24 で技定義を
+ * {@code normalMoves[]} / {@code specialMoves[]} の配列形式に拡張した。
  *
  * <p>{@code GameRuntime} / {@code Battle} は本ローダ経由でのみデータを取得し、直接 JSON を読まない
  * （CLAUDE.md「データモデルの単一の真実」）。
@@ -26,7 +22,6 @@ public final class CharacterLoader {
         // ユーティリティ（インスタンス化禁止）
     }
 
-    /** クラスパス上のキャラ JSON のベースパス（resources ルート = {@code Assets/} 配下）。 */
     private static final String BASE_PATH = "Characters/";
 
     /**
@@ -45,7 +40,7 @@ public final class CharacterLoader {
         Character character;
         try {
             Json json = new Json();
-            json.setIgnoreUnknownFields(true); // 前方互換：未知フィールドは無視
+            json.setIgnoreUnknownFields(true);
             character = json.fromJson(Character.class, file);
         } catch (RuntimeException e) {
             throw new SchemaException("キャラ JSON の解析に失敗: " + path + " (" + e.getMessage() + ")", e);
@@ -58,7 +53,7 @@ public final class CharacterLoader {
         return character;
     }
 
-    /** 必須フィールド・値域を検証する。原因フィールドを明示して {@link SchemaException} を投げる。 */
+    /** 必須フィールド・値域を検証する。 */
     private static void validate(Character c, String src) {
         requireText(c.getId(), "id", src);
         requireText(c.getName(), "name", src);
@@ -68,44 +63,62 @@ public final class CharacterLoader {
         requirePositive(c.getWidth(), "width", src);
         requirePositive(c.getHeight(), "height", src);
         requireOptionalRgb(c.getColor(), "color", src);
-        Move atk = c.getNormalAttack();
-        if (atk == null) {
-            throw new SchemaException("必須フィールド欠落: normalAttack (" + src + ")");
-        }
-        requireText(atk.getId(), "normalAttack.id", src);
-        requireNonNegative(atk.getDamage(), "normalAttack.damage", src);
-        requireNonNegative(atk.getStartup(), "normalAttack.startup", src);
-        requireNonNegative(atk.getActive(), "normalAttack.active", src);
-        requireNonNegative(atk.getRecovery(), "normalAttack.recovery", src);
-        if (atk.getTotalFrames() <= 0) {
-            throw new SchemaException("normalAttack の startup+active+recovery は 1 以上が必要 (" + src + ")");
-        }
-        requirePositive(atk.getHitboxWidth(), "normalAttack.hitboxWidth", src);
-        requirePositive(atk.getHitboxHeight(), "normalAttack.hitboxHeight", src);
-        validateSpecial(c.getSpecialMove(), src);
-    }
 
-    /** 必殺技は任意（null 可）。設定されていればフレーム・hitbox・飛び道具速度を検証する。 */
-    private static void validateSpecial(Move sp, String src) {
-        if (sp == null) {
-            return;
+        Move[] normals = c.getNormalMoves();
+        if (normals == null || normals.length == 0) {
+            throw new SchemaException("normalMoves は 1 件以上が必要 (" + src + ")");
         }
-        requireText(sp.getId(), "specialMove.id", src);
-        requireNonNegative(sp.getDamage(), "specialMove.damage", src);
-        requireNonNegative(sp.getStartup(), "specialMove.startup", src);
-        requireNonNegative(sp.getActive(), "specialMove.active", src);
-        requireNonNegative(sp.getRecovery(), "specialMove.recovery", src);
-        if (sp.getTotalFrames() <= 0) {
-            throw new SchemaException("specialMove の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        for (int i = 0; i < normals.length; i++) {
+            validateNormalMove(normals[i], "normalMoves[" + i + "]", src);
         }
-        requirePositive(sp.getHitboxWidth(), "specialMove.hitboxWidth", src);
-        requirePositive(sp.getHitboxHeight(), "specialMove.hitboxHeight", src);
-        if (sp.isProjectile()) {
-            requirePositive(sp.getProjectileSpeed(), "specialMove.projectileSpeed", src);
+
+        Move[] specials = c.getSpecialMoves();
+        if (specials != null) {
+            for (int i = 0; i < specials.length; i++) {
+                validateSpecialMove(specials[i], "specialMoves[" + i + "]", src);
+            }
         }
     }
 
-    /** 色は任意（null 可）。設定されていれば RGB（長さ 3・各 0..1）であることを検証する。 */
+    /** 通常技の検証（button 必須）。 */
+    private static void validateNormalMove(Move m, String field, String src) {
+        if (m == null) {
+            throw new SchemaException(field + " が null (" + src + ")");
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireText(m.getButton(), field + ".button", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
+    }
+
+    /** 必殺技の検証（command 必須・飛び道具時は projectileSpeed 必須）。 */
+    private static void validateSpecialMove(Move m, String field, String src) {
+        if (m == null) {
+            throw new SchemaException(field + " が null (" + src + ")");
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireText(m.getCommand(), field + ".command", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
+        if (m.isProjectile()) {
+            requirePositive(m.getProjectileSpeed(), field + ".projectileSpeed", src);
+        }
+    }
+
     private static void requireOptionalRgb(float[] color, String field, String src) {
         if (color == null) {
             return;

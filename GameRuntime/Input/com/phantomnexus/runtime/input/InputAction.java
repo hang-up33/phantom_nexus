@@ -5,12 +5,14 @@ package com.phantomnexus.runtime.input;
  *
  * <p>ゲームロジック（移動 / ジャンプ / 攻撃 など）は物理キーコードではなく本 enum を参照する。
  * 物理キーとの対応付けは {@link PlayerInput} が保持し、キー割当の変更がロジックに波及しない
- * ようにする。MVP では方向 4 種 + 攻撃 1 種。攻撃ボタンや必殺技コマンドは後続タスクで拡張する。
+ * ようにする。Task 24 で攻撃ボタンを弱 / 中 / 強の 3 種に拡張した。
  */
 public enum InputAction {
     LEFT,
     RIGHT,
     UP,
     DOWN,
-    ATTACK
+    ATTACK_LIGHT,
+    ATTACK_MEDIUM,
+    ATTACK_HEAVY
 }

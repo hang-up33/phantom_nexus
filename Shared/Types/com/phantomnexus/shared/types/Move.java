@@ -18,7 +18,13 @@ package com.phantomnexus.shared.types;
 public class Move {
 
     private String id;
-    private String command;   // 発生コマンド（MVP は単キー。Task 19 で波動拳等へ拡張）
+    /**
+     * 通常技：ボタン種別（"light" / "medium" / "heavy"）。
+     * 必殺技：コマンド名（{@link com.phantomnexus.runtime.input.Command} の name。例 "HADOUKEN"）。
+     * 歴史的互換フィールド {@code command} を必殺技向けに転用し、{@code button} を新設（Task 24）。
+     */
+    private String button;
+    private String command;   // 必殺技のコマンド名（Command.name() と照合）
     private int damage;
     private int startup;      // 発生（攻撃判定が出るまで）のフレーム数
     private int active;       // 攻撃判定が有効なフレーム数
@@ -52,6 +58,11 @@ public class Move {
 
     public String getId() {
         return id;
+    }
+
+    /** 通常技のボタン種別（"light" / "medium" / "heavy"）。必殺技では {@link #getCommand()} を使う。 */
+    public String getButton() {
+        return button;
     }
 
     public String getCommand() {

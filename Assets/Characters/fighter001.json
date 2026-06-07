@@ -7,30 +7,58 @@
   "width": 100,
   "height": 240,
   "color": [0.30, 0.55, 0.92],
-  "normalAttack": {
-    "id": "standing_punch",
-    "command": "ATTACK",
-    "damage": 80,
-    "startup": 8,
-    "active": 6,
-    "recovery": 16,
-    "hitboxOffsetX": 0,
-    "hitboxOffsetY": 120,
-    "hitboxWidth": 90,
-    "hitboxHeight": 40
-  },
-  "specialMove": {
-    "id": "fireball",
-    "command": "236A",
-    "damage": 120,
-    "startup": 10,
-    "active": 4,
-    "recovery": 26,
-    "hitboxOffsetX": 0,
-    "hitboxOffsetY": 110,
-    "hitboxWidth": 56,
-    "hitboxHeight": 56,
-    "projectile": true,
-    "projectileSpeed": 9.0
-  }
+  "normalMoves": [
+    {
+      "id": "light_punch",
+      "button": "light",
+      "damage": 50,
+      "startup": 5,
+      "active": 4,
+      "recovery": 10,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 130,
+      "hitboxWidth": 80,
+      "hitboxHeight": 34
+    },
+    {
+      "id": "medium_kick",
+      "button": "medium",
+      "damage": 80,
+      "startup": 8,
+      "active": 6,
+      "recovery": 16,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 90,
+      "hitboxHeight": 40
+    },
+    {
+      "id": "heavy_slam",
+      "button": "heavy",
+      "damage": 130,
+      "startup": 14,
+      "active": 5,
+      "recovery": 28,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 110,
+      "hitboxHeight": 50
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "fireball",
+      "command": "HADOUKEN",
+      "damage": 120,
+      "startup": 10,
+      "active": 4,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 56,
+      "hitboxHeight": 56,
+      "projectile": true,
+      "projectileSpeed": 9.0
+    }
+  ]
 }

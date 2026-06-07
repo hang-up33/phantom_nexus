@@ -32,10 +32,11 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 ---
 
-## Character（MVP 正式版・Task 15）
+## Character（Task 24 改訂版）
 
 1 キャラ = 1 JSON ファイル（`Assets/Characters/<id>.json`、UTF-8）。LibGDX `Json` が POJO（`Shared/Types/Character`）へ
-フィールド名一致でデシリアライズする（Task 16）。実サンプルは `Assets/Characters/fighter001.json` / `fighter002.json`。
+フィールド名一致でデシリアライズする（Task 16）。Task 24 で技定義を **配列（`normalMoves[]` / `specialMoves[]`）** に拡張。
+実サンプルは `Assets/Characters/fighter001.json` / `fighter002.json`。
 
 ```json
 {
@@ -46,18 +47,61 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
   "jumpPower": 12.0,
   "width": 100,
   "height": 240,
-  "normalAttack": {
-    "id": "standing_punch",
-    "command": "ATTACK",
-    "damage": 80,
-    "startup": 8,
-    "active": 6,
-    "recovery": 16,
-    "hitboxOffsetX": 0,
-    "hitboxOffsetY": 120,
-    "hitboxWidth": 90,
-    "hitboxHeight": 40
-  }
+  "color": [0.30, 0.55, 0.92],
+  "normalMoves": [
+    {
+      "id": "light_punch",
+      "button": "light",
+      "damage": 50,
+      "startup": 5,
+      "active": 4,
+      "recovery": 10,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 130,
+      "hitboxWidth": 80,
+      "hitboxHeight": 34
+    },
+    {
+      "id": "medium_kick",
+      "button": "medium",
+      "damage": 80,
+      "startup": 8,
+      "active": 6,
+      "recovery": 16,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 90,
+      "hitboxHeight": 40
+    },
+    {
+      "id": "heavy_slam",
+      "button": "heavy",
+      "damage": 130,
+      "startup": 14,
+      "active": 5,
+      "recovery": 28,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 110,
+      "hitboxHeight": 50
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "fireball",
+      "command": "HADOUKEN",
+      "damage": 120,
+      "startup": 10,
+      "active": 4,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 56,
+      "hitboxHeight": 56,
+      "projectile": true,
+      "projectileSpeed": 9.0
+    }
+  ]
 }
 ```
 
@@ -73,17 +117,17 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
 | `color` | float[3] | 任意 | 表示色 RGB（0..1）。スプライト導入までのプレースホルダ矩形色（未設定なら描画側の既定色） |
-| `normalAttack` | object | ✅ | 通常攻撃 1 技（下記 Move）。MVP は 1 キャラ 1 技 |
-| `specialMove` | object | 任意 | 必殺技 1 技（下記 Move ＋ projectile 系）。波動拳で発動（Task 20） |
+| `normalMoves` | Move[] | ✅ | 通常技配列（1 件以上）。各技の `button` で弱/中/強を区別 |
+| `specialMoves` | Move[] | 任意 | 必殺技配列（省略可）。各技の `command` でコマンド種別を指定 |
 
-> `animations`（スプライト）・複数 `moves[]` は MVP 後の拡張（スプライト導入 / コマンド技 Task 19）。前方互換のため未知フィールドはロード時に無視する。
+> `animations`（スプライト）は将来拡張。前方互換のため未知フィールドはロード時に無視する。
 
-### Move（`normalAttack`）
+### Move（`normalMoves[]` 要素）
 
 | フィールド | 型 | 必須 | 意味 |
 |---|---|---|---|
 | `id` | string | ✅ | 技 ID |
-| `command` | string | ✅ | 発生コマンド（MVP は単キー名。Task 19 で波動拳等に拡張） |
+| `button` | string | ✅ | ボタン種別：`"light"` / `"medium"` / `"heavy"` |
 | `damage` | int | ✅ | ダメージ |
 | `startup` | int | ✅ | 発生フレーム（攻撃判定が出るまで） |
 | `active` | int | ✅ | 攻撃判定の持続フレーム |
@@ -92,10 +136,33 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `hitboxOffsetY` | float | ✅ | hitbox の足元からの高さ（px） |
 | `hitboxWidth` | float | ✅ | hitbox の横幅（px） |
 | `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
-| `projectile` | bool | 任意 | 飛び道具として発射するか（必殺技用, Task 20。既定 false） |
+
+### Move（`specialMoves[]` 要素）
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `id` | string | ✅ | 技 ID |
+| `command` | string | ✅ | コマンド種別：`"HADOUKEN"` / `"CHARGE_SHOT"` / `"DOWN_ATTACK"`（`Command` enum の name） |
+| `damage` | int | ✅ | ダメージ |
+| `startup` | int | ✅ | 発生フレーム |
+| `active` | int | ✅ | 持続フレーム |
+| `recovery` | int | ✅ | 硬直フレーム |
+| `hitboxOffsetX` | float | ✅ | hitbox の前方オフセット（px） |
+| `hitboxOffsetY` | float | ✅ | hitbox の足元高さ（px） |
+| `hitboxWidth` | float | ✅ | hitbox 横幅（px）。飛び道具は弾サイズ兼用 |
+| `hitboxHeight` | float | ✅ | hitbox 高さ（px） |
+| `projectile` | bool | 任意 | 飛び道具として発射するか（既定 false） |
 | `projectileSpeed` | float | 任意* | 飛び道具の速度（px/frame）。`projectile=true` なら必須 |
 
 > hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。飛び道具技は hitbox 寸法を弾サイズとして使い、body 付随判定は持たない（ダメージは弾が運ぶ）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
+
+### キー割当（Task 24）
+
+| ボタン | P1 | P2 |
+|---|---|---|
+| 弱（light） | F | Numpad 1 |
+| 中（medium） | G | Numpad 2 |
+| 強（heavy） | H | Numpad 3 |
 
 ---
 
@@ -144,3 +211,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 19) コマンド入力検出を `GameRuntime/Input`（`InputHistory`/`CommandDetector`/`Command`）に実装（波動拳=236+A・溜め・下+A）。MVP はコマンド定義をコード側に持つ（`Commands` の JSON 化は将来）。撮影用にタイムド入力スクリプト（`phantom.screenshot.script`）を追加。
 - (Task 20) `Move` に `projectile`/`projectileSpeed`、`Character` に `specialMove` を追加。fighter JSON に必殺技（fireball, 飛び道具）を追加。`CharacterLoader` は specialMove を任意検証。
 - (Task 22) `Character` に表示色 `color`（RGB float[3], 任意）を追加。2 体目（fighter002 Akane）を別ステータス（HP 850・高速・小柄）・別色・別技に再定義し、**コード変更なし・JSON のみでキャラが変わる**ことを検証。
+- (Task 24) 技定義を **配列** に拡張。`normalAttack`（単技）→ `normalMoves[]`（弱/中/強 3 種）、`specialMove`（単技）→ `specialMoves[]`（複数必殺技対応）。`Move` に `button` フィールドを追加（通常技のボタン種別）。`command` フィールドを必殺技のコマンド名（`Command.name()`）として正式化。`InputAction` に `ATTACK_LIGHT`/`ATTACK_MEDIUM`/`ATTACK_HEAVY` を追加し旧 `ATTACK` を廃止。
