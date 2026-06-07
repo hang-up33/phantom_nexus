@@ -69,6 +69,8 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `hp` | int | ✅ | 最大 HP |
 | `walkSpeed` | float | ✅ | 歩行速度（px/frame） |
 | `jumpPower` | float | ✅ | ジャンプ初速 |
+| `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
+| `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
 | `animations` | object | ✅ | ステート名 → スプライト（`Assets/Characters/` 相対） |
 | `moves[]` | array | ✅ | 技定義（下記） |
 
@@ -95,3 +97,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 ## 変更履歴
 
 - (Bootstrap) 第一設計書の共通データ仕様に基づく初版ドラフトを作成。
+- (Task 6) `Shared/Types/Character` POJO を新設し、描画 / 当たり判定の基準となる `width` / `height` を追加（実装は id/name/hp/walkSpeed/jumpPower/width/height のサブセット。animations/moves/hitbox は Task 15 で正式化）。

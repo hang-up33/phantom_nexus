@@ -41,4 +41,13 @@ public final class GameConstants {
      * 仮想解像度（{@link #WORLD_WIDTH}×{@link #WORLD_HEIGHT}）はビューポートで維持する。
      */
     public static final boolean WINDOW_RESIZABLE = false;
+
+    /** 地面（床）のワールド Y 座標。キャラクターの足元（描画原点の下端）が乗る基準線。 */
+    public static final float GROUND_Y = 120f;
+
+    /** プレイヤー 1 の初期 X 座標（キャラクターの中心 X）。画面中央から左に配置。 */
+    public static final float P1_SPAWN_X = 420f;
+
+    /** プレイヤー 2 の初期 X 座標（キャラクターの中心 X）。画面中央から右に配置。 */
+    public static final float P2_SPAWN_X = 860f;
 }
