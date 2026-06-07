@@ -18,8 +18,11 @@ HOLD=""
 SCREEN_W="1280"
 SCREEN_H="720"
 DISPLAY_NUM="99"
+# 追加の撮影プロパティ（-x key=val を繰り返すと -Dphantom.screenshot.key=val を渡す）。
+# 近接が必要な被弾スクショ等で p1x / p2x の初期位置オーバーライドに使う。
+EXTRA_PROPS=()
 
-while getopts "o:f:k:W:H:d:" opt; do
+while getopts "o:f:k:W:H:d:x:" opt; do
   case "$opt" in
     o) OUT="$OPTARG" ;;
     f) FRAME="$OPTARG" ;;
@@ -27,7 +30,8 @@ while getopts "o:f:k:W:H:d:" opt; do
     W) SCREEN_W="$OPTARG" ;;
     H) SCREEN_H="$OPTARG" ;;
     d) DISPLAY_NUM="$OPTARG" ;;
-    *) echo "usage: $0 [-o out.png] [-f frame] [-k hold] [-W width] [-H height] [-d display]" >&2; exit 2 ;;
+    x) EXTRA_PROPS+=("-Dphantom.screenshot.${OPTARG%%=*}=${OPTARG#*=}") ;;
+    *) echo "usage: $0 [-o out.png] [-f frame] [-k hold] [-W width] [-H height] [-d display] [-x key=val]" >&2; exit 2 ;;
   esac
 done
 
@@ -81,7 +85,8 @@ HOLD_PROP=()
 ./gradlew run --console=plain \
   -Dphantom.screenshot.path="${OUT_ABS}" \
   -Dphantom.screenshot.frame="${FRAME}" \
-  "${HOLD_PROP[@]}"
+  "${HOLD_PROP[@]}" \
+  "${EXTRA_PROPS[@]}"
 
 if [ ! -s "$OUT_ABS" ]; then
   echo "[capture] 失敗: PNG が生成されませんでした (${OUT_ABS})" >&2
