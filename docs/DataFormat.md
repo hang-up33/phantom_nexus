@@ -95,6 +95,33 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 ---
 
+## Stage（MVP 正式版・Task 17）
+
+1 ステージ = 1 JSON（`Assets/Stages/<id>.json`）。`Shared/Types/Stage` へデシリアライズ（`StageLoader`）。
+地面の高さ（物理基準）は `Shared/Constants.GROUND_Y` 固定で、本型は**見た目（背景）のみ**を担う（MVP）。
+
+```json
+{
+  "id": "stage001",
+  "name": "Twilight Arena",
+  "skyTop": [0.07, 0.08, 0.18],
+  "skyBottom": [0.42, 0.28, 0.40],
+  "groundColor": [0.16, 0.14, 0.20]
+}
+```
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `id` | string | ✅ | ステージ一意 ID |
+| `name` | string | ✅ | 表示名 |
+| `skyTop` | float[3] | ✅ | 空の上端色 RGB（各 0..1） |
+| `skyBottom` | float[3] | ✅ | 空の下端（地平線側）色 RGB |
+| `groundColor` | float[3] | ✅ | 地面色 RGB |
+
+> 描画は空を下端→上端のグラデーションで塗り、地面を `groundColor` で塗る。スプライト背景 / パララックスは将来拡張。
+
+---
+
 ## バリデーション方針（`Shared/Schema`）
 
 - 必須フィールド欠落・型不一致・負値などはロード時にエラーとし、**どのファイル/フィールドが原因か**をログ出力する（第一設計書「JSON/YAML バリデーション」）。
@@ -109,3 +136,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 14) `Shared/Types/BattleRules` POJO を新設（timeLimitSeconds / rounds）。MVP はコード生成、将来 JSON 化。
 - (Task 15) Character JSON の MVP 正式版を確定（flat な Character + `normalAttack` オブジェクト）。`Assets/Characters/fighter001.json`・`fighter002.json` を追加。読み込みは Task 16。
 - (Task 16) `Shared/Schema/CharacterLoader`（LibGDX `Json`・未知フィールド無視）と `SchemaException`（原因ファイル/フィールド明示）を新設。Core はコード生成をやめ `CharacterLoader.load(id)` から供給。必須欠落・非正値・total フレーム 0 などを検証。
+- (Task 17) `Shared/Types/Stage` と `Shared/Schema/StageLoader` を新設。`Assets/Stages/stage001.json` を追加し、背景（空グラデ + 地面色）を JSON 駆動で描画。色は RGB float[3]（0..1）。
