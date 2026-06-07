@@ -137,3 +137,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 15) Character JSON の MVP 正式版を確定（flat な Character + `normalAttack` オブジェクト）。`Assets/Characters/fighter001.json`・`fighter002.json` を追加。読み込みは Task 16。
 - (Task 16) `Shared/Schema/CharacterLoader`（LibGDX `Json`・未知フィールド無視）と `SchemaException`（原因ファイル/フィールド明示）を新設。Core はコード生成をやめ `CharacterLoader.load(id)` から供給。必須欠落・非正値・total フレーム 0 などを検証。
 - (Task 17) `Shared/Types/Stage` と `Shared/Schema/StageLoader` を新設。`Assets/Stages/stage001.json` を追加し、背景（空グラデ + 地面色）を JSON 駆動で描画。色は RGB float[3]（0..1）。
+- (Task 19) コマンド入力検出を `GameRuntime/Input`（`InputHistory`/`CommandDetector`/`Command`）に実装（波動拳=236+A・溜め・下+A）。MVP はコマンド定義をコード側に持つ（`Commands` の JSON 化は将来）。撮影用にタイムド入力スクリプト（`phantom.screenshot.script`）を追加。

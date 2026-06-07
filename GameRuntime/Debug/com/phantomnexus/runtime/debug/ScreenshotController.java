@@ -6,8 +6,11 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.phantomnexus.runtime.input.InputAction;
+import com.phantomnexus.runtime.input.PlayerInput;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 
 /**
  * ヘッドレス環境（Claude Code on the web / CI）での自動スクリーンショット撮影。
@@ -32,6 +35,8 @@ import java.util.EnumSet;
  *       タイムアップ結果表示を短時間で撮るために使う。</li>
  *   <li>{@code phantom.screenshot.debug} — {@code true} でデバッグ当たり判定表示を起動時から ON。
  *       ヘッドレス撮影では F1 トグルを押せないための代替。</li>
+ *   <li>{@code phantom.screenshot.script} — タイムド入力スクリプト（コマンド技の再現用）。
+ *       書式 {@code start-end:tok+tok;...}。例：波動拳 {@code 1-12:p1.down;8-18:p1.down+p1.right;19-26:p1.right;22-22:p1.attack}。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -47,8 +52,23 @@ public final class ScreenshotController {
     private final Float p2SpawnX;
     private final Integer timeLimit;
     private final boolean debug;
+    private final List<ScriptSegment> script = new ArrayList<>();
+    private int scriptFrame;
     private int frameCount;
     private boolean done;
+
+    /** タイムド入力スクリプトの 1 区間（{@code [start,end]} フレームで p1/p2 の押下を固定）。 */
+    private static final class ScriptSegment {
+        final int start;
+        final int end;
+        final EnumSet<InputAction> p1 = EnumSet.noneOf(InputAction.class);
+        final EnumSet<InputAction> p2 = EnumSet.noneOf(InputAction.class);
+
+        ScriptSegment(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+    }
 
     /** システムプロパティから設定を読み取って構築する。撮影モード無効なら {@link #isEnabled()} が false。 */
     public ScreenshotController() {
@@ -67,7 +87,66 @@ public final class ScreenshotController {
         // プレイヤー入力を固定しない（撮影無効時は常に空集合）。
         if (isEnabled()) {
             parseHold(System.getProperty("phantom.screenshot.hold"));
+            parseScript(System.getProperty("phantom.screenshot.script"));
         }
+    }
+
+    /**
+     * タイムド入力スクリプトを解釈する。書式：{@code start-end:tok+tok;start-end:tok;...}
+     * （例：波動拳 = {@code 1-12:p1.down;8-18:p1.down+p1.right;19-26:p1.right;22-22:p1.attack}）。
+     * 区間は重ねてよく、各フレームで該当区間の押下の和集合を適用する。
+     */
+    private void parseScript(String spec) {
+        if (spec == null || spec.trim().isEmpty()) {
+            return;
+        }
+        for (String seg : spec.split(";")) {
+            if (seg.trim().isEmpty()) {
+                continue;
+            }
+            int colon = seg.indexOf(':');
+            if (colon < 0) {
+                Gdx.app.log("Screenshot", "不正なスクリプト区間を無視: " + seg);
+                continue;
+            }
+            String range = seg.substring(0, colon).trim();
+            int dash = range.indexOf('-');
+            int start = parseIntSafe(dash < 0 ? range : range.substring(0, dash), -1);
+            int end = parseIntSafe(dash < 0 ? range : range.substring(dash + 1), start);
+            if (start < 0) {
+                Gdx.app.log("Screenshot", "不正なスクリプト範囲を無視: " + seg);
+                continue;
+            }
+            ScriptSegment s = new ScriptSegment(start, end);
+            addTokens(seg.substring(colon + 1), s.p1, s.p2);
+            script.add(s);
+        }
+    }
+
+    /** タイムド入力スクリプトが指定されているか。 */
+    public boolean hasScript() {
+        return !script.isEmpty();
+    }
+
+    /**
+     * 現在のスクリプトフレームに応じた押下を p1/p2 へ適用し、内部フレームを 1 進める（撮影モード・毎フレーム呼ぶ）。
+     * 描画ループの 1 フレームに 1 回呼ぶ前提（{@link #maybeCapture()} と同じ進行）。
+     */
+    public void applyTimedHolds(PlayerInput p1Input, PlayerInput p2Input) {
+        if (script.isEmpty()) {
+            return;
+        }
+        EnumSet<InputAction> p1 = EnumSet.noneOf(InputAction.class);
+        EnumSet<InputAction> p2 = EnumSet.noneOf(InputAction.class);
+        for (ScriptSegment s : script) {
+            if (scriptFrame >= s.start && scriptFrame <= s.end) {
+                p1.addAll(s.p1);
+                p2.addAll(s.p2);
+            }
+        }
+        p1Input.setForcedHold(p1);
+        p2Input.setForcedHold(p2);
+        scriptFrame++;
     }
 
     /**
@@ -99,28 +178,33 @@ public final class ScreenshotController {
 
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
+        addTokens(spec, p1Hold, p2Hold);
+    }
+
+    /** トークン列（{@code p1.down}・{@code attack} 等をカンマ/空白/{@code +} 区切り）を p1/p2 集合へ振り分ける。 */
+    private static void addTokens(String spec, EnumSet<InputAction> p1, EnumSet<InputAction> p2) {
         if (spec == null) {
             return;
         }
-        for (String token : spec.split("[,\\s]+")) {
+        for (String token : spec.split("[,+\\s]+")) {
             if (token.isEmpty()) {
                 continue;
             }
-            EnumSet<InputAction> target = p1Hold;
+            EnumSet<InputAction> target = p1;
             String name = token;
             int sep = indexOfPrefixSeparator(token);
             if (sep >= 0) {
                 String prefix = token.substring(0, sep).toLowerCase();
                 name = token.substring(sep + 1);
                 if (prefix.equals("p2")) {
-                    target = p2Hold;
+                    target = p2;
                 }
             }
             InputAction action = toAction(name);
             if (action != null) {
                 target.add(action);
             } else {
-                Gdx.app.log("Screenshot", "未知の hold トークンを無視: " + token);
+                Gdx.app.log("Screenshot", "未知の入力トークンを無視: " + token);
             }
         }
     }
@@ -211,6 +295,17 @@ public final class ScreenshotController {
             return parsed > 0 ? parsed : null;
         } catch (NumberFormatException ignored) {
             return null;
+        }
+    }
+
+    private static int parseIntSafe(String value, int fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
         }
     }
 
