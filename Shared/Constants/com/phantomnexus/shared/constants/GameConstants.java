@@ -26,4 +26,19 @@ public final class GameConstants {
     public static final float BG_G = 0.08f;
     public static final float BG_B = 0.12f;
     public static final float BG_A = 1.0f;
+
+    /**
+     * 目標フレームレート。BattleSystem.md の「60fps 固定ステップ」基準であり、
+     * 同時にウィンドウの前景 FPS 上限としても使用する。
+     */
+    public static final int TARGET_FPS = 60;
+
+    /** 垂直同期。ティアリング防止のため既定で有効。 */
+    public static final boolean VSYNC = true;
+
+    /**
+     * ウィンドウのリサイズ可否。MVP は固定解像度の格闘ゲームのため固定窓（false）。
+     * 仮想解像度（{@link #WORLD_WIDTH}×{@link #WORLD_HEIGHT}）はビューポートで維持する。
+     */
+    public static final boolean WINDOW_RESIZABLE = false;
 }
