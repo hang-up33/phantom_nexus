@@ -108,3 +108,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 12) `Shared/Types` に `Hitbox`/`Hurtbox`/`PushBox`（ワールド座標 AABB）を新設（当たり判定の実行時矩形）。
 - (Task 14) `Shared/Types/BattleRules` POJO を新設（timeLimitSeconds / rounds）。MVP はコード生成、将来 JSON 化。
 - (Task 15) Character JSON の MVP 正式版を確定（flat な Character + `normalAttack` オブジェクト）。`Assets/Characters/fighter001.json`・`fighter002.json` を追加。読み込みは Task 16。
+- (Task 16) `Shared/Schema/CharacterLoader`（LibGDX `Json`・未知フィールド無視）と `SchemaException`（原因ファイル/フィールド明示）を新設。Core はコード生成をやめ `CharacterLoader.load(id)` から供給。必須欠落・非正値・total フレーム 0 などを検証。
