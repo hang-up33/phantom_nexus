@@ -37,6 +37,8 @@ import java.util.List;
  *       ヘッドレス撮影では F1 トグルを押せないための代替。</li>
  *   <li>{@code phantom.screenshot.script} — タイムド入力スクリプト（コマンド技の再現用）。
  *       書式 {@code start-end:tok+tok;...}。例：波動拳 {@code 1-12:p1.down;8-18:p1.down+p1.right;19-26:p1.right;22-22:p1.attack}。</li>
+ *   <li>{@code phantom.screenshot.ai} — {@code false} で P2 の AI を無効化（人間=静止）。
+ *       コマンド/飛び道具の撮影で P2 を動かしたくない時に使う。既定 ON。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -174,6 +176,18 @@ public final class ScreenshotController {
     /** デバッグ当たり判定表示を起動時から ON にするか（撮影モードの {@code debug=true} 指定時）。 */
     public boolean debugEnabled() {
         return debug;
+    }
+
+    /**
+     * P2 の AI を有効にするか。撮影モードで {@code ai=false} 指定時のみ無効化（人間=静止）にできる。
+     * 通常起動・未指定時は {@code fallback}（既定 ON）。コマンド/飛び道具の撮影で P2 を静止させたい時に使う。
+     */
+    public boolean aiEnabled(boolean fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.ai"));
+        return v == null ? fallback : !"false".equalsIgnoreCase(v);
     }
 
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
