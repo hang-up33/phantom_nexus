@@ -25,6 +25,8 @@ public class Fighter {
     private AttackPhase attackPhase = AttackPhase.NONE; // 攻撃区間（Task 11）
     private int attackFrame;   // 現在の攻撃に入ってからの経過フレーム
     private boolean attackConnected; // 現在の攻撃が既に命中済みか（多段ヒット防止。Task 12/13）
+    private int hitstunFrames;  // のけぞり残フレーム（>0 の間は行動不能。Task 13）
+    private float velocityX;    // 横方向速度（被弾 knockback の減衰移動に使用。Task 13）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -46,29 +48,41 @@ public class Fighter {
      * @param attackPressed このフレームで攻撃入力の立ち上がりがあったか。接地・非攻撃時のみ発動。
      */
     public void update(int moveDir, boolean jumpPressed, boolean attackPressed) {
-        // 非攻撃かつ接地中に攻撃入力があり、技定義があれば攻撃を開始する。
-        if (attackPhase == AttackPhase.NONE && attackPressed && grounded && def.getNormalAttack() != null) {
-            attackPhase = AttackPhase.STARTUP;
-            attackFrame = 0;
-            attackConnected = false; // 新しい攻撃ごとに命中済みフラグをリセット
-        }
-
-        if (attackPhase != AttackPhase.NONE) {
-            // 攻撃中：行動拘束（横移動・ジャンプ無効）し、攻撃区間のみ進める。
+        if (hitstunFrames > 0) {
+            // のけぞり中：入力を一切受け付けず、knockback 速度を減衰させながら後方へ流す。
             this.moveDir = 0;
-            advanceAttack();
-        } else {
-            // 通常時：左右移動（MVP は空中横移動も許可）＋ジャンプ。
-            this.moveDir = moveDir;
-            x += moveDir * def.getWalkSpeed();
+            hitstunFrames--;
+            x += velocityX;
             clampToStage();
-            if (jumpPressed && grounded) {
-                velocityY = def.getJumpPower();
-                grounded = false;
+            velocityX *= GameConstants.KNOCKBACK_FRICTION;
+            if (Math.abs(velocityX) < 0.1f) {
+                velocityX = 0f;
+            }
+        } else {
+            // 非攻撃かつ接地中に攻撃入力があり、技定義があれば攻撃を開始する。
+            if (attackPhase == AttackPhase.NONE && attackPressed && grounded && def.getNormalAttack() != null) {
+                attackPhase = AttackPhase.STARTUP;
+                attackFrame = 0;
+                attackConnected = false; // 新しい攻撃ごとに命中済みフラグをリセット
+            }
+
+            if (attackPhase != AttackPhase.NONE) {
+                // 攻撃中：行動拘束（横移動・ジャンプ無効）し、攻撃区間のみ進める。
+                this.moveDir = 0;
+                advanceAttack();
+            } else {
+                // 通常時：左右移動（MVP は空中横移動も許可）＋ジャンプ。
+                this.moveDir = moveDir;
+                x += moveDir * def.getWalkSpeed();
+                clampToStage();
+                if (jumpPressed && grounded) {
+                    velocityY = def.getJumpPower();
+                    grounded = false;
+                }
             }
         }
 
-        // 重力 + 垂直積分
+        // 重力 + 垂直積分（攻撃中・のけぞり中も適用）
         velocityY -= GameConstants.GRAVITY;
         y += velocityY;
 
@@ -78,6 +92,23 @@ public class Fighter {
             velocityY = 0f;
             grounded = true;
         }
+    }
+
+    /**
+     * 被弾を適用する（Task 13: ダメージ処理）。HP を減算し、のけぞり（hitstun）へ遷移して
+     * 後方へ knockback する。攻撃中だった場合は中断する（攻撃はのけぞりでキャンセルされる）。
+     *
+     * @param damage       与ダメージ
+     * @param hitstun      のけぞりフレーム数
+     * @param knockbackDir 後方への向き（攻撃者から見て defender が右なら +1 / 左なら -1）
+     */
+    public void applyHit(int damage, int hitstun, int knockbackDir) {
+        applyDamage(damage);
+        hitstunFrames = hitstun;
+        velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED;
+        // 進行中の攻撃を中断（のけぞりが優先）。
+        attackPhase = AttackPhase.NONE;
+        attackFrame = 0;
     }
 
     /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
@@ -216,5 +247,15 @@ public class Fighter {
     /** 現在の攻撃を命中済みにする（同一 active 区間での再ヒットを防ぐ。Task 12/13）。 */
     public void markAttackConnected() {
         attackConnected = true;
+    }
+
+    /** のけぞり（hitstun）中か（行動不能・アニメ状態導出に使用）。 */
+    public boolean isInHitstun() {
+        return hitstunFrames > 0;
+    }
+
+    /** のけぞり残フレーム（デバッグ / 可視化用）。 */
+    public int getHitstunFrames() {
+        return hitstunFrames;
     }
 }
