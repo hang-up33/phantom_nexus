@@ -17,6 +17,7 @@ import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
+import com.phantomnexus.shared.types.Stage;
 
 /**
  * バトルシーンの描画担当（Task 6: キャラクター描画 / Task 7: 移動・向き）。
@@ -29,7 +30,10 @@ import com.phantomnexus.shared.types.Move;
  */
 public class GameRenderer {
 
+    // ステージ未設定時のフォールバック色（Task 17 でステージ JSON から差し替え）。
     private static final Color GROUND_COLOR = new Color(0.16f, 0.17f, 0.22f, 1f);
+    private static final Color SKY_TOP_FALLBACK = new Color(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, 1f);
+    private static final Color SKY_BOTTOM_FALLBACK = new Color(0.14f, 0.16f, 0.24f, 1f);
     private static final Color P1_COLOR = new Color(0.30f, 0.55f, 0.92f, 1f);
     private static final Color P2_COLOR = new Color(0.92f, 0.42f, 0.36f, 1f);
     private static final Color FACING_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
@@ -60,6 +64,11 @@ public class GameRenderer {
     private final Viewport viewport;
     private final BitmapFont font;
     private final GlyphLayout layout = new GlyphLayout();
+    // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
+    private final Color skyTop = new Color(SKY_TOP_FALLBACK);
+    private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
+    private final Color groundColor = new Color(GROUND_COLOR);
+    private String stageName = "";
 
     public GameRenderer() {
         camera = new OrthographicCamera();
@@ -70,6 +79,18 @@ public class GameRenderer {
         shapes = new ShapeRenderer();
         // MVP では LibGDX 組込みフォント（Arial 15px）を使用。後続でビットマップフォントに差し替え可。
         font = new BitmapFont();
+    }
+
+    /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
+    public void setStage(Stage stage) {
+        setColor(skyTop, stage.getSkyTop());
+        setColor(skyBottom, stage.getSkyBottom());
+        setColor(groundColor, stage.getGroundColor());
+        stageName = stage.getName();
+    }
+
+    private static void setColor(Color target, float[] rgb) {
+        target.set(rgb[0], rgb[1], rgb[2], 1f);
     }
 
     /**
@@ -88,10 +109,14 @@ public class GameRenderer {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
 
-        // --- 床 + キャラクター矩形 + 向きマーカー + アニメフレームピップ ---
+        // --- ステージ背景（空グラデ + 地面）+ キャラクター矩形 + 向きマーカー + アニメフレームピップ ---
         shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        shapes.setColor(GROUND_COLOR);
+        // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                skyBottom, skyBottom, skyTop, skyTop);
+        // 地面（床）。
+        shapes.setColor(groundColor);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
         drawFighter(p1, anim1, P1_COLOR);
         drawFighter(p2, anim2, P2_COLOR);
@@ -116,6 +141,9 @@ public class GameRenderer {
         drawHpLabels(p2, false);
         drawNameLabel(p1, anim1);
         drawNameLabel(p2, anim2);
+        if (!stageName.isEmpty()) {
+            drawCentered("Stage: " + stageName, GameConstants.WORLD_WIDTH / 2f, 100f);
+        }
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
         drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
         if (round.isFinished()) {

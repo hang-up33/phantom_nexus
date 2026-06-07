@@ -1,0 +1,7 @@
+{
+  "id": "stage001",
+  "name": "Twilight Arena",
+  "skyTop": [0.07, 0.08, 0.18],
+  "skyBottom": [0.42, 0.28, 0.40],
+  "groundColor": [0.16, 0.14, 0.20]
+}
