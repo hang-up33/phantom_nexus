@@ -223,6 +223,13 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
 - 過渡状態（ジャンプ頂点・攻撃 active 等）は `-f` の値を変えて狙う（既定 90 ≒ 1.5 秒@60fps の静止）。`-W`/`-H` で仮想解像度も変更可。
 - **入力を伴う過渡状態は `-k`（`phantom.screenshot.hold`）で起動時から押下注入する**。書式は `p1.up`・`p2.left`・`attack`（接頭辞省略時は p1）をカンマ/空白区切り。例：ジャンプ頂点は `-k p1.up -f 21`（頂点 ≒ `jumpPower/GRAVITY` フレーム後）。立ち上がり発動（ジャンプ/攻撃）は最初の 1 フレームだけ just-pressed として消費され、以降は押しっぱなし扱いになる（`PlayerInput.setForcedHold`）。
 - **近接が必要な過渡状態（被弾・接触など）は `-x p1x=<X> -x p2x=<X>` で初期中心 X をオーバーライドする**（`phantom.screenshot.p1x`/`p2x`）。既定 spawn（420/860）は間合いが広く攻撃の active 区間（数フレーム）に相手へ届かないため、被弾スクショは両者を近づけて撮る。例：`-k attack -x p1x=600 -x p2x=720 -f 14` で P1 のパンチが P2 に当たり HP 減少＋hitstun を撮れる。`-x` は `-Dphantom.screenshot.<key>=<val>` に展開され、`Infra/Build/build.gradle` の run タスク転送リストに `p1x`/`p2x` を追加済み（新プロパティを足す時は同リストも要更新）。
+- **撮影オーバーライド一覧**（`scripts/capture-app-screenshot-linux.sh` の `-x key=val` → `-Dphantom.screenshot.<key>`。新規追加時は `Infra/Build/build.gradle` の run タスク転送リストにも要追記）：
+  - `p1x` / `p2x`：初期中心 X（近接が必要な被弾・接触の再現）
+  - `timelimit`：ラウンド制限時間（秒）。タイムアップ結果バナーを短時間で撮る（例 `-x timelimit=1 -f 80`）
+  - `debug=true`：デバッグ当たり判定表示を起動時 ON（F1 トグルの代替）
+  - `ai=false`：P2 の AI を無効化（コマンド/飛び道具の撮影で P2 を静止させる）
+  - `script=start-end:tok+tok;...`：タイムド入力スクリプト（コマンド技の再現）。例（波動拳）：`-x "script=1-12:p1.down;8-18:p1.down+p1.right;19-30:p1.right;22-22:p1.attack" -f 42`。区間は重ねてよく、各フレームで和集合を `setForcedHold`。攻撃は単フレーム指定（連続フレームに置くと毎フレーム発火する）。
+- **強制エッジは 1 フレーム 1 回しか消費されない** — `PlayerInput.isPressed`（forced 時）は `forcedEdgePending.remove` で消費するため、同一フレームに 2 回呼ぶと 2 回目は false。Core は攻撃/ジャンプ入力を 1 回だけ読み、その値を `Fighter.update` と入力履歴の両方に使い回す（`updateFighterInput`）。
 - 撮影後は **必ず Read ツールで PNG を目視**（黒画面・崩れが無いか）。ALSA の `cannot find card` 警告は音源無しによる無害ログ。
 - 注意：対話的に動かす確認はローカル Windows が確実。web は静止画前提。
 
