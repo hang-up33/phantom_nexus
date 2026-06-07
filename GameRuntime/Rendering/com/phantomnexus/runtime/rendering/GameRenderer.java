@@ -9,22 +9,25 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 
 /**
- * バトルシーンの描画担当（Task 6: キャラクター描画）。
+ * バトルシーンの描画担当（Task 6: キャラクター描画 / Task 7: 移動・向き）。
  *
- * <p>背景クリア → 床 + キャラクター矩形（{@link ShapeRenderer}）→ タイトル / 名前 / 入力 HUD
- * （{@link SpriteBatch}）の順に描く。キャラクターはスプライト導入前のプレースホルダとして、
- * {@link Character} の寸法どおりの塗り矩形で表示する。{@code x} はキャラ中心 X、足元は
- * {@link GameConstants#GROUND_Y}。スプライト / アニメーションは Task 9 以降で差し替える。
+ * <p>背景クリア → 床 + キャラクター矩形 + 向きマーカー（{@link ShapeRenderer}）→ タイトル / 名前 /
+ * 入力 HUD（{@link SpriteBatch}）の順に描く。キャラクターはスプライト導入前のプレースホルダとして、
+ * {@link Fighter} の現在位置・{@link Character} の寸法どおりの塗り矩形で表示する。向きは前面側に置く
+ * 小矩形のマーカーで示す。スプライト / アニメーションは Task 9 以降で差し替える。
  */
 public class GameRenderer {
 
     private static final Color GROUND_COLOR = new Color(0.16f, 0.17f, 0.22f, 1f);
     private static final Color P1_COLOR = new Color(0.30f, 0.55f, 0.92f, 1f);
     private static final Color P2_COLOR = new Color(0.92f, 0.42f, 0.36f, 1f);
+    private static final Color FACING_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
+    private static final float MARKER_SIZE = 18f;
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
@@ -47,25 +50,22 @@ public class GameRenderer {
     /**
      * バトルシーンを 1 フレーム描画する。
      *
-     * @param p1           プレイヤー 1 のキャラクター定義
-     * @param p1x          プレイヤー 1 の中心 X
-     * @param p2           プレイヤー 2 のキャラクター定義
-     * @param p2x          プレイヤー 2 の中心 X
+     * @param p1           プレイヤー 1 のファイター（青）
+     * @param p2           プレイヤー 2 のファイター（赤）
      * @param controlsHint 操作ガイド（HUD）
-     * @param activeLine   押下中アクション（HUD・入力配線の動作確認用）
+     * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
-    public void renderScene(Character p1, float p1x, Character p2, float p2x,
-                            String controlsHint, String activeLine) {
+    public void renderScene(Fighter p1, Fighter p2, String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
 
-        // --- 床 + キャラクター矩形（プレースホルダ） ---
+        // --- 床 + キャラクター矩形 + 向きマーカー ---
         shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         shapes.setColor(GROUND_COLOR);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
-        drawFighterBox(p1, p1x, P1_COLOR);
-        drawFighterBox(p2, p2x, P2_COLOR);
+        drawFighter(p1, P1_COLOR);
+        drawFighter(p2, P2_COLOR);
         shapes.end();
 
         // --- テキスト（タイトル / 名前ラベル / 入力 HUD） ---
@@ -74,17 +74,32 @@ public class GameRenderer {
         font.getData().setScale(1.5f);
         drawCentered(GameConstants.WINDOW_TITLE, GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 30f);
         font.getData().setScale(1.0f);
-        drawCentered(p1.getName(), p1x, GameConstants.GROUND_Y + p1.getHeight() + 30f);
-        drawCentered(p2.getName(), p2x, GameConstants.GROUND_Y + p2.getHeight() + 30f);
+        drawNameLabel(p1);
+        drawNameLabel(p2);
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
-        drawCentered(activeLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
         batch.end();
     }
 
-    /** キャラクターを中心 X・足元 {@link GameConstants#GROUND_Y} のプレースホルダ矩形で描く。 */
-    private void drawFighterBox(Character c, float centerX, Color color) {
+    /** ファイターを現在位置のプレースホルダ矩形 + 前面側の向きマーカーで描く。 */
+    private void drawFighter(Fighter f, Color color) {
+        Character d = f.getDef();
+        float left = f.getX() - d.getWidth() / 2f;
+        float bottom = f.getY();
         shapes.setColor(color);
-        shapes.rect(centerX - c.getWidth() / 2f, GameConstants.GROUND_Y, c.getWidth(), c.getHeight());
+        shapes.rect(left, bottom, d.getWidth(), d.getHeight());
+        // 向きマーカー：上部の前面側に小矩形を置く。
+        float markerY = bottom + d.getHeight() - MARKER_SIZE - 12f;
+        float markerX = f.isFacingRight()
+                ? left + d.getWidth() - MARKER_SIZE - 8f
+                : left + 8f;
+        shapes.setColor(FACING_COLOR);
+        shapes.rect(markerX, markerY, MARKER_SIZE, MARKER_SIZE);
+    }
+
+    /** ファイターの名前を矩形の上に表示する。 */
+    private void drawNameLabel(Fighter f) {
+        drawCentered(f.getDef().getName(), f.getX(), f.getY() + f.getDef().getHeight() + 30f);
     }
 
     /** 指定文字列を中心 X（{@code centerX}）・ベースライン Y（{@code y}）に水平センタリングで描く。 */
