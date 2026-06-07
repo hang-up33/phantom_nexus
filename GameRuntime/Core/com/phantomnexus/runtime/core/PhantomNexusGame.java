@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.core;
 
 import com.badlogic.gdx.ApplicationAdapter;
+import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.runtime.rendering.GameRenderer;
@@ -10,50 +11,69 @@ import com.phantomnexus.shared.types.Character;
 /**
  * Phantom Nexus アプリケーション本体（ゲームループ / ライフサイクル）。
  *
- * <p>Core はライフサイクル（create/render/resize/dispose）の制御に専念し、
- * 実際の描画は {@link GameRenderer}（Rendering）へ委譲する（Task 3）。
- * Task 5 でプレイヤー入力（{@link PlayerInput}）を、Task 6 で 2 体のキャラクター定義
- * （{@link Character}）を保持し、固定位置に描画する。サンプル定義はコード生成の暫定で、
- * Task 16 で {@code Shared/Schema} の JSON ローダ供給に差し替える。位置の可変化（移動）は Task 7。
+ * <p>Core はライフサイクルと毎フレームの更新順序（入力 → 更新 → 描画）の制御に専念する。
+ * Task 7 で 2 体の {@link Fighter} を保持し、{@link PlayerInput} の左右入力で移動させる
+ * （P1=WASD / P2=方向キー）。更新後に互いへ向き直し、{@link GameRenderer} へ描画委譲する。
+ * サンプルキャラ定義はコード生成の暫定で、Task 16 で JSON 読込供給に差し替える。
  */
 public class PhantomNexusGame extends ApplicationAdapter {
 
     private GameRenderer renderer;
-    private PlayerInput player1;
+    private PlayerInput p1Input;
+    private PlayerInput p2Input;
+    private Fighter fighter1;
+    private Fighter fighter2;
     private String controlsHint;
-    private Character player1Char;
-    private Character player2Char;
 
     @Override
     public void create() {
         renderer = new GameRenderer();
-        player1 = PlayerInput.player1Defaults();
-        controlsHint = "P1   " + player1.describe();
+        p1Input = PlayerInput.player1Defaults();
+        p2Input = PlayerInput.player2Defaults();
         // 暫定のサンプルキャラクター定義（Task 16 で JSON 読込に差し替え）。
-        player1Char = new Character("fighter001", "Aoi", 1000, 4.0f, 12.0f, 100f, 240f);
-        player2Char = new Character("fighter002", "Akane", 1000, 4.0f, 12.0f, 100f, 240f);
+        Character aoi = new Character("fighter001", "Aoi", 1000, 4.0f, 12.0f, 100f, 240f);
+        Character akane = new Character("fighter002", "Akane", 1000, 4.0f, 12.0f, 100f, 240f);
+        fighter1 = new Fighter(aoi, GameConstants.P1_SPAWN_X, true);
+        fighter2 = new Fighter(akane, GameConstants.P2_SPAWN_X, false);
+        controlsHint = "P1 " + p1Input.describe() + "      P2 Arrows + RCtrl";
     }
 
     @Override
     public void render() {
-        renderer.renderScene(
-                player1Char, GameConstants.P1_SPAWN_X,
-                player2Char, GameConstants.P2_SPAWN_X,
-                controlsHint, "Active: " + activeActions(player1));
+        update();
+        renderer.renderScene(fighter1, fighter2, controlsHint, statusLine());
     }
 
-    /** 押下中の論理アクションを空白区切りで返す（無ければ "-"）。入力配線の動作確認用。 */
-    private static String activeActions(PlayerInput input) {
-        StringBuilder sb = new StringBuilder();
-        for (InputAction action : InputAction.values()) {
-            if (input.isDown(action)) {
-                if (sb.length() > 0) {
-                    sb.append(' ');
-                }
-                sb.append(action.name());
-            }
+    /** 入力 → 移動 → 向き直しの 1 フレーム更新。 */
+    private void update() {
+        fighter1.update(moveDir(p1Input));
+        fighter2.update(moveDir(p2Input));
+        fighter1.faceTowards(fighter2);
+        fighter2.faceTowards(fighter1);
+    }
+
+    /** 左右入力を移動方向（-1 / 0 / +1）に変換する。 */
+    private static int moveDir(PlayerInput input) {
+        int dir = 0;
+        if (input.isDown(InputAction.RIGHT)) {
+            dir += 1;
         }
-        return sb.length() == 0 ? "-" : sb.toString();
+        if (input.isDown(InputAction.LEFT)) {
+            dir -= 1;
+        }
+        return dir;
+    }
+
+    /** 各ファイターの座標と向きを 1 行で返す（移動の動作確認用 HUD）。 */
+    private String statusLine() {
+        return String.format(
+                "%s x=%.0f %s    %s x=%.0f %s",
+                fighter1.getDef().getName(), fighter1.getX(), facingArrow(fighter1),
+                fighter2.getDef().getName(), fighter2.getX(), facingArrow(fighter2));
+    }
+
+    private static String facingArrow(Fighter f) {
+        return f.isFacingRight() ? ">" : "<";
     }
 
     @Override
