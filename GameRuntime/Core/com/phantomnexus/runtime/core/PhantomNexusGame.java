@@ -10,6 +10,7 @@ import com.phantomnexus.runtime.rendering.FighterAnimator;
 import com.phantomnexus.runtime.rendering.GameRenderer;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 
 /**
@@ -49,8 +50,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // damage / hitbox は Task 13 / 12 で使用。Task 16 で JSON の moves[] から供給する。
         aoi.setNormalAttack(samplePunch());
         akane.setNormalAttack(samplePunch());
-        fighter1 = new Fighter(aoi, GameConstants.P1_SPAWN_X, true);
-        fighter2 = new Fighter(akane, GameConstants.P2_SPAWN_X, false);
+        // 撮影モード時は初期 X をオーバーライド可能（近接が必要な被弾スクショ等の再現用）。
+        fighter1 = new Fighter(aoi, screenshot.spawnX(1, GameConstants.P1_SPAWN_X), true);
+        fighter2 = new Fighter(akane, screenshot.spawnX(2, GameConstants.P2_SPAWN_X), false);
         // アニメーション状態機械（Task 9）。各ファイターの実行時状態から idle/walk/jump を導出する。
         animator1 = new FighterAnimator();
         animator2 = new FighterAnimator();
@@ -82,10 +84,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
         animator2.update(fighter2);
     }
 
-    /** attacker の active hitbox が defender に当たり、まだ未命中なら命中確定（ダメージは Task 13）。 */
+    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13）。 */
     private static void resolveHit(Fighter attacker, Fighter defender) {
         if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
             attacker.markAttackConnected();
+            Hitbox hb = CollisionSystem.activeHitbox(attacker);
+            // 後方への向き：defender が attacker より右なら +1（右へ吹き飛ぶ）。
+            int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
+            defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
         }
     }
 

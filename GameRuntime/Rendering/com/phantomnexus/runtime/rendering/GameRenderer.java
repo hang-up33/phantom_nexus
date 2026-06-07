@@ -176,7 +176,8 @@ public class GameRenderer {
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
         float bottom = f.getY() + anim.bobOffset();
-        shapes.setColor(color);
+        // のけぞり中は白くフラッシュして被弾を可視化する。
+        shapes.setColor(f.isInHitstun() ? hitstunFlash(color) : color);
         shapes.rect(left, bottom, d.getWidth(), d.getHeight());
         // 向きマーカー：上部の前面側に小矩形を置く。
         float markerY = bottom + d.getHeight() - MARKER_SIZE - 12f;
@@ -214,6 +215,15 @@ public class GameRenderer {
         float boxY = f.getY() + m.getHitboxOffsetY();
         shapes.setColor(attackPhaseColor(f.getAttackPhase()));
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
+    }
+
+    /** のけぞり用のフラッシュ色（元色を白へ寄せる）。 */
+    private static Color hitstunFlash(Color base) {
+        return new Color(
+                base.r + (1f - base.r) * 0.6f,
+                base.g + (1f - base.g) * 0.6f,
+                base.b + (1f - base.b) * 0.6f,
+                1f);
     }
 
     /** active hitbox が相手 hurtbox に重なるフレームに、接触位置へ白い火花マーカーを描く（Task 12）。 */
@@ -261,9 +271,14 @@ public class GameRenderer {
         float centerX = f.getX();
         float top = f.getY() + f.getDef().getHeight();
         drawCentered(f.getDef().getName(), centerX, top + 30f);
-        String stateLabel = f.isAttacking()
-                ? "attack:" + f.getAttackPhase().name().toLowerCase()
-                : anim.getState().label() + " f" + anim.getFrameIndex();
+        String stateLabel;
+        if (f.isInHitstun()) {
+            stateLabel = "hitstun " + f.getHitstunFrames();
+        } else if (f.isAttacking()) {
+            stateLabel = "attack:" + f.getAttackPhase().name().toLowerCase();
+        } else {
+            stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
+        }
         drawCentered(stateLabel, centerX, top + 12f);
     }
 

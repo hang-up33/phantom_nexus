@@ -53,4 +53,13 @@ public final class GameConstants {
 
     /** 重力加速度（px/frame^2）。ジャンプの落下に毎フレーム適用する（60fps 基準）。 */
     public static final float GRAVITY = 0.6f;
+
+    /** のけぞり（hitstun）フレーム数。被弾側がこの間だけ行動不能になる（Task 13）。 */
+    public static final int HITSTUN_FRAMES = 18;
+
+    /** 被弾時の初速 knockback（px/frame, 後方へ）。毎フレーム {@link #KNOCKBACK_FRICTION} で減衰（Task 13）。 */
+    public static final float KNOCKBACK_SPEED = 7f;
+
+    /** knockback 速度の毎フレーム減衰率（0〜1）。小さいほど早く止まる（Task 13）。 */
+    public static final float KNOCKBACK_FRICTION = 0.6f;
 }

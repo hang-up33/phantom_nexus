@@ -26,6 +26,8 @@ import java.util.EnumSet;
  *   <li>{@code phantom.screenshot.hold} — 起動時から押下状態に固定する入力（過渡状態の撮影用）。
  *       カンマ/空白区切りで {@code p1.up}・{@code p2.left}・{@code attack}（接頭辞省略時は p1）の形式。
  *       例：ジャンプ頂点を撮るなら {@code -Dphantom.screenshot.hold=p1.up} ＋ 頂点付近の {@code frame}。</li>
+ *   <li>{@code phantom.screenshot.p1x} / {@code phantom.screenshot.p2x} — 初期中心 X のオーバーライド。
+ *       近接が必要な過渡状態（被弾・接触マーカー等）を静止スクショで再現するために使う。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -37,6 +39,8 @@ public final class ScreenshotController {
     private final int targetFrame;
     private final EnumSet<InputAction> p1Hold;
     private final EnumSet<InputAction> p2Hold;
+    private final Float p1SpawnX;
+    private final Float p2SpawnX;
     private int frameCount;
     private boolean done;
 
@@ -46,6 +50,9 @@ public final class ScreenshotController {
         this.targetFrame = parsePositiveInt(System.getProperty("phantom.screenshot.frame"), DEFAULT_FRAME);
         this.p1Hold = EnumSet.noneOf(InputAction.class);
         this.p2Hold = EnumSet.noneOf(InputAction.class);
+        // 初期 X オーバーライド（撮影モード時のみ）。近接が必要な過渡状態（被弾など）を再現するため。
+        this.p1SpawnX = isEnabled() ? parseFloatOrNull(System.getProperty("phantom.screenshot.p1x")) : null;
+        this.p2SpawnX = isEnabled() ? parseFloatOrNull(System.getProperty("phantom.screenshot.p2x")) : null;
         // hold は撮影モード（path 指定）時のみ解釈する。通常起動に hold だけ残っていても
         // プレイヤー入力を固定しない（撮影無効時は常に空集合）。
         if (isEnabled()) {
@@ -59,6 +66,15 @@ public final class ScreenshotController {
      */
     public EnumSet<InputAction> heldActions(int player) {
         return player == 2 ? p2Hold : p1Hold;
+    }
+
+    /**
+     * 指定プレイヤーの初期中心 X（撮影用オーバーライド）。未指定 / 撮影無効時は {@code fallback} を返す。
+     * 近接を要する過渡状態（被弾・接触マーカー等）を静止スクショで再現するために使う。
+     */
+    public float spawnX(int player, float fallback) {
+        Float override = player == 2 ? p2SpawnX : p1SpawnX;
+        return override != null ? override : fallback;
     }
 
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
@@ -153,6 +169,17 @@ public final class ScreenshotController {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static Float parseFloatOrNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Float.parseFloat(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private static int parsePositiveInt(String value, int fallback) {
