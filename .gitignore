@@ -1,0 +1,24 @@
+# Gradle ビルド成果物・キャッシュ
+# 注意：Windows は大文字小文字を区別せず core.ignorecase=true のため、非アンカーの
+# `build/` は設計書の `Infra/Build/`(大文字 B) まで巻き込んで無視してしまう。
+# ビルド出力は単一モジュールの root 直下 `/build/` のみなので、ルート固定で書く。
+/build/
+/.gradle/
+
+# Gradle wrapper の jar は追跡対象（ブートストラップに必須なので除外しない）
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE / エディタ
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+/out/
+
+# OS 生成物
+.DS_Store
+Thumbs.db
+
+# ログ
+*.log

@@ -19,7 +19,17 @@ model: sonnet
      - 対処：<最小の修正手順>
 -->
 
-（まだ蓄積された罠はありません。発見したら kaizen-close でここに追記します。）
+1. **`Only Project build scripts can contain plugins {}` / `Could not find method plugins()`**（`Infra/Build/build.gradle` を root から `apply from:` で読む構成）
+   - 原因：`apply from:` で適用されるスクリプトでは `plugins {}` DSL ブロックが使えない。
+   - 対処：コアプラグインは `apply plugin: 'java'` / `apply plugin: 'application'` のレガシー構文で適用する。
+
+2. **`Infra/Build/build.gradle` が git に乗らない / `build/` 配下が消える**（Windows, `core.ignorecase=true`）
+   - 原因：`.gitignore` の非アンカー `build/` が大文字小文字を無視して設計書フォルダ `Infra/Build/`（大文字 B）に一致してしまう。
+   - 対処：ビルド出力は単一モジュール root 直下のみ。`/build/`・`/.gradle/` とルート固定で書く（`git check-ignore -v Infra/Build/build.gradle` が空＝未無視を確認）。
+
+3. **`Executing Gradle on JVM versions 16 and lower has been deprecated`**（ローカル launcher JVM が Java 11）
+   - 原因：Gradle 8.10 を起動する JVM が Java 11。コンパイルは toolchain の JDK17 を使うため無害な警告。
+   - 対処：放置可（Gradle 9 移行時のみ要対応）。`./gradlew javaToolchains` で Temurin 17 が auto-provisioned 済みかを確認できる。
 
 ## 診断手順
 
