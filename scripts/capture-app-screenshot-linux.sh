@@ -39,17 +39,30 @@ OUT_ABS="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 # 依存チェック（apt 追加は不要。Ubuntu 標準で Xvfb / Mesa swrast を想定）。
 command -v Xvfb >/dev/null 2>&1 || { echo "Xvfb が見つかりません（apt-get install -y xvfb）" >&2; exit 1; }
 
-# Xvfb を起動（既存のロックがあれば再利用）。
-if [ ! -e "/tmp/.X${DISPLAY_NUM}-lock" ]; then
+# 当該 display で Xvfb が「実際に」動作中かを検証する（ロックファイルの有無だけで判定しない）。
+# xdpyinfo があれば接続可否で判定し、無ければ X ソケットの実在＋生プロセスの両面で確認する。
+# kill / 中断で stale な /tmp/.X${N}-lock だけが残ったケースを再利用扱いしないため。
+xvfb_running() {
+  if command -v xdpyinfo >/dev/null 2>&1; then
+    xdpyinfo -display ":${DISPLAY_NUM}" >/dev/null 2>&1
+    return $?
+  fi
+  [ -S "/tmp/.X11-unix/X${DISPLAY_NUM}" ] && pgrep -f "Xvfb[[:space:]]*:${DISPLAY_NUM}\b" >/dev/null 2>&1
+}
+
+if ! xvfb_running; then
+  # stale な lock / ソケットが残っていると Xvfb が起動を拒否するため掃除してから起動する。
+  rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
   echo "[capture] Xvfb :${DISPLAY_NUM} を起動 (${SCREEN_W}x${SCREEN_H}x24)"
   Xvfb ":${DISPLAY_NUM}" -screen 0 "${SCREEN_W}x${SCREEN_H}x24" >/tmp/xvfb-${DISPLAY_NUM}.log 2>&1 &
   XVFB_PID=$!
   trap '[ -n "${XVFB_PID:-}" ] && kill "${XVFB_PID}" 2>/dev/null || true' EXIT
-  # 起動待ち。
-  for _ in $(seq 1 20); do
-    sleep 0.3
-    [ -e "/tmp/.X${DISPLAY_NUM}-lock" ] && break
+  # 実際に接続可能になるまで待つ（ロックの出現ではなく接続性で判定）。
+  for _ in $(seq 1 40); do
+    sleep 0.25
+    xvfb_running && break
   done
+  xvfb_running || { echo "[capture] Xvfb :${DISPLAY_NUM} を起動できませんでした（/tmp/xvfb-${DISPLAY_NUM}.log）" >&2; exit 1; }
 fi
 
 export DISPLAY=":${DISPLAY_NUM}"

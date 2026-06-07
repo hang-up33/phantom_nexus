@@ -46,7 +46,11 @@ public final class ScreenshotController {
         this.targetFrame = parsePositiveInt(System.getProperty("phantom.screenshot.frame"), DEFAULT_FRAME);
         this.p1Hold = EnumSet.noneOf(InputAction.class);
         this.p2Hold = EnumSet.noneOf(InputAction.class);
-        parseHold(System.getProperty("phantom.screenshot.hold"));
+        // hold は撮影モード（path 指定）時のみ解釈する。通常起動に hold だけ残っていても
+        // プレイヤー入力を固定しない（撮影無効時は常に空集合）。
+        if (isEnabled()) {
+            parseHold(System.getProperty("phantom.screenshot.hold"));
+        }
     }
 
     /**
