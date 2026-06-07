@@ -1,0 +1,21 @@
+{
+  "id": "fighter001",
+  "name": "Aoi",
+  "hp": 1000,
+  "walkSpeed": 4.0,
+  "jumpPower": 12.0,
+  "width": 100,
+  "height": 240,
+  "normalAttack": {
+    "id": "standing_punch",
+    "command": "ATTACK",
+    "damage": 80,
+    "startup": 8,
+    "active": 6,
+    "recovery": 16,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 120,
+    "hitboxWidth": 90,
+    "hitboxHeight": 40
+  }
+}
