@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.core;
 
 import com.badlogic.gdx.ApplicationAdapter;
+import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.InputAction;
@@ -64,15 +65,28 @@ public class PhantomNexusGame extends ApplicationAdapter {
         screenshot.maybeCapture();
     }
 
-    /** 入力 → 攻撃・移動・ジャンプ → 向き直し → アニメーション進行の 1 フレーム更新。 */
+    /** 入力 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 向き直し → アニメ進行の 1 フレーム更新。 */
     private void update() {
         fighter1.update(moveDir(p1Input), p1Input.isPressed(InputAction.UP), p1Input.isPressed(InputAction.ATTACK));
         fighter2.update(moveDir(p2Input), p2Input.isPressed(InputAction.UP), p2Input.isPressed(InputAction.ATTACK));
+        // 押し合い解消（pushbox の重なりを左右へ分離）。
+        CollisionSystem.resolvePush(fighter1, fighter2);
+        // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
+        // ダメージ適用・のけぞりは Task 13 で本判定結果に接続する。
+        resolveHit(fighter1, fighter2);
+        resolveHit(fighter2, fighter1);
         fighter1.faceTowards(fighter2);
         fighter2.faceTowards(fighter1);
         // 描画状態の更新（移動・向き確定後にファイター状態からアニメ状態を導出して 1 tick 進める）。
         animator1.update(fighter1);
         animator2.update(fighter2);
+    }
+
+    /** attacker の active hitbox が defender に当たり、まだ未命中なら命中確定（ダメージは Task 13）。 */
+    private static void resolveHit(Fighter attacker, Fighter defender) {
+        if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
+            attacker.markAttackConnected();
+        }
     }
 
     /** 暫定の通常攻撃（パンチ）。前方の前面・足元中段に伸びる hitbox（向きで左右反転）。 */
