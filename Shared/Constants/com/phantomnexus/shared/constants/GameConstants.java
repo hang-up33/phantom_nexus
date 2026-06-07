@@ -50,4 +50,7 @@ public final class GameConstants {
 
     /** プレイヤー 2 の初期 X 座標（キャラクターの中心 X）。画面中央から右に配置。 */
     public static final float P2_SPAWN_X = 860f;
+
+    /** 重力加速度（px/frame^2）。ジャンプの落下に毎フレーム適用する（60fps 基準）。 */
+    public static final float GRAVITY = 0.6f;
 }

@@ -12,8 +12,8 @@ import com.phantomnexus.shared.types.Character;
  * Phantom Nexus アプリケーション本体（ゲームループ / ライフサイクル）。
  *
  * <p>Core はライフサイクルと毎フレームの更新順序（入力 → 更新 → 描画）の制御に専念する。
- * Task 7 で 2 体の {@link Fighter} を保持し、{@link PlayerInput} の左右入力で移動させる
- * （P1=WASD / P2=方向キー）。更新後に互いへ向き直し、{@link GameRenderer} へ描画委譲する。
+ * 2 体の {@link Fighter} を保持し、{@link PlayerInput} の左右入力で移動・ジャンプ入力で跳躍させる
+ * （P1=WASD / P2=方向キー、ジャンプは Task 8）。更新後に互いへ向き直し、{@link GameRenderer} へ描画委譲する。
  * サンプルキャラ定義はコード生成の暫定で、Task 16 で JSON 読込供給に差し替える。
  */
 public class PhantomNexusGame extends ApplicationAdapter {
@@ -44,10 +44,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         renderer.renderScene(fighter1, fighter2, controlsHint, statusLine());
     }
 
-    /** 入力 → 移動 → 向き直しの 1 フレーム更新。 */
+    /** 入力 → 移動・ジャンプ → 向き直しの 1 フレーム更新。 */
     private void update() {
-        fighter1.update(moveDir(p1Input));
-        fighter2.update(moveDir(p2Input));
+        fighter1.update(moveDir(p1Input), p1Input.isPressed(InputAction.UP));
+        fighter2.update(moveDir(p2Input), p2Input.isPressed(InputAction.UP));
         fighter1.faceTowards(fighter2);
         fighter2.faceTowards(fighter1);
     }
@@ -64,12 +64,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
         return dir;
     }
 
-    /** 各ファイターの座標と向きを 1 行で返す（移動の動作確認用 HUD）。 */
+    /** 各ファイターの座標・向き・接地状態を 1 行で返す（移動 / ジャンプの動作確認用 HUD）。 */
     private String statusLine() {
         return String.format(
-                "%s x=%.0f %s    %s x=%.0f %s",
-                fighter1.getDef().getName(), fighter1.getX(), facingArrow(fighter1),
-                fighter2.getDef().getName(), fighter2.getX(), facingArrow(fighter2));
+                "%s x=%.0f y=%.0f %s%s    %s x=%.0f y=%.0f %s%s",
+                fighter1.getDef().getName(), fighter1.getX(), fighter1.getY(), facingArrow(fighter1), airTag(fighter1),
+                fighter2.getDef().getName(), fighter2.getX(), fighter2.getY(), facingArrow(fighter2), airTag(fighter2));
+    }
+
+    private static String airTag(Fighter f) {
+        return f.isGrounded() ? "" : " (air)";
     }
 
     private static String facingArrow(Fighter f) {

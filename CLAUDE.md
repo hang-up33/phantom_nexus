@@ -187,6 +187,16 @@ powershell -ExecutionPolicy Bypass -File scripts/capture-app-window.ps1 -WindowT
 
 - `scripts/capture-app-window.ps1` は .NET（`System.Windows.Forms` / `System.Drawing`）でウィンドウ矩形を取得し PNG 保存する。プロセス名 `-ProcessName` でも特定可。
 - 撮影後は Read ツールで内容を確認（黒画面・他ウィンドウ混入が無いか）。
+- **`gradlew run` のバックグラウンド起動は `Start-Process` を使う** — `cmd.exe /c "gradlew.bat run"` を Bash ツール経由で投げると cmd が対話モードで空振りし起動しないことがある。`Start-Process -FilePath "gradlew.bat" -ArgumentList "run" -WorkingDirectory <repo>` で detached 起動し、`Get-Process | Where MainWindowTitle -like '*Phantom Nexus*'` をポーリングして窓が出るまで待つのが確実。
+
+#### 過渡的な状態（ジャンプ等）のスクショ撮影法
+
+ジャンプ・攻撃 startup/active・のけぞり・KO のように **一瞬しか映らない状態**は、`capture-app-window.ps1` の前面化後 600ms 待機では頂点を撮れない（例：ジャンプ滞空は約 `2·jumpPower/GRAVITY` フレーム ≈ 0.67 秒、頂点 ≈ 0.33 秒後）。対処：
+
+1. 対象ウィンドウを `SetForegroundWindow` で前面化（GLFW 窓に入力を届けるため必須）。
+2. `[System.Windows.Forms.SendKeys]::SendWait("w")` などでトリガキーを送出（`isKeyJustPressed` 系の立ち上がり発動はワンショットで足りる）。
+3. **直後から ~80ms 間隔で複数フレームを連写**し、HUD の状態値（例：`y=` の高さ）が目的に最も近いコマを採用。`CopyFromScreen` は数十 ms と速いので頂点付近を捕捉できる。
+4. 連写コマを Read で確認 → 採用コマを `docs/screenshots/<N>-<短い名>.png` に確定し、一時コマは削除する。
 
 ### 撮影手順（macOS — 将来の対応用に残置）
 
