@@ -79,7 +79,7 @@ application {
 tasks.named('run', JavaExec) {
     ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold',
      'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit',
-     'phantom.screenshot.debug', 'phantom.screenshot.script'].each { key ->
+     'phantom.screenshot.debug', 'phantom.screenshot.script', 'phantom.screenshot.ai'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {
             systemProperty key, value
