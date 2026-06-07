@@ -9,9 +9,11 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.Move;
 
 /**
  * バトルシーンの描画担当（Task 6: キャラクター描画 / Task 7: 移動・向き）。
@@ -35,6 +37,9 @@ public class GameRenderer {
     private static final Color HP_FILL_HIGH = new Color(0.30f, 0.82f, 0.40f, 1f);
     private static final Color HP_FILL_MID = new Color(0.95f, 0.80f, 0.25f, 1f);
     private static final Color HP_FILL_LOW = new Color(0.90f, 0.28f, 0.24f, 1f);
+    private static final Color ATK_STARTUP_COLOR = new Color(0.96f, 0.82f, 0.28f, 0.85f);
+    private static final Color ATK_ACTIVE_COLOR = new Color(0.95f, 0.25f, 0.22f, 0.9f);
+    private static final Color ATK_RECOVERY_COLOR = new Color(0.55f, 0.57f, 0.64f, 0.8f);
     private static final float MARKER_SIZE = 18f;
     private static final float PIP_SIZE = 8f;
     private static final float PIP_GAP = 5f;
@@ -174,8 +179,49 @@ public class GameRenderer {
                 : left + 8f;
         shapes.setColor(FACING_COLOR);
         shapes.rect(markerX, markerY, MARKER_SIZE, MARKER_SIZE);
+        // 攻撃中は前方の strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描く。
+        if (f.isAttacking()) {
+            drawAttackStrike(f);
+        }
         // フレームピップ：足元下に総フレーム数だけ並べ、現在フレームを点灯（アニメ進行の証跡）。
         drawFramePips(f, anim);
+    }
+
+    /**
+     * 攻撃の strike 矩形（技の hitbox 位置）を区間色で描く（Task 11 の可視化）。
+     *
+     * <p>hitbox は技定義の「前方の前面・足元」基準の相対座標で、向きに応じて左右反転する。
+     * 実際の当たり判定（hurtbox との重なり）は Task 12、デバッグ枠表示は Task 18 で扱う。
+     */
+    private void drawAttackStrike(Fighter f) {
+        Move m = f.getDef().getNormalAttack();
+        if (m == null) {
+            return;
+        }
+        Character d = f.getDef();
+        float frontX = f.isFacingRight()
+                ? f.getX() + d.getWidth() / 2f
+                : f.getX() - d.getWidth() / 2f;
+        float boxX = f.isFacingRight()
+                ? frontX + m.getHitboxOffsetX()
+                : frontX - m.getHitboxOffsetX() - m.getHitboxWidth();
+        float boxY = f.getY() + m.getHitboxOffsetY();
+        shapes.setColor(attackPhaseColor(f.getAttackPhase()));
+        shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
+    }
+
+    /** 攻撃区間に応じた strike 色（startup=黄 / active=赤 / recovery=灰）。 */
+    private static Color attackPhaseColor(AttackPhase phase) {
+        switch (phase) {
+            case STARTUP:
+                return ATK_STARTUP_COLOR;
+            case ACTIVE:
+                return ATK_ACTIVE_COLOR;
+            case RECOVERY:
+                return ATK_RECOVERY_COLOR;
+            default:
+                return ATK_RECOVERY_COLOR;
+        }
     }
 
     /** 現在のアニメフレームを示すピップ列を矩形の足元下に描く。 */
@@ -191,12 +237,15 @@ public class GameRenderer {
         }
     }
 
-    /** ファイターの名前と現在のアニメ状態 / フレームを矩形の上に表示する。 */
+    /** ファイターの名前と現在の状態（攻撃中は区間、それ以外はアニメ状態 / フレーム）を矩形の上に表示する。 */
     private void drawNameLabel(Fighter f, FighterAnimator anim) {
         float centerX = f.getX();
         float top = f.getY() + f.getDef().getHeight();
         drawCentered(f.getDef().getName(), centerX, top + 30f);
-        drawCentered(anim.getState().label() + " f" + anim.getFrameIndex(), centerX, top + 12f);
+        String stateLabel = f.isAttacking()
+                ? "attack:" + f.getAttackPhase().name().toLowerCase()
+                : anim.getState().label() + " f" + anim.getFrameIndex();
+        drawCentered(stateLabel, centerX, top + 12f);
     }
 
     /** 指定文字列を中心 X（{@code centerX}）・ベースライン Y（{@code y}）に水平センタリングで描く。 */

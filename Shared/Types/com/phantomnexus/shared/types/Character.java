@@ -22,6 +22,8 @@ public class Character {
     private float jumpPower;
     private float width;
     private float height;
+    /** 通常攻撃の技定義（Task 11）。MVP は 1 キャラ 1 技。Task 15/16 で JSON の moves[] から供給。 */
+    private Move normalAttack;
 
     /** JSON デシリアライズ（Task 16）用の無引数コンストラクタ。 */
     public Character() {
@@ -66,5 +68,15 @@ public class Character {
     /** 描画 / 当たり判定に用いる高さ（px）。 */
     public float getHeight() {
         return height;
+    }
+
+    /** 通常攻撃の技定義（未設定なら {@code null}）。 */
+    public Move getNormalAttack() {
+        return normalAttack;
+    }
+
+    /** 通常攻撃の技定義を設定する（Task 11 はコード生成で設定。Task 16 で JSON ローダが設定）。 */
+    public void setNormalAttack(Move normalAttack) {
+        this.normalAttack = normalAttack;
     }
 }
