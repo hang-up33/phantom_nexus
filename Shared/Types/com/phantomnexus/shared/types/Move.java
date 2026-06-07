@@ -28,6 +28,9 @@ public class Move {
     private float hitboxOffsetY;
     private float hitboxWidth;
     private float hitboxHeight;
+    // 必殺技（Task 20）：飛び道具として発射するか・その速度（px/frame, 前方）。通常技は false/0。
+    private boolean projectile;
+    private float projectileSpeed;
 
     /** JSON デシリアライズ（Task 16）用の無引数コンストラクタ。 */
     public Move() {
@@ -90,5 +93,15 @@ public class Move {
 
     public float getHitboxHeight() {
         return hitboxHeight;
+    }
+
+    /** 飛び道具として発射する技か（Task 20: 必殺技ステート）。 */
+    public boolean isProjectile() {
+        return projectile;
+    }
+
+    /** 飛び道具の進行速度（px/frame, 前方）。{@link #isProjectile()} が true のとき有効。 */
+    public float getProjectileSpeed() {
+        return projectileSpeed;
     }
 }

@@ -12,8 +12,11 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
+import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
 import com.phantomnexus.runtime.debug.DebugOverlay;
+
+import java.util.List;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
@@ -49,6 +52,8 @@ public class GameRenderer {
     private static final Color ATK_ACTIVE_COLOR = new Color(0.95f, 0.25f, 0.22f, 0.9f);
     private static final Color ATK_RECOVERY_COLOR = new Color(0.55f, 0.57f, 0.64f, 0.8f);
     private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
+    private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
+    private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
     private static final float MARKER_SIZE = 18f;
     private static final float PIP_SIZE = 8f;
     private static final float PIP_GAP = 5f;
@@ -101,13 +106,15 @@ public class GameRenderer {
      * @param p2           プレイヤー 2 のファイター（赤）
      * @param anim1        プレイヤー 1 のアニメーション状態
      * @param anim2        プレイヤー 2 のアニメーション状態
+     * @param projectiles  飛び道具（必殺技の弾）一覧
      * @param round        ラウンド進行 / 勝敗（タイマー・結果表示）
      * @param debug        デバッグ当たり判定オーバーレイ（有効時に判定枠を重ね描き）
      * @param controlsHint 操作ガイド（HUD）
      * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
-                            RoundManager round, DebugOverlay debug, String controlsHint, String statusLine) {
+                            List<Projectile> projectiles, RoundManager round, DebugOverlay debug,
+                            String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
 
@@ -122,6 +129,8 @@ public class GameRenderer {
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
         drawFighter(p1, anim1, P1_COLOR);
         drawFighter(p2, anim2, P2_COLOR);
+        // 飛び道具（必殺技の弾）。
+        drawProjectiles(projectiles);
         // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
         drawContactMarker(p1, p2);
         drawContactMarker(p2, p1);
@@ -268,8 +277,9 @@ public class GameRenderer {
      * 実際の当たり判定（hurtbox との重なり）は Task 12、デバッグ枠表示は Task 18 で扱う。
      */
     private void drawAttackStrike(Fighter f) {
-        Move m = f.getDef().getNormalAttack();
-        if (m == null) {
+        Move m = f.getCurrentMove();
+        // 飛び道具技は body 付随の strike を描かない（弾そのもので可視化する。Task 20）。
+        if (m == null || m.isProjectile()) {
             return;
         }
         Character d = f.getDef();
@@ -291,6 +301,19 @@ public class GameRenderer {
                 base.g + (1f - base.g) * 0.6f,
                 base.b + (1f - base.b) * 0.6f,
                 1f);
+    }
+
+    /** 飛び道具を外側グロー + 内側コアの二重円で描く（Task 20）。 */
+    private void drawProjectiles(List<Projectile> projectiles) {
+        for (Projectile p : projectiles) {
+            float cx = p.getX();
+            float cy = p.getY() + p.getHeight() / 2f;
+            float r = Math.min(p.getWidth(), p.getHeight()) / 2f;
+            shapes.setColor(PROJECTILE_GLOW);
+            shapes.circle(cx, cy, r);
+            shapes.setColor(PROJECTILE_CORE);
+            shapes.circle(cx, cy, r * 0.55f);
+        }
     }
 
     /** active hitbox が相手 hurtbox に重なるフレームに、接触位置へ白い火花マーカーを描く（Task 12）。 */
@@ -342,7 +365,7 @@ public class GameRenderer {
         if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
-            stateLabel = "attack:" + f.getAttackPhase().name().toLowerCase();
+            stateLabel = (f.isSpecialActive() ? "special:" : "attack:") + f.getAttackPhase().name().toLowerCase();
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
         }

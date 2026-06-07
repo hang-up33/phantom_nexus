@@ -73,6 +73,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
 | `normalAttack` | object | ✅ | 通常攻撃 1 技（下記 Move）。MVP は 1 キャラ 1 技 |
+| `specialMove` | object | 任意 | 必殺技 1 技（下記 Move ＋ projectile 系）。波動拳で発動（Task 20） |
 
 > `animations`（スプライト）・複数 `moves[]` は MVP 後の拡張（スプライト導入 / コマンド技 Task 19）。前方互換のため未知フィールドはロード時に無視する。
 
@@ -90,8 +91,10 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `hitboxOffsetY` | float | ✅ | hitbox の足元からの高さ（px） |
 | `hitboxWidth` | float | ✅ | hitbox の横幅（px） |
 | `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
+| `projectile` | bool | 任意 | 飛び道具として発射するか（必殺技用, Task 20。既定 false） |
+| `projectileSpeed` | float | 任意* | 飛び道具の速度（px/frame）。`projectile=true` なら必須 |
 
-> hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
+> hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。飛び道具技は hitbox 寸法を弾サイズとして使い、body 付随判定は持たない（ダメージは弾が運ぶ）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
 
 ---
 
@@ -138,3 +141,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 16) `Shared/Schema/CharacterLoader`（LibGDX `Json`・未知フィールド無視）と `SchemaException`（原因ファイル/フィールド明示）を新設。Core はコード生成をやめ `CharacterLoader.load(id)` から供給。必須欠落・非正値・total フレーム 0 などを検証。
 - (Task 17) `Shared/Types/Stage` と `Shared/Schema/StageLoader` を新設。`Assets/Stages/stage001.json` を追加し、背景（空グラデ + 地面色）を JSON 駆動で描画。色は RGB float[3]（0..1）。
 - (Task 19) コマンド入力検出を `GameRuntime/Input`（`InputHistory`/`CommandDetector`/`Command`）に実装（波動拳=236+A・溜め・下+A）。MVP はコマンド定義をコード側に持つ（`Commands` の JSON 化は将来）。撮影用にタイムド入力スクリプト（`phantom.screenshot.script`）を追加。
+- (Task 20) `Move` に `projectile`/`projectileSpeed`、`Character` に `specialMove` を追加。fighter JSON に必殺技（fireball, 飛び道具）を追加。`CharacterLoader` は specialMove を任意検証。
