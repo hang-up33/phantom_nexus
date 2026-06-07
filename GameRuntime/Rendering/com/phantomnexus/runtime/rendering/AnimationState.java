@@ -20,7 +20,9 @@ public enum AnimationState {
     /** 歩行。左右移動中の小刻みなループ。 */
     WALK(4, 6, true),
     /** 空中（ジャンプ / 落下）。滞空中の単一ポーズ（位置自体は物理で変化する）。 */
-    JUMP(1, 1, false);
+    JUMP(1, 1, false),
+    /** 攻撃。区間（startup/active/recovery）の進行は {@code Fighter.attackPhase} 側が持つ単一状態。 */
+    ATTACK(1, 1, false);
 
     private final int frameCount;
     private final int ticksPerFrame;
