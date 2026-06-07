@@ -8,7 +8,8 @@
 - 配置：キャラは `Assets/Characters/<id>.json`、ステージは `Assets/Stages/<id>.json`
 - 座標系・単位：別途 `Shared/Constants` に定義（ピクセル / フレーム[60fps 基準]）
 
-> 本書は **Phase 4（Task 15: キャラクター JSON 定義）で正式版に更新**する。以下は第一設計書の例に基づくドラフト。
+> **Task 15 で MVP 正式版を確定**（以下）。実体は `Shared/Types`（POJO）と `Assets/Characters/<id>.json`。
+> 概念上の全体像（下記「トップレベル構造」）は将来像で、MVP は 1 キャラ = 1 JSON に必要要素を内包する。
 
 ---
 
@@ -31,38 +32,36 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 ---
 
-## Character（第一設計書の例 / MVP ドラフト）
+## Character（MVP 正式版・Task 15）
+
+1 キャラ = 1 JSON ファイル（`Assets/Characters/<id>.json`、UTF-8）。LibGDX `Json` が POJO（`Shared/Types/Character`）へ
+フィールド名一致でデシリアライズする（Task 16）。実サンプルは `Assets/Characters/fighter001.json` / `fighter002.json`。
 
 ```json
 {
-  "character": {
-    "id": "fighter001",
-    "name": "Sample Fighter",
-    "hp": 1000,
-    "walkSpeed": 4.0,
-    "jumpPower": 12.0,
-    "width": 100,
-    "height": 240,
-    "animations": {
-      "idle": "idle.png",
-      "walk": "walk.png",
-      "punch": "punch.png"
-    },
-    "moves": [
-      {
-        "id": "standing_punch",
-        "command": "A",
-        "damage": 50,
-        "startup": 4,
-        "active": 3,
-        "recovery": 10
-      }
-    ]
+  "id": "fighter001",
+  "name": "Aoi",
+  "hp": 1000,
+  "walkSpeed": 4.0,
+  "jumpPower": 12.0,
+  "width": 100,
+  "height": 240,
+  "normalAttack": {
+    "id": "standing_punch",
+    "command": "ATTACK",
+    "damage": 80,
+    "startup": 8,
+    "active": 6,
+    "recovery": 16,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 120,
+    "hitboxWidth": 90,
+    "hitboxHeight": 40
   }
 }
 ```
 
-### フィールド（MVP 想定 / Task 15 で確定）
+### フィールド
 
 | フィールド | 型 | 必須 | 意味 |
 |---|---|---|---|
@@ -70,20 +69,21 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `name` | string | ✅ | 表示名 |
 | `hp` | int | ✅ | 最大 HP |
 | `walkSpeed` | float | ✅ | 歩行速度（px/frame） |
-| `jumpPower` | float | ✅ | ジャンプ初速 |
+| `jumpPower` | float | ✅ | ジャンプ初速（px/frame, 上向き正） |
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
-| `animations` | object | ✅ | ステート名 → スプライト（`Assets/Characters/` 相対） |
-| `moves[]` | array | ✅ | 技定義（下記） |
+| `normalAttack` | object | ✅ | 通常攻撃 1 技（下記 Move）。MVP は 1 キャラ 1 技 |
 
-### Move
+> `animations`（スプライト）・複数 `moves[]` は MVP 後の拡張（スプライト導入 / コマンド技 Task 19）。前方互換のため未知フィールドはロード時に無視する。
+
+### Move（`normalAttack`）
 
 | フィールド | 型 | 必須 | 意味 |
 |---|---|---|---|
 | `id` | string | ✅ | 技 ID |
-| `command` | string | ✅ | 発生コマンド（MVP は単キー。Task 19 で波動拳等に拡張） |
+| `command` | string | ✅ | 発生コマンド（MVP は単キー名。Task 19 で波動拳等に拡張） |
 | `damage` | int | ✅ | ダメージ |
-| `startup` | int | ✅ | 発生フレーム |
+| `startup` | int | ✅ | 発生フレーム（攻撃判定が出るまで） |
 | `active` | int | ✅ | 攻撃判定の持続フレーム |
 | `recovery` | int | ✅ | 硬直フレーム |
 | `hitboxOffsetX` | float | ✅ | hitbox の前方オフセット（キャラ前面からの距離, px） |
@@ -91,7 +91,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `hitboxWidth` | float | ✅ | hitbox の横幅（px） |
 | `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
 
-> hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`、Task 11 で型定義・Task 12 で当たり判定に使用）。hurtbox はキャラ矩形（`width`/`height`）を MVP の食らい判定とする（Task 12）。
+> hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
 
 ---
 
@@ -107,3 +107,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 11) `Shared/Types/Move` POJO を新設（id/command/damage/startup/active/recovery + hitbox 矩形）。`Character` に `normalAttack`（通常攻撃 1 技）を追加。MVP はコード生成で供給し、Task 15/16 で JSON の moves[] から供給する。
 - (Task 12) `Shared/Types` に `Hitbox`/`Hurtbox`/`PushBox`（ワールド座標 AABB）を新設（当たり判定の実行時矩形）。
 - (Task 14) `Shared/Types/BattleRules` POJO を新設（timeLimitSeconds / rounds）。MVP はコード生成、将来 JSON 化。
+- (Task 15) Character JSON の MVP 正式版を確定（flat な Character + `normalAttack` オブジェクト）。`Assets/Characters/fighter001.json`・`fighter002.json` を追加。読み込みは Task 16。
