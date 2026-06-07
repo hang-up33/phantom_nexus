@@ -4,7 +4,9 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 1 プレイヤー分のキーボード入力抽象（Task 5: 入力処理作成）。
@@ -17,6 +19,10 @@ import java.util.Map;
 public class PlayerInput {
 
     private final Map<InputAction, Integer> bindings;
+    /** 強制押下中のアクション（ヘッドレススクショの過渡状態撮影用。通常は空）。 */
+    private EnumSet<InputAction> forcedHold = EnumSet.noneOf(InputAction.class);
+    /** 強制押下の「押された瞬間」を 1 回だけ供給するための未消費エッジ集合。 */
+    private final EnumSet<InputAction> forcedEdgePending = EnumSet.noneOf(InputAction.class);
 
     public PlayerInput(Map<InputAction, Integer> bindings) {
         // enum 型を明示して空 Map（設定ロード前・未割当状態）でも初期化できるようにする。
@@ -47,14 +53,35 @@ public class PlayerInput {
         return new PlayerInput(b);
     }
 
+    /**
+     * 過渡状態スクショ用に、起動時からアクションを「押下状態」に固定する（テスト/撮影専用）。
+     *
+     * <p>{@link #isDown} は対象アクションを常時 true にし、{@link #isPressed}（立ち上がり）は
+     * 最初の 1 回だけ true を返す（ジャンプ/攻撃を一度だけ発動させる）。通常プレイでは呼ばれない。
+     */
+    public void setForcedHold(Set<InputAction> actions) {
+        forcedHold = (actions == null || actions.isEmpty())
+                ? EnumSet.noneOf(InputAction.class)
+                : EnumSet.copyOf(actions);
+        forcedEdgePending.clear();
+        forcedEdgePending.addAll(forcedHold);
+    }
+
     /** 当該フレームでアクションのキーが押下中か（押しっぱなし検出。移動 / しゃがみ向け）。 */
     public boolean isDown(InputAction action) {
+        if (forcedHold.contains(action)) {
+            return true;
+        }
         Integer key = bindings.get(action);
         return key != null && Gdx.input.isKeyPressed(key);
     }
 
     /** 当該フレームでアクションのキーが押された瞬間か（立ち上がりエッジ検出。ジャンプ / 攻撃向け）。 */
     public boolean isPressed(InputAction action) {
+        if (forcedHold.contains(action)) {
+            // 強制押下：最初の呼び出しだけ立ち上がりとして消費し、以降は false（押しっぱなし扱い）。
+            return forcedEdgePending.remove(action);
+        }
         Integer key = bindings.get(action);
         return key != null && Gdx.input.isKeyJustPressed(key);
     }

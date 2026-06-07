@@ -2,6 +2,7 @@ package com.phantomnexus.runtime.core;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.phantomnexus.runtime.battle.Fighter;
+import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.runtime.rendering.GameRenderer;
@@ -24,12 +25,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private Fighter fighter1;
     private Fighter fighter2;
     private String controlsHint;
+    private ScreenshotController screenshot;
 
     @Override
     public void create() {
         renderer = new GameRenderer();
+        // ヘッドレス自動スクショ（phantom.screenshot.* 指定時のみ有効。通常起動には無影響）。
+        screenshot = new ScreenshotController();
         p1Input = PlayerInput.player1Defaults();
         p2Input = PlayerInput.player2Defaults();
+        // 過渡状態の撮影用に、指定があれば起動時から入力を押下状態に固定する（通常は空＝無影響）。
+        p1Input.setForcedHold(screenshot.heldActions(1));
+        p2Input.setForcedHold(screenshot.heldActions(2));
         // 暫定のサンプルキャラクター定義（Task 16 で JSON 読込に差し替え）。
         Character aoi = new Character("fighter001", "Aoi", 1000, 4.0f, 12.0f, 100f, 240f);
         Character akane = new Character("fighter002", "Akane", 1000, 4.0f, 12.0f, 100f, 240f);
@@ -42,6 +49,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     public void render() {
         update();
         renderer.renderScene(fighter1, fighter2, controlsHint, statusLine());
+        // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
+        screenshot.maybeCapture();
     }
 
     /** 入力 → 移動・ジャンプ → 向き直しの 1 フレーム更新。 */
