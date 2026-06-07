@@ -24,6 +24,7 @@ public class Fighter {
     private int currentHp;    // 現在 HP（Task 10: 初期値は def.hp。減算は Task 13 のダメージ処理）
     private AttackPhase attackPhase = AttackPhase.NONE; // 攻撃区間（Task 11）
     private int attackFrame;   // 現在の攻撃に入ってからの経過フレーム
+    private boolean attackConnected; // 現在の攻撃が既に命中済みか（多段ヒット防止。Task 12/13）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -49,6 +50,7 @@ public class Fighter {
         if (attackPhase == AttackPhase.NONE && attackPressed && grounded && def.getNormalAttack() != null) {
             attackPhase = AttackPhase.STARTUP;
             attackFrame = 0;
+            attackConnected = false; // 新しい攻撃ごとに命中済みフラグをリセット
         }
 
         if (attackPhase != AttackPhase.NONE) {
@@ -105,6 +107,12 @@ public class Fighter {
         } else if (x > GameConstants.WORLD_WIDTH - half) {
             x = GameConstants.WORLD_WIDTH - half;
         }
+    }
+
+    /** 押し合い解消などで中心 X を移動させ、画面端にクランプする（Task 12 の衝突処理から呼ぶ）。 */
+    public void nudgeX(float dx) {
+        x += dx;
+        clampToStage();
     }
 
     /** 相手の位置に応じて向きを更新する（相手側を向く。同 X のときは右向き維持）。 */
@@ -198,5 +206,15 @@ public class Fighter {
     /** 現在の攻撃に入ってからの経過フレーム（攻撃可視化 / デバッグ用）。 */
     public int getAttackFrame() {
         return attackFrame;
+    }
+
+    /** 現在の攻撃が既に相手へ命中済みか（多段ヒット防止フラグ）。 */
+    public boolean hasAttackConnected() {
+        return attackConnected;
+    }
+
+    /** 現在の攻撃を命中済みにする（同一 active 区間での再ヒットを防ぐ。Task 12/13）。 */
+    public void markAttackConnected() {
+        attackConnected = true;
     }
 }

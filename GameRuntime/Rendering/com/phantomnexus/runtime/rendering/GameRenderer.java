@@ -10,9 +10,11 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.phantomnexus.runtime.battle.AttackPhase;
+import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 
 /**
@@ -40,6 +42,7 @@ public class GameRenderer {
     private static final Color ATK_STARTUP_COLOR = new Color(0.96f, 0.82f, 0.28f, 0.85f);
     private static final Color ATK_ACTIVE_COLOR = new Color(0.95f, 0.25f, 0.22f, 0.9f);
     private static final Color ATK_RECOVERY_COLOR = new Color(0.55f, 0.57f, 0.64f, 0.8f);
+    private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
     private static final float MARKER_SIZE = 18f;
     private static final float PIP_SIZE = 8f;
     private static final float PIP_GAP = 5f;
@@ -90,6 +93,9 @@ public class GameRenderer {
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
         drawFighter(p1, anim1, P1_COLOR);
         drawFighter(p2, anim2, P2_COLOR);
+        // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
+        drawContactMarker(p1, p2);
+        drawContactMarker(p2, p1);
         // HP ゲージ（HUD 上端）。P1 は左から、P2 は右から減る方向に塗る。
         drawHpBar(p1, true);
         drawHpBar(p2, false);
@@ -208,6 +214,19 @@ public class GameRenderer {
         float boxY = f.getY() + m.getHitboxOffsetY();
         shapes.setColor(attackPhaseColor(f.getAttackPhase()));
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
+    }
+
+    /** active hitbox が相手 hurtbox に重なるフレームに、接触位置へ白い火花マーカーを描く（Task 12）。 */
+    private void drawContactMarker(Fighter attacker, Fighter defender) {
+        if (!CollisionSystem.isHitting(attacker, defender)) {
+            return;
+        }
+        Hitbox hb = CollisionSystem.activeHitbox(attacker);
+        float cx = hb.getX() + hb.getWidth() / 2f;
+        float cy = hb.getY() + hb.getHeight() / 2f;
+        float s = 28f;
+        shapes.setColor(CONTACT_COLOR);
+        shapes.rect(cx - s / 2f, cy - s / 2f, s, s);
     }
 
     /** 攻撃区間に応じた strike 色（startup=黄 / active=赤 / recovery=灰）。 */
