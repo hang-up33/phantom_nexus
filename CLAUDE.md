@@ -58,7 +58,7 @@
 
 ### Gradle 配置に関する重要な前提（設計書フォルダ厳守の唯一の譲歩）
 
-すべてのソース/アセット/ドキュメントは設計書フォルダに収める。ビルドの**実体ロジックは `Infra/Build/`** に置く。ただし Gradle ラッパー（`gradlew`・`gradlew.bat`・`gradle/wrapper/`）と**最小のシム `settings.gradle` / `build.gradle`** は、Gradle と IDE が root を認識するために root 配置が必須なため root に置き、実体は `apply from: 'Infra/Build/build.gradle'` で委譲する。これがフォルダ構成厳守に対する唯一の物理的譲歩。**この 3 点以外を root に増やさない。**
+すべてのソース/アセット/ドキュメントは設計書フォルダに収める。ビルドの**実体ロジックは `Infra/Build/`** に置く。ただし Gradle ラッパー（`gradlew`・`gradlew.bat`・`gradle/wrapper/`）と**最小のシム `settings.gradle` / `build.gradle`** は、Gradle と IDE が root を認識するために root 配置が必須なため root に置き、実体は `apply from: 'Infra/Build/build.gradle'` で委譲する。これがフォルダ構成厳守に対する唯一の物理的譲歩。**この 3 点に加えて、リポジトリ運用上の VCS メタデータ（`.gitignore` / `.gitattributes`）のみ root 配置を許可する**（ソース/アセット/ビルド設定の実体ではなく、既存の `.github/` / `.claude/` と同カテゴリのメタ情報のため）。**それ以外（ソース/アセット/ビルドロジック等の実体）は root に増やさない。** なお `.gitignore` の `build/` は Windows の casing で `Infra/Build/` を巻き込まないよう `/build/` とルート固定し、`.gitattributes` は wrapper の改行（`gradlew`=LF / `*.bat`=CRLF / `*.jar`=binary）を固定する。
 
 ---
 
@@ -150,7 +150,7 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 ### Must Never
 
 - 複数のタスクを 1 回で実装する。
-- フォルダ構成を勝手に変更する（root に許可済みの shim/wrapper 3 点以外を増やさない）。
+- フォルダ構成を勝手に変更する（root に増やしてよいのは wrapper / シム 3 点 ＋ VCS メタデータ `.gitignore` / `.gitattributes` のみ。ソース/アセット/ビルドロジックの実体は設計書フォルダに収める）。
 - 既存コードを理由なく削除する。
 - 設計書未承認のフレームワーク / ライブラリを独断で追加する（JSON は LibGDX 組込みを使い追加依存を作らない。YAML 等が必要になったら相談）。
 - MUGEN の名称・仕様・素材をそのままコピーする。
