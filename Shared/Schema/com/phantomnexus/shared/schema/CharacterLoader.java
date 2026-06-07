@@ -81,6 +81,27 @@ public final class CharacterLoader {
         }
         requirePositive(atk.getHitboxWidth(), "normalAttack.hitboxWidth", src);
         requirePositive(atk.getHitboxHeight(), "normalAttack.hitboxHeight", src);
+        validateSpecial(c.getSpecialMove(), src);
+    }
+
+    /** 必殺技は任意（null 可）。設定されていればフレーム・hitbox・飛び道具速度を検証する。 */
+    private static void validateSpecial(Move sp, String src) {
+        if (sp == null) {
+            return;
+        }
+        requireText(sp.getId(), "specialMove.id", src);
+        requireNonNegative(sp.getDamage(), "specialMove.damage", src);
+        requireNonNegative(sp.getStartup(), "specialMove.startup", src);
+        requireNonNegative(sp.getActive(), "specialMove.active", src);
+        requireNonNegative(sp.getRecovery(), "specialMove.recovery", src);
+        if (sp.getTotalFrames() <= 0) {
+            throw new SchemaException("specialMove の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(sp.getHitboxWidth(), "specialMove.hitboxWidth", src);
+        requirePositive(sp.getHitboxHeight(), "specialMove.hitboxHeight", src);
+        if (sp.isProjectile()) {
+            requirePositive(sp.getProjectileSpeed(), "specialMove.projectileSpeed", src);
+        }
     }
 
     private static void requireText(String value, String field, String src) {

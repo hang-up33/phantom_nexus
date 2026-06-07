@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
+import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
 import com.phantomnexus.runtime.debug.DebugOverlay;
 import com.phantomnexus.runtime.debug.ScreenshotController;
@@ -21,7 +22,12 @@ import com.phantomnexus.shared.schema.StageLoader;
 import com.phantomnexus.shared.types.BattleRules;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
+import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Phantom Nexus アプリケーション本体（ゲームループ / ライフサイクル）。
@@ -48,6 +54,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private Command lastCommand2 = Command.NONE;
     private int commandTimer1;
     private int commandTimer2;
+    private final List<Projectile> projectiles = new ArrayList<>();
     private String controlsHint;
     private ScreenshotController screenshot;
 
@@ -94,7 +101,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             debugOverlay.toggle();
         }
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, round, debugOverlay,
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, round, debugOverlay,
                 controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
@@ -119,6 +126,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
         resolveHit(fighter1, fighter2);
         resolveHit(fighter2, fighter1);
+        // 飛び道具（必殺技）の更新と命中処理（Task 20）。
+        updateProjectiles();
         // 勝敗判定（KO / タイムアップ）。決着したら次フレーム以降は凍結される。
         round.update(fighter1, fighter2);
         fighter1.faceTowards(fighter2);
@@ -151,7 +160,46 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 commandTimer1 = COMMAND_DISPLAY_FRAMES;
             }
         }
+        // 必殺技（Task 20）：波動拳成立かつ行動可能なら必殺技を発動し、飛び道具を発射。通常攻撃は抑止。
+        if (cmd == Command.HADOUKEN && f.startSpecial()) {
+            spawnProjectile(f);
+            attack = false;
+        }
         f.update(dir, jump, attack);
+    }
+
+    /** 必殺技（飛び道具）の弾を発射者の前方に生成する（Task 20）。 */
+    private void spawnProjectile(Fighter f) {
+        Move sp = f.getDef().getSpecialMove();
+        if (sp == null || !sp.isProjectile()) {
+            return;
+        }
+        Character d = f.getDef();
+        float front = f.isFacingRight() ? f.getX() + d.getWidth() / 2f : f.getX() - d.getWidth() / 2f;
+        float spawnX = f.isFacingRight()
+                ? front + sp.getHitboxOffsetX() + sp.getHitboxWidth() / 2f
+                : front - sp.getHitboxOffsetX() - sp.getHitboxWidth() / 2f;
+        float spawnY = f.getY() + sp.getHitboxOffsetY();
+        float vx = (f.isFacingRight() ? 1f : -1f) * sp.getProjectileSpeed();
+        projectiles.add(new Projectile(spawnX, spawnY, vx, sp.getHitboxWidth(), sp.getHitboxHeight(),
+                sp.getDamage(), f));
+    }
+
+    /** 飛び道具を 1 フレーム進め、相手命中で被弾適用、命中 / 画面外で消滅させる（Task 20）。 */
+    private void updateProjectiles() {
+        for (Iterator<Projectile> it = projectiles.iterator(); it.hasNext(); ) {
+            Projectile p = it.next();
+            p.update();
+            Fighter target = p.getOwner() == fighter1 ? fighter2 : fighter1;
+            if (p.isAlive() && CollisionSystem.hits(p, target)) {
+                int knockbackDir = target.getX() >= p.getX() ? 1 : -1;
+                target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+                p.kill();
+            }
+            if (!p.isAlive()) {
+                it.remove();
+            }
+        }
     }
 
     /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13）。 */
