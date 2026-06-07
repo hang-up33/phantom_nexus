@@ -20,12 +20,14 @@ public class Fighter {
     private boolean grounded = true;
     private boolean facingRight;
     private int moveDir;      // 直近フレームに適用した左右移動方向（-1/0/+1）。アニメ状態導出に使用
+    private int currentHp;    // 現在 HP（Task 10: 初期値は def.hp。減算は Task 13 のダメージ処理）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
         this.x = spawnX;
         this.y = GameConstants.GROUND_Y;
         this.facingRight = facingRight;
+        this.currentHp = def.getHp();
     }
 
     /**
@@ -106,5 +108,38 @@ public class Fighter {
     /** 接地中に左右入力で移動しているか（アニメーションの walk 状態導出に使用）。 */
     public boolean isWalking() {
         return grounded && moveDir != 0;
+    }
+
+    /** 現在 HP。 */
+    public int getCurrentHp() {
+        return currentHp;
+    }
+
+    /** 最大 HP（キャラ定義の {@code hp}）。HP ゲージの割合算出に使用。 */
+    public int getMaxHp() {
+        return def.getHp();
+    }
+
+    /** 現在 HP の割合（0.0〜1.0）。HP ゲージの描画に使用。 */
+    public float getHpRatio() {
+        int max = def.getHp();
+        return max > 0 ? Math.max(0f, Math.min(1f, currentHp / (float) max)) : 0f;
+    }
+
+    /**
+     * ダメージを適用し HP を減算する（0 未満にはしない）。Task 13 のダメージ処理から呼ぶ。
+     *
+     * @param amount 減算量（負値は無視）
+     */
+    public void applyDamage(int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        currentHp = Math.max(0, currentHp - amount);
+    }
+
+    /** HP が 0 か（KO 判定。Task 14 の勝敗判定に使用）。 */
+    public boolean isKO() {
+        return currentHp <= 0;
     }
 }
