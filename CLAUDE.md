@@ -209,6 +209,21 @@ kill %1
 
 - `scripts/capture-app-window.sh` は Swift + `screencapture`。macOS の画面収録権限が必要。**Windows では動作しないため `.ps1` を使う。**
 
+### 撮影手順（ヘッドレス Linux ＝ Claude Code on the web / CI）
+
+ウィンドウシステムの無いリモート環境では、外部キャプチャの代わりに **アプリ内スクショモード** を使う。
+
+```sh
+# Xvfb 起動・ソフトウェア GL 設定・アプリ起動・PNG 書き出し・終了まで一括
+scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png -f 90
+```
+
+- 仕組み：`Xvfb`（仮想ディスプレイ）＋ Mesa `swrast`/`llvmpipe`（`LIBGL_ALWAYS_SOFTWARE=1` / `GALLIUM_DRIVER=llvmpipe` / `MESA_GL_VERSION_OVERRIDE=3.3`）で GLFW 窓を作り、`-Dphantom.screenshot.path=...` `-Dphantom.screenshot.frame=...` を渡して起動する。`ScreenshotController`（`GameRuntime/Debug`）が指定フレームで `ScreenUtils.getFrameBufferPixmap` → `PixmapIO.writePNG(...,flipY=true)` し、`Gdx.app.exit()` で自動終了する。
+- **apt 追加は不要**（基盤イメージに Xvfb / Mesa 同梱。万一 Xvfb が無い場合のみ SessionStart フックがベストエフォートで導入）。
+- 過渡状態（ジャンプ頂点・攻撃 active 等）は `-f` の値を変えて狙う（既定 90 ≒ 1.5 秒@60fps の静止）。`-W`/`-H` で仮想解像度も変更可。
+- 撮影後は **必ず Read ツールで PNG を目視**（黒画面・崩れが無いか）。ALSA の `cannot find card` 警告は音源無しによる無害ログ。
+- 注意：対話的に動かす確認はローカル Windows が確実。web は静止画前提。
+
 ### ファイル配置と PR への埋め込み
 
 - 出力先：`docs/screenshots/<N>-<短い名>.png`（branch 名と揃える）
@@ -236,4 +251,6 @@ kill %1
 
 ### Claude Code on the web 利用可否
 
-- リモート実行環境では **GUI 起動（`./gradlew run`）とスクリーンショット撮影は不可**（ウィンドウシステムが無いため）。`./gradlew build` / `./gradlew test`（ヘッドレス）までは可能な想定。**GUI 動作確認とスクショは必ずローカル Windows で実施する。**
+- `./gradlew build` / `./gradlew test`（ヘッドレス）は web リモート環境で実行可能。セッション開始時に `.claude/hooks/session-start.sh`（SessionStart フック）が依存と JDK17 toolchain をウォームアップする。
+- **GUI 起動とスクショも web で可能になった**（旧「不可」を撤回）。リモート Linux はウィンドウシステムが無いが、**Xvfb（仮想ディスプレイ）＋ Mesa ソフトウェア GL（`swrast`/`llvmpipe`）** の上で LWJGL3/GLFW を動かし、**アプリ自身がフレームバッファを PNG に書き出して自動終了**する方式で撮影する（`scripts/capture-app-screenshot-linux.sh` + `GameRuntime/Debug/.../ScreenshotController.java`）。実画面どおりの絵が得られるため、Codex/人間レビュー用の証跡を web セッションだけで完結できる。
+- ただし **対話的なプレイ確認（キーを押して動かす）はローカル Windows の方が確実**。web のスクショは「指定フレームでの静止画」前提。過渡状態（ジャンプ頂点・攻撃 active 等）は `-f <フレーム番号>` で撮るタイミングを合わせる。
