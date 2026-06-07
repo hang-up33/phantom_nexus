@@ -6,12 +6,20 @@ import com.badlogic.gdx.utils.Json;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * キャラクター JSON のローダ（Task 16 / Task 24）。**データ I/O の単一の真実**（{@code Shared/Schema}）。
  *
  * <p>{@code Assets/Characters/<id>.json} を LibGDX 組込みの {@link Json}（追加ライブラリ無し）で
  * {@link Character} POJO へデシリアライズし、必須フィールドを検証する。Task 24 で技定義を
  * {@code normalMoves[]} / {@code specialMoves[]} の配列形式に拡張した。
+ *
+ * <p>旧形式（Task 24 以前）の JSON（{@code normalAttack} / {@code specialMove} 単体フィールド）は
+ * {@link #migrateIfLegacy(Character)} で配列形式へ自動移行する（後方互換）。
  *
  * <p>{@code GameRuntime} / {@code Battle} は本ローダ経由でのみデータを取得し、直接 JSON を読まない
  * （CLAUDE.md「データモデルの単一の真実」）。
@@ -23,6 +31,18 @@ public final class CharacterLoader {
     }
 
     private static final String BASE_PATH = "Characters/";
+
+    /** 通常技の許可ボタン種別（大文字小文字正規化後に照合）。 */
+    private static final Set<String> VALID_BUTTONS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList("light", "medium", "heavy")));
+
+    /**
+     * 有効な必殺技コマンド名（{@code Command.name()} と一致する文字列）。
+     * {@code Shared} から {@code GameRuntime/Input.Command} への依存を避け、ここに列挙する。
+     * 新コマンドを {@code Command} enum に追加したら本セットも同時に更新すること。
+     */
+    private static final Set<String> VALID_COMMANDS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
 
     /**
      * 指定 ID のキャラクターを {@code Characters/<id>.json} から読み込み、検証して返す。
@@ -48,9 +68,45 @@ public final class CharacterLoader {
         if (character == null) {
             throw new SchemaException("キャラ JSON が空です: " + path);
         }
+        // 旧形式（normalAttack / specialMove）を新形式配列へ移行してから検証する（後方互換）。
+        migrateIfLegacy(character, path);
         validate(character, path);
         Gdx.app.log("CharacterLoader", "読み込み成功: " + path + " (" + character.getName() + ")");
         return character;
+    }
+
+    /**
+     * Task 24 以前の旧形式 JSON（{@code normalAttack} / {@code specialMove} 単体フィールド）を
+     * 新形式の配列（{@code normalMoves[]} / {@code specialMoves[]}）へ自動移行する。
+     *
+     * <ul>
+     *   <li>{@code normalMoves} が未設定かつ旧 {@code normalAttack} が存在する場合：
+     *       {@code normalAttack} の {@code button} を {@code "light"} に設定し、
+     *       {@code normalMoves[0]} として配列を生成する。</li>
+     *   <li>{@code specialMoves} が未設定かつ旧 {@code specialMove} が存在する場合：
+     *       {@code specialMoves[0]} として配列を生成する（{@code command} はそのまま維持）。</li>
+     * </ul>
+     */
+    private static void migrateIfLegacy(Character c, String src) {
+        boolean needsMigration = false;
+        // normalAttack → normalMoves[0] (button="light") への移行
+        if ((c.getNormalMoves() == null || c.getNormalMoves().length == 0) && c.legacyNormalAttack() != null) {
+            Move legacy = c.legacyNormalAttack();
+            // 旧形式は button フィールドを持たないため "light" をデフォルト値として注入する。
+            if (legacy.getButton() == null || legacy.getButton().isEmpty()) {
+                legacy.setButton("light");
+            }
+            c.setNormalMoves(new Move[]{legacy});
+            needsMigration = true;
+        }
+        // specialMove → specialMoves[0] への移行
+        if ((c.getSpecialMoves() == null || c.getSpecialMoves().length == 0) && c.legacySpecialMove() != null) {
+            c.setSpecialMoves(new Move[]{c.legacySpecialMove()});
+            needsMigration = true;
+        }
+        if (needsMigration) {
+            Gdx.app.log("CharacterLoader", "旧形式 JSON を新形式配列へ自動移行しました: " + src);
+        }
     }
 
     /** 必須フィールド・値域を検証する。 */
@@ -80,13 +136,13 @@ public final class CharacterLoader {
         }
     }
 
-    /** 通常技の検証（button 必須）。 */
+    /** 通常技の検証（button は "light"/"medium"/"heavy" に限定）。 */
     private static void validateNormalMove(Move m, String field, String src) {
         if (m == null) {
             throw new SchemaException(field + " が null (" + src + ")");
         }
         requireText(m.getId(), field + ".id", src);
-        requireText(m.getButton(), field + ".button", src);
+        requireValidButton(m.getButton(), field + ".button", src);
         requireNonNegative(m.getDamage(), field + ".damage", src);
         requireNonNegative(m.getStartup(), field + ".startup", src);
         requireNonNegative(m.getActive(), field + ".active", src);
@@ -98,13 +154,13 @@ public final class CharacterLoader {
         requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
     }
 
-    /** 必殺技の検証（command 必須・飛び道具時は projectileSpeed 必須）。 */
+    /** 必殺技の検証（command は実装済みコマンド名に限定・飛び道具時は projectileSpeed 必須）。 */
     private static void validateSpecialMove(Move m, String field, String src) {
         if (m == null) {
             throw new SchemaException(field + " が null (" + src + ")");
         }
         requireText(m.getId(), field + ".id", src);
-        requireText(m.getCommand(), field + ".command", src);
+        requireValidCommand(m.getCommand(), field + ".command", src);
         requireNonNegative(m.getDamage(), field + ".damage", src);
         requireNonNegative(m.getStartup(), field + ".startup", src);
         requireNonNegative(m.getActive(), field + ".active", src);
@@ -116,6 +172,29 @@ public final class CharacterLoader {
         requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
         if (m.isProjectile()) {
             requirePositive(m.getProjectileSpeed(), field + ".projectileSpeed", src);
+        }
+    }
+
+    /** ボタン種別が許可値（"light"/"medium"/"heavy"）であることを検証する。 */
+    private static void requireValidButton(String value, String field, String src) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new SchemaException("必須フィールド欠落 / 空: " + field + " (" + src + ")");
+        }
+        if (!VALID_BUTTONS.contains(value.trim().toLowerCase())) {
+            throw new SchemaException(
+                    field + " の値 \"" + value + "\" は不正です。許可値: light / medium / heavy (" + src + ")");
+        }
+    }
+
+    /** コマンド名が実装済みコマンド（{@link #VALID_COMMANDS}）に含まれることを検証する。 */
+    private static void requireValidCommand(String value, String field, String src) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new SchemaException("必須フィールド欠落 / 空: " + field + " (" + src + ")");
+        }
+        if (!VALID_COMMANDS.contains(value.trim().toUpperCase())) {
+            throw new SchemaException(
+                    field + " の値 \"" + value + "\" は未知のコマンドです。許可値: "
+                            + VALID_COMMANDS + " (" + src + ")");
         }
     }
 

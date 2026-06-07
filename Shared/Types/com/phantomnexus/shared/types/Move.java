@@ -65,6 +65,11 @@ public class Move {
         return button;
     }
 
+    /** ローダが旧形式 JSON から移行する際にボタン種別を注入する（{@code CharacterLoader} のみ使用）。 */
+    public void setButton(String button) {
+        this.button = button;
+    }
+
     public String getCommand() {
         return command;
     }

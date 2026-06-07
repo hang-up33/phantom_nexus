@@ -9,6 +9,8 @@ package com.phantomnexus.shared.types;
  *
  * <p>Task 24 で技定義を配列（{@code normalMoves[]} / {@code specialMoves[]}）に拡張した。
  * 通常技はボタン種別（"light"/"medium"/"heavy"）、必殺技はコマンド名（"HADOUKEN" 等）で識別する。
+ * Task 24 以前の旧形式フィールド（{@code normalAttack} / {@code specialMove}）は後方互換マイグレーション
+ * のため {@code CharacterLoader} が読み取る専用フィールドとして保持する（ゲームロジックからは参照しない）。
  *
  * @see <a href="../../../../../../docs/DataFormat.md">docs/DataFormat.md</a>
  */
@@ -27,6 +29,13 @@ public class Character {
     private Move[] normalMoves;
     /** 必殺技の技定義配列（コマンド対応）。省略可（null / 空）。 */
     private Move[] specialMoves;
+    /**
+     * 旧形式互換フィールド（Task 24 以前）。LibGDX Json がデシリアライズ後に
+     * {@code CharacterLoader.migrateIfLegacy()} が {@code normalMoves} へ移行し、ゲームロジックは参照しない。
+     */
+    private Move normalAttack;
+    /** 旧形式互換フィールド（Task 24 以前）。{@link #normalAttack} と同様の用途。 */
+    private Move specialMove;
 
     /** JSON デシリアライズ用の無引数コンストラクタ。 */
     public Character() {
@@ -83,8 +92,28 @@ public class Character {
         return normalMoves;
     }
 
+    /** {@code CharacterLoader} が旧形式から移行後に配列を注入する。 */
+    public void setNormalMoves(Move[] normalMoves) {
+        this.normalMoves = normalMoves;
+    }
+
     /** 必殺技の技定義配列（null / 空配列 = 必殺技なし）。 */
     public Move[] getSpecialMoves() {
         return specialMoves;
+    }
+
+    /** {@code CharacterLoader} が旧形式から移行後に配列を注入する。 */
+    public void setSpecialMoves(Move[] specialMoves) {
+        this.specialMoves = specialMoves;
+    }
+
+    /** 旧形式互換：{@code CharacterLoader.migrateIfLegacy()} が使用する。ゲームロジックから呼ばない。 */
+    public Move legacyNormalAttack() {
+        return normalAttack;
+    }
+
+    /** 旧形式互換：{@code CharacterLoader.migrateIfLegacy()} が使用する。ゲームロジックから呼ばない。 */
+    public Move legacySpecialMove() {
+        return specialMove;
     }
 }
