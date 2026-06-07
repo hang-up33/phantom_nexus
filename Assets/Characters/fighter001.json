@@ -6,6 +6,7 @@
   "jumpPower": 12.0,
   "width": 100,
   "height": 240,
+  "color": [0.30, 0.55, 0.92],
   "normalAttack": {
     "id": "standing_punch",
     "command": "ATTACK",
