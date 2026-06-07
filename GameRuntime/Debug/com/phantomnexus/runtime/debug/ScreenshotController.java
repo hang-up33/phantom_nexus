@@ -28,6 +28,8 @@ import java.util.EnumSet;
  *       例：ジャンプ頂点を撮るなら {@code -Dphantom.screenshot.hold=p1.up} ＋ 頂点付近の {@code frame}。</li>
  *   <li>{@code phantom.screenshot.p1x} / {@code phantom.screenshot.p2x} — 初期中心 X のオーバーライド。
  *       近接が必要な過渡状態（被弾・接触マーカー等）を静止スクショで再現するために使う。</li>
+ *   <li>{@code phantom.screenshot.timelimit} — ラウンド制限時間（秒）のオーバーライド。
+ *       タイムアップ結果表示を短時間で撮るために使う。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -41,6 +43,7 @@ public final class ScreenshotController {
     private final EnumSet<InputAction> p2Hold;
     private final Float p1SpawnX;
     private final Float p2SpawnX;
+    private final Integer timeLimit;
     private int frameCount;
     private boolean done;
 
@@ -53,6 +56,8 @@ public final class ScreenshotController {
         // 初期 X オーバーライド（撮影モード時のみ）。近接が必要な過渡状態（被弾など）を再現するため。
         this.p1SpawnX = isEnabled() ? parseFloatOrNull(System.getProperty("phantom.screenshot.p1x")) : null;
         this.p2SpawnX = isEnabled() ? parseFloatOrNull(System.getProperty("phantom.screenshot.p2x")) : null;
+        // 制限時間オーバーライド（撮影モード時のみ）。タイムアップ結果表示を短時間で撮るため。
+        this.timeLimit = isEnabled() ? parsePositiveIntOrNull(System.getProperty("phantom.screenshot.timelimit")) : null;
         // hold は撮影モード（path 指定）時のみ解釈する。通常起動に hold だけ残っていても
         // プレイヤー入力を固定しない（撮影無効時は常に空集合）。
         if (isEnabled()) {
@@ -75,6 +80,11 @@ public final class ScreenshotController {
     public float spawnX(int player, float fallback) {
         Float override = player == 2 ? p2SpawnX : p1SpawnX;
         return override != null ? override : fallback;
+    }
+
+    /** 制限時間（秒）の撮影用オーバーライド。未指定 / 撮影無効時は {@code fallback}。タイムアップ結果の撮影用。 */
+    public int timeLimitSeconds(int fallback) {
+        return timeLimit != null ? timeLimit : fallback;
     }
 
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
@@ -177,6 +187,18 @@ public final class ScreenshotController {
         }
         try {
             return Float.parseFloat(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static Integer parsePositiveIntOrNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(value.trim());
+            return parsed > 0 ? parsed : null;
         } catch (NumberFormatException ignored) {
             return null;
         }
