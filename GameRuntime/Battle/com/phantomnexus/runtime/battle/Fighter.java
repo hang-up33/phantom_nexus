@@ -24,6 +24,7 @@ public class Fighter {
     private int currentHp;    // 現在 HP（Task 10: 初期値は def.hp。減算は Task 13 のダメージ処理）
     private AttackPhase attackPhase = AttackPhase.NONE; // 攻撃区間（Task 11）
     private int attackFrame;   // 現在の攻撃に入ってからの経過フレーム
+    private Move currentMove;  // 進行中の技（通常 / 必殺。攻撃中のみ非 null。Task 11/20）
     private boolean attackConnected; // 現在の攻撃が既に命中済みか（多段ヒット防止。Task 12/13）
     private int hitstunFrames;  // のけぞり残フレーム（>0 の間は行動不能。Task 13）
     private float velocityX;    // 横方向速度（被弾 knockback の減衰移動に使用。Task 13）
@@ -59,11 +60,9 @@ public class Fighter {
                 velocityX = 0f;
             }
         } else {
-            // 非攻撃かつ接地中に攻撃入力があり、技定義があれば攻撃を開始する。
+            // 非攻撃かつ接地中に攻撃入力があり、技定義があれば通常攻撃を開始する。
             if (attackPhase == AttackPhase.NONE && attackPressed && grounded && def.getNormalAttack() != null) {
-                attackPhase = AttackPhase.STARTUP;
-                attackFrame = 0;
-                attackConnected = false; // 新しい攻撃ごとに命中済みフラグをリセット
+                beginAttack(def.getNormalAttack());
             }
 
             if (attackPhase != AttackPhase.NONE) {
@@ -109,12 +108,39 @@ public class Fighter {
         // 進行中の攻撃を中断（のけぞりが優先）。
         attackPhase = AttackPhase.NONE;
         attackFrame = 0;
+        currentMove = null;
+    }
+
+    /**
+     * コマンド（波動拳）成立で必殺技を開始する（Task 20）。接地・非攻撃・非のけぞり時のみ。
+     *
+     * @return 開始できたか（飛び道具の発射判定に使う）
+     */
+    public boolean startSpecial() {
+        if (!canStartAction() || def.getSpecialMove() == null) {
+            return false;
+        }
+        beginAttack(def.getSpecialMove());
+        return true;
+    }
+
+    /** 新たな行動（攻撃 / 必殺技）を開始できる状態か（接地・非攻撃・非のけぞり）。 */
+    public boolean canStartAction() {
+        return grounded && attackPhase == AttackPhase.NONE && hitstunFrames <= 0;
+    }
+
+    /** 指定の技で攻撃ステートを開始する（通常 / 必殺で共通）。 */
+    private void beginAttack(Move move) {
+        currentMove = move;
+        attackPhase = AttackPhase.STARTUP;
+        attackFrame = 0;
+        attackConnected = false; // 新しい攻撃ごとに命中済みフラグをリセット
     }
 
     /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
     private void advanceAttack() {
         attackFrame++;
-        Move move = def.getNormalAttack();
+        Move move = currentMove;
         int startup = move.getStartup();
         int active = move.getActive();
         int recovery = move.getRecovery();
@@ -127,6 +153,7 @@ public class Fighter {
         } else {
             attackPhase = AttackPhase.NONE;
             attackFrame = 0;
+            currentMove = null;
         }
     }
 
@@ -237,6 +264,16 @@ public class Fighter {
     /** 現在の攻撃に入ってからの経過フレーム（攻撃可視化 / デバッグ用）。 */
     public int getAttackFrame() {
         return attackFrame;
+    }
+
+    /** 進行中の技（攻撃中のみ非 null。通常 / 必殺の区別や hitbox 生成に使用）。 */
+    public Move getCurrentMove() {
+        return currentMove;
+    }
+
+    /** 必殺技を発動中か（進行中の技が必殺技定義か）。 */
+    public boolean isSpecialActive() {
+        return currentMove != null && currentMove == def.getSpecialMove();
     }
 
     /** 現在の攻撃が既に相手へ命中済みか（多段ヒット防止フラグ）。 */

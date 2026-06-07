@@ -47,8 +47,9 @@ public final class CollisionSystem {
         if (!f.isHitboxActive()) {
             return null;
         }
-        Move m = f.getDef().getNormalAttack();
-        if (m == null) {
+        Move m = f.getCurrentMove();
+        // 飛び道具技は body 付随の hitbox を持たない（ダメージは Projectile が運ぶ。Task 20）。
+        if (m == null || m.isProjectile()) {
             return null;
         }
         Character d = f.getDef();
@@ -78,6 +79,14 @@ public final class CollisionSystem {
         if (hb == null) {
             return false;
         }
+        Hurtbox hu = hurtbox(defender);
+        return overlaps(hb.getX(), hb.getY(), hb.getWidth(), hb.getHeight(),
+                hu.getX(), hu.getY(), hu.getWidth(), hu.getHeight());
+    }
+
+    /** 飛び道具 {@code p} が {@code defender} の hurtbox に重なるか（Task 20）。 */
+    public static boolean hits(Projectile p, Fighter defender) {
+        Hitbox hb = p.hitbox();
         Hurtbox hu = hurtbox(defender);
         return overlaps(hb.getX(), hb.getY(), hb.getWidth(), hb.getHeight(),
                 hu.getX(), hu.getY(), hu.getWidth(), hu.getHeight());

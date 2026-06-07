@@ -17,5 +17,19 @@
     "hitboxOffsetY": 120,
     "hitboxWidth": 90,
     "hitboxHeight": 40
+  },
+  "specialMove": {
+    "id": "fireball",
+    "command": "236A",
+    "damage": 120,
+    "startup": 10,
+    "active": 4,
+    "recovery": 26,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 110,
+    "hitboxWidth": 56,
+    "hitboxHeight": 56,
+    "projectile": true,
+    "projectileSpeed": 9.0
   }
 }
