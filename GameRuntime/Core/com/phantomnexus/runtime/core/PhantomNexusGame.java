@@ -11,9 +11,11 @@ import com.phantomnexus.runtime.rendering.FighterAnimator;
 import com.phantomnexus.runtime.rendering.GameRenderer;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.schema.CharacterLoader;
+import com.phantomnexus.shared.schema.StageLoader;
 import com.phantomnexus.shared.types.BattleRules;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
+import com.phantomnexus.shared.types.Stage;
 
 /**
  * Phantom Nexus アプリケーション本体（ゲームループ / ライフサイクル）。
@@ -39,6 +41,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
     @Override
     public void create() {
         renderer = new GameRenderer();
+        // ステージを外部 JSON から読み込み、背景描画に設定する（Task 17）。
+        Stage stage = StageLoader.load("stage001");
+        renderer.setStage(stage);
         // ヘッドレス自動スクショ（phantom.screenshot.* 指定時のみ有効。通常起動には無影響）。
         screenshot = new ScreenshotController();
         p1Input = PlayerInput.player1Defaults();
