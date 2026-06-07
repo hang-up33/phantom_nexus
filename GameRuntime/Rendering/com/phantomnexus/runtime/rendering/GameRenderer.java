@@ -30,9 +30,20 @@ public class GameRenderer {
     private static final Color FACING_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
     private static final Color PIP_ON_COLOR = new Color(0.98f, 0.86f, 0.30f, 1f);
     private static final Color PIP_OFF_COLOR = new Color(0.35f, 0.36f, 0.42f, 1f);
+    private static final Color HP_BACK_COLOR = new Color(0.12f, 0.12f, 0.16f, 1f);
+    private static final Color HP_FRAME_COLOR = new Color(0.85f, 0.86f, 0.92f, 1f);
+    private static final Color HP_FILL_HIGH = new Color(0.30f, 0.82f, 0.40f, 1f);
+    private static final Color HP_FILL_MID = new Color(0.95f, 0.80f, 0.25f, 1f);
+    private static final Color HP_FILL_LOW = new Color(0.90f, 0.28f, 0.24f, 1f);
     private static final float MARKER_SIZE = 18f;
     private static final float PIP_SIZE = 8f;
     private static final float PIP_GAP = 5f;
+    // HP ゲージのレイアウト（HUD 上端）。左右に 1 本ずつ、中央寄せでミラー配置する。
+    private static final float HP_BAR_WIDTH = 480f;
+    private static final float HP_BAR_HEIGHT = 26f;
+    private static final float HP_BAR_MARGIN = 40f;
+    private static final float HP_BAR_TOP = 60f;
+    private static final float HP_FRAME_THICKNESS = 3f;
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
@@ -74,19 +85,75 @@ public class GameRenderer {
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
         drawFighter(p1, anim1, P1_COLOR);
         drawFighter(p2, anim2, P2_COLOR);
+        // HP ゲージ（HUD 上端）。P1 は左から、P2 は右から減る方向に塗る。
+        drawHpBar(p1, true);
+        drawHpBar(p2, false);
         shapes.end();
 
-        // --- テキスト（タイトル / 名前 + アニメ状態ラベル / 入力 HUD） ---
+        // --- テキスト（タイトル / 名前 + アニメ状態ラベル / HP 数値 / 入力 HUD） ---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
         font.getData().setScale(1.5f);
         drawCentered(GameConstants.WINDOW_TITLE, GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 30f);
         font.getData().setScale(1.0f);
+        drawHpLabels(p1, true);
+        drawHpLabels(p2, false);
         drawNameLabel(p1, anim1);
         drawNameLabel(p2, anim2);
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
         drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
         batch.end();
+    }
+
+    /**
+     * HP ゲージを 1 本描く。{@code leftAnchored} の側（P1=左 / P2=右）に枠を固定し、減少分は
+     * 中央側から減る方向に塗る（対戦ゲームの定番配置）。色は残量に応じて緑→黄→赤へ変える。
+     */
+    private void drawHpBar(Fighter f, boolean leftAnchored) {
+        float top = GameConstants.WORLD_HEIGHT - HP_BAR_TOP;
+        float barBottom = top - HP_BAR_HEIGHT;
+        float outerLeft = leftAnchored
+                ? HP_BAR_MARGIN
+                : GameConstants.WORLD_WIDTH - HP_BAR_MARGIN - HP_BAR_WIDTH;
+        // 枠（縁取り）→ 背景 → 残量フィルの順で重ねる。
+        shapes.setColor(HP_FRAME_COLOR);
+        shapes.rect(outerLeft - HP_FRAME_THICKNESS, barBottom - HP_FRAME_THICKNESS,
+                HP_BAR_WIDTH + HP_FRAME_THICKNESS * 2f, HP_BAR_HEIGHT + HP_FRAME_THICKNESS * 2f);
+        shapes.setColor(HP_BACK_COLOR);
+        shapes.rect(outerLeft, barBottom, HP_BAR_WIDTH, HP_BAR_HEIGHT);
+        float ratio = f.getHpRatio();
+        float fillWidth = HP_BAR_WIDTH * ratio;
+        // 減少は中央側から：左アンカーは左端固定で右が縮み、右アンカーは右端固定で左が縮む。
+        float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
+        shapes.setColor(hpFillColor(ratio));
+        shapes.rect(fillLeft, barBottom, fillWidth, HP_BAR_HEIGHT);
+    }
+
+    /** 残量割合に応じた HP フィル色（高=緑 / 中=黄 / 低=赤）。 */
+    private static Color hpFillColor(float ratio) {
+        if (ratio > 0.5f) {
+            return HP_FILL_HIGH;
+        }
+        return ratio > 0.25f ? HP_FILL_MID : HP_FILL_LOW;
+    }
+
+    /** HP ゲージに重ねる名前（外側寄せ）と HP 数値（内側寄せ）のラベル。 */
+    private void drawHpLabels(Fighter f, boolean leftAnchored) {
+        float top = GameConstants.WORLD_HEIGHT - HP_BAR_TOP;
+        float labelY = top + 18f;
+        float outerLeft = leftAnchored
+                ? HP_BAR_MARGIN
+                : GameConstants.WORLD_WIDTH - HP_BAR_MARGIN - HP_BAR_WIDTH;
+        String hp = f.getCurrentHp() + " / " + f.getMaxHp();
+        if (leftAnchored) {
+            font.draw(batch, f.getDef().getName(), outerLeft, labelY);
+            layout.setText(font, hp);
+            font.draw(batch, layout, outerLeft + HP_BAR_WIDTH - layout.width, labelY);
+        } else {
+            layout.setText(font, f.getDef().getName());
+            font.draw(batch, layout, outerLeft + HP_BAR_WIDTH - layout.width, labelY);
+            font.draw(batch, hp, outerLeft, labelY);
+        }
     }
 
     /**
