@@ -3,6 +3,7 @@ package com.phantomnexus.runtime.core;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.phantomnexus.runtime.battle.AiController;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
@@ -55,6 +56,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private int commandTimer1;
     private int commandTimer2;
     private final List<Projectile> projectiles = new ArrayList<>();
+    private final AiController p2Ai = new AiController();
+    private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
     private ScreenshotController screenshot;
 
@@ -89,16 +92,21 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // デバッグ当たり判定表示（Task 18）。既定 OFF・F1 でトグル。撮影時は debug=true で強制 ON。
         debugOverlay = new DebugOverlay();
         debugOverlay.setEnabled(screenshot.debugEnabled());
-        controlsHint = "P1 " + p1Input.describe() + "      P2 Arrows + RCtrl   [F1] hitboxes";
+        // P2 の AI（Task 21）。既定 ON・F2 でトグル。撮影時は ai=false で人間（静止）に切替可能。
+        p2AiEnabled = screenshot.aiEnabled(true);
+        controlsHint = "P1 " + p1Input.describe() + "   [F1] hitboxes  [F2] P2 AI";
     }
 
     @Override
     public void render() {
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
-        // デバッグ表示のトグル（グローバルキー。プレイヤー入力とは別系統のため Gdx を直接参照）。
+        // デバッグ表示 / AI のトグル（グローバルキー。プレイヤー入力とは別系統のため Gdx を直接参照）。
         if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
             debugOverlay.toggle();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F2)) {
+            p2AiEnabled = !p2AiEnabled;
         }
         update();
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, round, debugOverlay,
@@ -114,7 +122,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             return;
         }
         updateFighterInput(fighter1, p1Input, history1, 1);
-        updateFighterInput(fighter2, p2Input, history2, 2);
+        if (p2AiEnabled) {
+            p2Ai.control(fighter2, fighter1);
+        } else {
+            updateFighterInput(fighter2, p2Input, history2, 2);
+        }
         if (commandTimer1 > 0) {
             commandTimer1--;
         }
