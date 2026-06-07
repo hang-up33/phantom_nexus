@@ -34,8 +34,11 @@ public class FighterAnimator {
         }
     }
 
-    /** ファイターの実行時状態 → アニメーション状態の対応付け（接地外 > 歩行 > 待機の優先順）。 */
+    /** ファイターの実行時状態 → アニメーション状態の対応付け（攻撃 > 空中 > 歩行 > 待機の優先順）。 */
     private static AnimationState resolve(Fighter fighter) {
+        if (fighter.isAttacking()) {
+            return AnimationState.ATTACK;
+        }
         if (!fighter.isGrounded()) {
             return AnimationState.JUMP;
         }

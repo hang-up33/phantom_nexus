@@ -86,8 +86,12 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `startup` | int | ✅ | 発生フレーム |
 | `active` | int | ✅ | 攻撃判定の持続フレーム |
 | `recovery` | int | ✅ | 硬直フレーム |
+| `hitboxOffsetX` | float | ✅ | hitbox の前方オフセット（キャラ前面からの距離, px） |
+| `hitboxOffsetY` | float | ✅ | hitbox の足元からの高さ（px） |
+| `hitboxWidth` | float | ✅ | hitbox の横幅（px） |
+| `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
 
-> hitbox / hurtbox の矩形（オフセット・幅・高さ・有効フレーム）は Task 11〜12・15 で本書に追記する。
+> hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`、Task 11 で型定義・Task 12 で当たり判定に使用）。hurtbox はキャラ矩形（`width`/`height`）を MVP の食らい判定とする（Task 12）。
 
 ---
 
@@ -100,3 +104,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 - (Bootstrap) 第一設計書の共通データ仕様に基づく初版ドラフトを作成。
 - (Task 6) `Shared/Types/Character` POJO を新設し、描画 / 当たり判定の基準となる `width` / `height` を追加（実装は id/name/hp/walkSpeed/jumpPower/width/height のサブセット。animations/moves/hitbox は Task 15 で正式化）。
+- (Task 11) `Shared/Types/Move` POJO を新設（id/command/damage/startup/active/recovery + hitbox 矩形）。`Character` に `normalAttack`（通常攻撃 1 技）を追加。MVP はコード生成で供給し、Task 15/16 で JSON の moves[] から供給する。

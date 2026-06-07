@@ -2,14 +2,15 @@ package com.phantomnexus.runtime.battle;
 
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.Move;
 
 /**
- * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ）。
+ * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃）。
  *
- * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向きといった
- * 実行時状態を保持する。入力の読み取りは行わず、左右移動量とジャンプ入力は
- * {@link #update(int, boolean)} に外部から渡す（入力配線と分離し、後続の AI 差し替え・
- * テスト容易性を確保する）。攻撃（Task 11）・HP（Task 10）はフィールドとステートを段階的に追加していく。
+ * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
+ * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃入力は
+ * {@link #update(int, boolean, boolean)} に外部から渡す（入力配線と分離し、後続の AI 差し替え・
+ * テスト容易性を確保する）。攻撃は startup/active/recovery の 3 区間（{@link AttackPhase}）を進む。
  */
 public class Fighter {
 
@@ -21,6 +22,8 @@ public class Fighter {
     private boolean facingRight;
     private int moveDir;      // 直近フレームに適用した左右移動方向（-1/0/+1）。アニメ状態導出に使用
     private int currentHp;    // 現在 HP（Task 10: 初期値は def.hp。減算は Task 13 のダメージ処理）
+    private AttackPhase attackPhase = AttackPhase.NONE; // 攻撃区間（Task 11）
+    private int attackFrame;   // 現在の攻撃に入ってからの経過フレーム
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -31,21 +34,36 @@ public class Fighter {
     }
 
     /**
-     * 1 フレームの移動・ジャンプを適用する。
+     * 1 フレームの攻撃・移動・ジャンプを適用する。
      *
-     * @param moveDir     左右移動方向（-1 = 左 / 0 = 静止 / +1 = 右）。歩行速度は {@code def.walkSpeed}。
-     * @param jumpPressed このフレームでジャンプ入力の立ち上がりがあったか。接地時のみ発動する。
+     * <p>攻撃中（{@link AttackPhase#NONE} 以外）は行動拘束し、左右移動・ジャンプ・新規攻撃を受け付けない。
+     * 攻撃は接地時のみ発生し、{@code def.normalAttack} の startup/active/recovery を順に進めて終了で
+     * {@code NONE} へ戻る。重力・着地は攻撃中も適用する（地上開始のため通常は接地を維持）。
+     *
+     * @param moveDir       左右移動方向（-1 = 左 / 0 = 静止 / +1 = 右）。歩行速度は {@code def.walkSpeed}。
+     * @param jumpPressed   このフレームでジャンプ入力の立ち上がりがあったか。接地時のみ発動。
+     * @param attackPressed このフレームで攻撃入力の立ち上がりがあったか。接地・非攻撃時のみ発動。
      */
-    public void update(int moveDir, boolean jumpPressed) {
-        this.moveDir = moveDir;
-        // 左右移動（MVP は空中横移動も許可）
-        x += moveDir * def.getWalkSpeed();
-        clampToStage();
+    public void update(int moveDir, boolean jumpPressed, boolean attackPressed) {
+        // 非攻撃かつ接地中に攻撃入力があり、技定義があれば攻撃を開始する。
+        if (attackPhase == AttackPhase.NONE && attackPressed && grounded && def.getNormalAttack() != null) {
+            attackPhase = AttackPhase.STARTUP;
+            attackFrame = 0;
+        }
 
-        // 接地中にジャンプ入力があれば初速を与えて離地
-        if (jumpPressed && grounded) {
-            velocityY = def.getJumpPower();
-            grounded = false;
+        if (attackPhase != AttackPhase.NONE) {
+            // 攻撃中：行動拘束（横移動・ジャンプ無効）し、攻撃区間のみ進める。
+            this.moveDir = 0;
+            advanceAttack();
+        } else {
+            // 通常時：左右移動（MVP は空中横移動も許可）＋ジャンプ。
+            this.moveDir = moveDir;
+            x += moveDir * def.getWalkSpeed();
+            clampToStage();
+            if (jumpPressed && grounded) {
+                velocityY = def.getJumpPower();
+                grounded = false;
+            }
         }
 
         // 重力 + 垂直積分
@@ -57,6 +75,25 @@ public class Fighter {
             y = GameConstants.GROUND_Y;
             velocityY = 0f;
             grounded = true;
+        }
+    }
+
+    /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
+    private void advanceAttack() {
+        attackFrame++;
+        Move move = def.getNormalAttack();
+        int startup = move.getStartup();
+        int active = move.getActive();
+        int recovery = move.getRecovery();
+        if (attackFrame < startup) {
+            attackPhase = AttackPhase.STARTUP;
+        } else if (attackFrame < startup + active) {
+            attackPhase = AttackPhase.ACTIVE;
+        } else if (attackFrame < startup + active + recovery) {
+            attackPhase = AttackPhase.RECOVERY;
+        } else {
+            attackPhase = AttackPhase.NONE;
+            attackFrame = 0;
         }
     }
 
@@ -141,5 +178,25 @@ public class Fighter {
     /** HP が 0 か（KO 判定。Task 14 の勝敗判定に使用）。 */
     public boolean isKO() {
         return currentHp <= 0;
+    }
+
+    /** 現在の攻撃区間。 */
+    public AttackPhase getAttackPhase() {
+        return attackPhase;
+    }
+
+    /** 攻撃中（startup/active/recovery のいずれか）か。 */
+    public boolean isAttacking() {
+        return attackPhase.isAttacking();
+    }
+
+    /** 攻撃判定（hitbox）が有効か（active 区間のみ true。当たり判定は Task 12）。 */
+    public boolean isHitboxActive() {
+        return attackPhase == AttackPhase.ACTIVE;
+    }
+
+    /** 現在の攻撃に入ってからの経過フレーム（攻撃可視化 / デバッグ用）。 */
+    public int getAttackFrame() {
+        return attackFrame;
     }
 }
