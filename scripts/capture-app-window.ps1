@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Windows で起動中アプリのウィンドウだけを PNG にキャプチャする。
   （macOS 用 capture-app-window.sh の Windows 版。両方を残置する。）
