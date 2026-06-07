@@ -14,18 +14,20 @@ set -euo pipefail
 
 OUT="docs/screenshots/linux-capture.png"
 FRAME="90"
+HOLD=""
 SCREEN_W="1280"
 SCREEN_H="720"
 DISPLAY_NUM="99"
 
-while getopts "o:f:W:H:d:" opt; do
+while getopts "o:f:k:W:H:d:" opt; do
   case "$opt" in
     o) OUT="$OPTARG" ;;
     f) FRAME="$OPTARG" ;;
+    k) HOLD="$OPTARG" ;;
     W) SCREEN_W="$OPTARG" ;;
     H) SCREEN_H="$OPTARG" ;;
     d) DISPLAY_NUM="$OPTARG" ;;
-    *) echo "usage: $0 [-o out.png] [-f frame] [-W width] [-H height] [-d display]" >&2; exit 2 ;;
+    *) echo "usage: $0 [-o out.png] [-f frame] [-k hold] [-W width] [-H height] [-d display]" >&2; exit 2 ;;
   esac
 done
 
@@ -58,12 +60,15 @@ export GALLIUM_DRIVER=llvmpipe
 export MESA_GL_VERSION_OVERRIDE="3.3"
 export MESA_GLSL_VERSION_OVERRIDE="330"
 
-echo "[capture] アプリを起動して frame=${FRAME} で撮影 -> ${OUT_ABS}"
+echo "[capture] アプリを起動して frame=${FRAME}${HOLD:+ hold=${HOLD}} で撮影 -> ${OUT_ABS}"
 rm -f "$OUT_ABS"
 # 撮影モードのシステムプロパティを渡して起動。撮影後にアプリが自動終了する。
+HOLD_PROP=()
+[ -n "$HOLD" ] && HOLD_PROP=(-Dphantom.screenshot.hold="${HOLD}")
 ./gradlew run --console=plain \
   -Dphantom.screenshot.path="${OUT_ABS}" \
-  -Dphantom.screenshot.frame="${FRAME}"
+  -Dphantom.screenshot.frame="${FRAME}" \
+  "${HOLD_PROP[@]}"
 
 if [ ! -s "$OUT_ABS" ]; then
   echo "[capture] 失敗: PNG が生成されませんでした (${OUT_ABS})" >&2

@@ -34,6 +34,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         screenshot = new ScreenshotController();
         p1Input = PlayerInput.player1Defaults();
         p2Input = PlayerInput.player2Defaults();
+        // 過渡状態の撮影用に、指定があれば起動時から入力を押下状態に固定する（通常は空＝無影響）。
+        p1Input.setForcedHold(screenshot.heldActions(1));
+        p2Input.setForcedHold(screenshot.heldActions(2));
         // 暫定のサンプルキャラクター定義（Task 16 で JSON 読込に差し替え）。
         Character aoi = new Character("fighter001", "Aoi", 1000, 4.0f, 12.0f, 100f, 240f);
         Character akane = new Character("fighter002", "Akane", 1000, 4.0f, 12.0f, 100f, 240f);

@@ -221,6 +221,7 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
 - 仕組み：`Xvfb`（仮想ディスプレイ）＋ Mesa `swrast`/`llvmpipe`（`LIBGL_ALWAYS_SOFTWARE=1` / `GALLIUM_DRIVER=llvmpipe` / `MESA_GL_VERSION_OVERRIDE=3.3`）で GLFW 窓を作り、`-Dphantom.screenshot.path=...` `-Dphantom.screenshot.frame=...` を渡して起動する。`ScreenshotController`（`GameRuntime/Debug`）が指定フレームで `ScreenUtils.getFrameBufferPixmap` → `PixmapIO.writePNG(...,flipY=true)` し、`Gdx.app.exit()` で自動終了する。
 - **apt 追加は不要**（基盤イメージに Xvfb / Mesa 同梱。万一 Xvfb が無い場合のみ SessionStart フックがベストエフォートで導入）。
 - 過渡状態（ジャンプ頂点・攻撃 active 等）は `-f` の値を変えて狙う（既定 90 ≒ 1.5 秒@60fps の静止）。`-W`/`-H` で仮想解像度も変更可。
+- **入力を伴う過渡状態は `-k`（`phantom.screenshot.hold`）で起動時から押下注入する**。書式は `p1.up`・`p2.left`・`attack`（接頭辞省略時は p1）をカンマ/空白区切り。例：ジャンプ頂点は `-k p1.up -f 21`（頂点 ≒ `jumpPower/GRAVITY` フレーム後）。立ち上がり発動（ジャンプ/攻撃）は最初の 1 フレームだけ just-pressed として消費され、以降は押しっぱなし扱いになる（`PlayerInput.setForcedHold`）。
 - 撮影後は **必ず Read ツールで PNG を目視**（黒画面・崩れが無いか）。ALSA の `cannot find card` 警告は音源無しによる無害ログ。
 - 注意：対話的に動かす確認はローカル Windows が確実。web は静止画前提。
 

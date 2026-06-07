@@ -5,6 +5,9 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.utils.ScreenUtils;
+import com.phantomnexus.runtime.input.InputAction;
+
+import java.util.EnumSet;
 
 /**
  * ヘッドレス環境（Claude Code on the web / CI）での自動スクリーンショット撮影。
@@ -20,6 +23,9 @@ import com.badlogic.gdx.utils.ScreenUtils;
  *   <li>{@code phantom.screenshot.path} — 出力 PNG の絶対パス。指定時のみ撮影モード有効。</li>
  *   <li>{@code phantom.screenshot.frame} — 撮影するフレーム番号（既定 90 ≒ 1.5 秒@60fps）。
  *       初期化直後の未確定状態を避けるため数フレーム待ってから撮る。</li>
+ *   <li>{@code phantom.screenshot.hold} — 起動時から押下状態に固定する入力（過渡状態の撮影用）。
+ *       カンマ/空白区切りで {@code p1.up}・{@code p2.left}・{@code attack}（接頭辞省略時は p1）の形式。
+ *       例：ジャンプ頂点を撮るなら {@code -Dphantom.screenshot.hold=p1.up} ＋ 頂点付近の {@code frame}。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -29,6 +35,8 @@ public final class ScreenshotController {
 
     private final String outputPath;
     private final int targetFrame;
+    private final EnumSet<InputAction> p1Hold;
+    private final EnumSet<InputAction> p2Hold;
     private int frameCount;
     private boolean done;
 
@@ -36,6 +44,65 @@ public final class ScreenshotController {
     public ScreenshotController() {
         this.outputPath = trimToNull(System.getProperty("phantom.screenshot.path"));
         this.targetFrame = parsePositiveInt(System.getProperty("phantom.screenshot.frame"), DEFAULT_FRAME);
+        this.p1Hold = EnumSet.noneOf(InputAction.class);
+        this.p2Hold = EnumSet.noneOf(InputAction.class);
+        parseHold(System.getProperty("phantom.screenshot.hold"));
+    }
+
+    /**
+     * 指定プレイヤー（1 / 2）で起動時から押下状態に固定するアクション集合を返す。
+     * {@link com.phantomnexus.runtime.input.PlayerInput#setForcedHold} へそのまま渡す想定。
+     */
+    public EnumSet<InputAction> heldActions(int player) {
+        return player == 2 ? p2Hold : p1Hold;
+    }
+
+    /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
+    private void parseHold(String spec) {
+        if (spec == null) {
+            return;
+        }
+        for (String token : spec.split("[,\\s]+")) {
+            if (token.isEmpty()) {
+                continue;
+            }
+            EnumSet<InputAction> target = p1Hold;
+            String name = token;
+            int sep = indexOfPrefixSeparator(token);
+            if (sep >= 0) {
+                String prefix = token.substring(0, sep).toLowerCase();
+                name = token.substring(sep + 1);
+                if (prefix.equals("p2")) {
+                    target = p2Hold;
+                }
+            }
+            InputAction action = toAction(name);
+            if (action != null) {
+                target.add(action);
+            } else {
+                Gdx.app.log("Screenshot", "未知の hold トークンを無視: " + token);
+            }
+        }
+    }
+
+    private static int indexOfPrefixSeparator(String token) {
+        int dot = token.indexOf('.');
+        int colon = token.indexOf(':');
+        if (dot < 0) {
+            return colon;
+        }
+        if (colon < 0) {
+            return dot;
+        }
+        return Math.min(dot, colon);
+    }
+
+    private static InputAction toAction(String name) {
+        try {
+            return InputAction.valueOf(name.trim().toUpperCase());
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     /** 撮影モードが有効か（出力パス指定があるか）。 */

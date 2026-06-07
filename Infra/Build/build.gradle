@@ -77,7 +77,7 @@ application {
 // `./gradlew run -Dphantom.screenshot.path=...` で渡した値を明示的に転送する。
 // 指定が無ければ何もしない（通常の `./gradlew run` には一切影響しない）。
 tasks.named('run', JavaExec) {
-    ['phantom.screenshot.path', 'phantom.screenshot.frame'].each { key ->
+    ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {
             systemProperty key, value
