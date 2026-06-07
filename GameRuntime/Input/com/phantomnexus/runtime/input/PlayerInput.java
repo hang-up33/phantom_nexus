@@ -19,7 +19,10 @@ public class PlayerInput {
     private final Map<InputAction, Integer> bindings;
 
     public PlayerInput(Map<InputAction, Integer> bindings) {
-        this.bindings = new EnumMap<>(bindings);
+        // enum 型を明示して空 Map（設定ロード前・未割当状態）でも初期化できるようにする。
+        // new EnumMap<>(bindings) は空 Map で enum 型を推論できず IllegalArgumentException になる。
+        this.bindings = new EnumMap<>(InputAction.class);
+        this.bindings.putAll(bindings);
     }
 
     /** プレイヤー 1 の既定割当（WASD で移動・W でジャンプ・S でしゃがみ・F で攻撃）。 */
