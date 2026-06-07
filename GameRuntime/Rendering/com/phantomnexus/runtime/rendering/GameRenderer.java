@@ -12,6 +12,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
+import com.phantomnexus.runtime.battle.RoundManager;
 import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
@@ -78,11 +79,12 @@ public class GameRenderer {
      * @param p2           プレイヤー 2 のファイター（赤）
      * @param anim1        プレイヤー 1 のアニメーション状態
      * @param anim2        プレイヤー 2 のアニメーション状態
+     * @param round        ラウンド進行 / 勝敗（タイマー・結果表示）
      * @param controlsHint 操作ガイド（HUD）
      * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
-                            String controlsHint, String statusLine) {
+                            RoundManager round, String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
 
@@ -106,6 +108,9 @@ public class GameRenderer {
         batch.begin();
         font.getData().setScale(1.5f);
         drawCentered(GameConstants.WINDOW_TITLE, GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 30f);
+        // ラウンドタイマー（HUD 中央上、HP バー帯の高さ）。
+        drawCentered(String.valueOf(round.getRemainingSeconds()),
+                GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - HP_BAR_TOP + 4f);
         font.getData().setScale(1.0f);
         drawHpLabels(p1, true);
         drawHpLabels(p2, false);
@@ -113,7 +118,33 @@ public class GameRenderer {
         drawNameLabel(p2, anim2);
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
         drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        if (round.isFinished()) {
+            drawResultBanner(p1, p2, round);
+        }
         batch.end();
+    }
+
+    /** 決着時の結果バナー（理由 + 勝者）を画面中央に大きく描く。 */
+    private void drawResultBanner(Fighter p1, Fighter p2, RoundManager round) {
+        String reason = round.getReason() == RoundManager.FinishReason.KO ? "K.O." : "TIME UP";
+        String result;
+        switch (round.getWinner()) {
+            case P1:
+                result = p1.getDef().getName() + " WINS";
+                break;
+            case P2:
+                result = p2.getDef().getName() + " WINS";
+                break;
+            default:
+                result = "DRAW";
+                break;
+        }
+        float cx = GameConstants.WORLD_WIDTH / 2f;
+        font.getData().setScale(3.0f);
+        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 40f);
+        font.getData().setScale(2.0f);
+        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f - 30f);
+        font.getData().setScale(1.0f);
     }
 
     /**
