@@ -22,6 +22,8 @@ public class Character {
     private float jumpPower;
     private float width;
     private float height;
+    /** 表示色 RGB（0..1, 任意）。スプライト導入までのプレースホルダ矩形色（Task 22）。未設定なら描画側の既定色。 */
+    private float[] color;
     /** 通常攻撃の技定義（Task 11）。MVP は 1 キャラ 1 技。Task 15/16 で JSON の moves[] から供給。 */
     private Move normalAttack;
     /** 必殺技の技定義（Task 20）。コマンド（波動拳）で発動。MVP は飛び道具 1 種。未設定可（null）。 */
@@ -70,6 +72,11 @@ public class Character {
     /** 描画 / 当たり判定に用いる高さ（px）。 */
     public float getHeight() {
         return height;
+    }
+
+    /** 表示色 RGB（0..1, 長さ 3）。未設定なら {@code null}（描画側の既定色を使う）。 */
+    public float[] getColor() {
+        return color;
     }
 
     /** 通常攻撃の技定義（未設定なら {@code null}）。 */
