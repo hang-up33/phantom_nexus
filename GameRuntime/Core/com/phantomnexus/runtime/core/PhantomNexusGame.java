@@ -10,10 +10,10 @@ import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.runtime.rendering.FighterAnimator;
 import com.phantomnexus.runtime.rendering.GameRenderer;
 import com.phantomnexus.shared.constants.GameConstants;
+import com.phantomnexus.shared.schema.CharacterLoader;
 import com.phantomnexus.shared.types.BattleRules;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
-import com.phantomnexus.shared.types.Move;
 
 /**
  * Phantom Nexus アプリケーション本体（ゲームループ / ライフサイクル）。
@@ -46,13 +46,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 過渡状態の撮影用に、指定があれば起動時から入力を押下状態に固定する（通常は空＝無影響）。
         p1Input.setForcedHold(screenshot.heldActions(1));
         p2Input.setForcedHold(screenshot.heldActions(2));
-        // 暫定のサンプルキャラクター定義（Task 16 で JSON 読込に差し替え）。
-        Character aoi = new Character("fighter001", "Aoi", 1000, 4.0f, 12.0f, 100f, 240f);
-        Character akane = new Character("fighter002", "Akane", 1000, 4.0f, 12.0f, 100f, 240f);
-        // 暫定の通常攻撃（Task 11）。startup 8 / active 6 / recovery 16 フレーム、前方へ伸びる hitbox。
-        // damage / hitbox は Task 13 / 12 で使用。Task 16 で JSON の moves[] から供給する。
-        aoi.setNormalAttack(samplePunch());
-        akane.setNormalAttack(samplePunch());
+        // 外部 JSON からキャラクター定義を読み込む（Task 16）。データ I/O は Shared/Schema が単一の真実。
+        Character aoi = CharacterLoader.load("fighter001");
+        Character akane = CharacterLoader.load("fighter002");
         // 撮影モード時は初期 X をオーバーライド可能（近接が必要な被弾スクショ等の再現用）。
         fighter1 = new Fighter(aoi, screenshot.spawnX(1, GameConstants.P1_SPAWN_X), true);
         fighter2 = new Fighter(akane, screenshot.spawnX(2, GameConstants.P2_SPAWN_X), false);
@@ -104,12 +100,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
             int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
             defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
         }
-    }
-
-    /** 暫定の通常攻撃（パンチ）。前方の前面・足元中段に伸びる hitbox（向きで左右反転）。 */
-    private static Move samplePunch() {
-        return new Move("standing_punch", "ATTACK", 80, 8, 6, 16,
-                0f, 120f, 90f, 40f);
     }
 
     /** 左右入力を移動方向（-1 / 0 / +1）に変換する。 */
