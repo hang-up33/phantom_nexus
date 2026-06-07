@@ -1,0 +1,9 @@
+// =============================================================================
+// Phantom Nexus — root build（最小シム）
+//
+// CLAUDE.md「Gradle 配置に関する重要な前提」のとおり、ビルドの実体ロジックは
+// Infra/Build/build.gradle に置き、root はそこへ委譲するだけのシムとする。
+// root に増やしてよいのは wrapper / settings.gradle / build.gradle の 3 点のみ。
+// =============================================================================
+
+apply from: 'Infra/Build/build.gradle'

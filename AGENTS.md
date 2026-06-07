@@ -30,7 +30,7 @@ Codex が PR レビューを行う際は、以下のルールに従ってくだ�
 - **データモデルの単一の真実**：キャラ・技・ステージ等のデータ型と JSON I/O が `Shared/`（`Schema`/`Types`/`Constants`）に集約されているか。`GameRuntime` / `Battle` が直接 JSON を読んでいたり、データ型が二重定義されていないか。
 - **当たり判定のフレーム正しさ**：攻撃の startup / active / recovery フレーム、hitbox × hurtbox の AABB 判定、pushbox の押し合い解決が 1 フレーム単位で正しいか（多段ヒット・判定の出っぱなし・すり抜け）。
 - **データ駆動の後方互換**：JSON スキーマ（`Shared/Schema`・`docs/DataFormat.md`）の変更が既存キャラ JSON を壊さないか。必須/任意フィールドとデフォルト値の扱いが妥当か。
-- **Must Never の再導入**：フォルダ構成変更（root に許可済み shim/wrapper 3 点以外を増やす）・既存コード削除・無断ライブラリ追加（特に JSON/YAML パーサ）・MUGEN 素材や名称の流用が混入していないか。
+- **Must Never の再導入**：フォルダ構成変更（root に増やしてよいのは wrapper / シム 3 点 ＋ VCS メタデータ `.gitignore` / `.gitattributes` のみ。それ以外のソース/アセット/ビルドロジックの実体を root に置いていないか）・既存コード削除・無断ライブラリ追加（特に JSON/YAML パーサ）・MUGEN 素材や名称の流用が混入していないか。
 - **既知のビルド/環境の罠の再導入**：[CLAUDE.md](CLAUDE.md)「ビルド / 環境の罠」を参照。
 
 ---

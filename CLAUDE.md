@@ -58,7 +58,7 @@
 
 ### Gradle 配置に関する重要な前提（設計書フォルダ厳守の唯一の譲歩）
 
-すべてのソース/アセット/ドキュメントは設計書フォルダに収める。ビルドの**実体ロジックは `Infra/Build/`** に置く。ただし Gradle ラッパー（`gradlew`・`gradlew.bat`・`gradle/wrapper/`）と**最小のシム `settings.gradle` / `build.gradle`** は、Gradle と IDE が root を認識するために root 配置が必須なため root に置き、実体は `apply from: 'Infra/Build/build.gradle'` で委譲する。これがフォルダ構成厳守に対する唯一の物理的譲歩。**この 3 点以外を root に増やさない。**
+すべてのソース/アセット/ドキュメントは設計書フォルダに収める。ビルドの**実体ロジックは `Infra/Build/`** に置く。ただし Gradle ラッパー（`gradlew`・`gradlew.bat`・`gradle/wrapper/`）と**最小のシム `settings.gradle` / `build.gradle`** は、Gradle と IDE が root を認識するために root 配置が必須なため root に置き、実体は `apply from: 'Infra/Build/build.gradle'` で委譲する。これがフォルダ構成厳守に対する唯一の物理的譲歩。**この 3 点に加えて、リポジトリ運用上の VCS メタデータ（`.gitignore` / `.gitattributes`）のみ root 配置を許可する**（ソース/アセット/ビルド設定の実体ではなく、既存の `.github/` / `.claude/` と同カテゴリのメタ情報のため）。**それ以外（ソース/アセット/ビルドロジック等の実体）は root に増やさない。** なお `.gitignore` の `build/` は Windows の casing で `Infra/Build/` を巻き込まないよう `/build/` とルート固定し、`.gitattributes` は wrapper の改行（`gradlew`=LF / `*.bat`=CRLF / `*.jar`=binary）を固定する。
 
 ---
 
@@ -150,7 +150,7 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 ### Must Never
 
 - 複数のタスクを 1 回で実装する。
-- フォルダ構成を勝手に変更する（root に許可済みの shim/wrapper 3 点以外を増やさない）。
+- フォルダ構成を勝手に変更する（root に増やしてよいのは wrapper / シム 3 点 ＋ VCS メタデータ `.gitignore` / `.gitattributes` のみ。ソース/アセット/ビルドロジックの実体は設計書フォルダに収める）。
 - 既存コードを理由なく削除する。
 - 設計書未承認のフレームワーク / ライブラリを独断で追加する（JSON は LibGDX 組込みを使い追加依存を作らない。YAML 等が必要になったら相談）。
 - MUGEN の名称・仕様・素材をそのままコピーする。
@@ -163,6 +163,9 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 - **`apply-template.sh` は `CLAUDE.md.template` を置換しない** — スクリプトは `*.md` のみ sed 対象とするため、拡張子 `.template` のファイルはプレースホルダー未置換のままリネームされる。テンプレ初期化時は `CLAUDE.md` のプレースホルダー（`{{BUILD_CMD}}` 等）を手で埋める必要がある（本リポジトリでは初期化時に対応済み）。
 - **`docs/` は小文字で統一する** — 設計書は `Docs/`（大文字）だが、テンプレ既存の `docs/`（小文字）と Windows の大文字小文字非区別により同一フォルダに衝突する。GitHub は casing を区別するため、ドキュメントパス・スクショ raw URL は **必ず `docs/` 小文字**で書く（大文字 `Docs/` を新規に書かない）。他のトップ階層（`GameRuntime/` 等）は衝突しないので設計書どおり大文字。
 - **`apply-template.sh` の置換対象は `*.md`/`*.json`/`*.sh`/`*.ps1` のみ** — `.github/workflows/*.yml` は対象外。Issue→PR 自動化（`claude-issue-to-pr.yml`）の `--allowedTools` は手で保守する必要があり、本プロジェクトのビルドツール `Bash(./gradlew:*),Bash(gradle:*)` を追加済み（ビルドツールを変えたら要更新）。また置換は `docs/customize.md`/`docs/setup.md` 内の placeholder 名（`{{OWNER}}` 等）まで潰すため、これらは初期コミットから復元してトークンを保持している。
+- **`.gitignore` の `build/` は必ずルート固定 `/build/` で書く** — Windows は `core.ignorecase=true` のため、非アンカーの `build/` が大文字小文字を無視して設計書フォルダ **`Infra/Build/`（大文字 B）に一致し、ビルドロジック本体ごと無視**してしまう（`docs/`↔`Docs/` と同種の casing 罠）。ビルド出力は単一モジュール root 直下のみなので `/build/`・`/.gradle/` とアンカーする。`.gitignore` 変更時は `git check-ignore -v Infra/Build/build.gradle` が空（＝未無視）であることを必ず確認する。
+- **`Infra/Build/build.gradle` は `apply from:` で読まれるため `plugins {}` DSL が使えない** — applied script の制約。コアプラグインは `apply plugin: 'java'` / `apply plugin: 'application'` のレガシー構文で適用する（`plugins {}` ブロックは root の `build.gradle`/`settings.gradle` のみ）。なお相対パス（`srcDirs` 等）は applied script でも **root プロジェクトディレクトリ基準**で解決される。
+- **Gradle の `Executing Gradle on JVM versions 16 and lower has been deprecated` は無害** — ローカル launcher JVM が Java 11 のため出るが、コンパイルは settings.gradle の foojay が auto-provision する **JDK17 toolchain** を使う。Gradle 9 移行時のみ要対応。`./gradlew javaToolchains` で Temurin 17 が provisioned 済みか確認できる。
 <!-- 以降、kaizen-close でビルド系の罠を発見したら「症状 / 原因 / 対処」で追記する。 -->
 
 ---

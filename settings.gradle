@@ -1,0 +1,21 @@
+// =============================================================================
+// Phantom Nexus — root settings（最小シム）
+//
+// CLAUDE.md「Gradle 配置に関する重要な前提」のとおり、root には Gradle/IDE が
+// プロジェクトを認識するための最小シムのみを置く。ビルドの実体は Infra/Build に委譲。
+//
+// foojay-resolver-convention により、手元に JDK17 が無くても Java 17 toolchain を
+// 自動取得する（要ネットワーク。CLAUDE.md「ビルドと実行」参照）。
+// =============================================================================
+
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'phantom-nexus'

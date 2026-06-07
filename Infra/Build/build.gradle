@@ -1,0 +1,73 @@
+// =============================================================================
+// Phantom Nexus — ビルドロジックの実体
+//
+// このファイルは root の build.gradle から `apply from: 'Infra/Build/build.gradle'`
+// で読み込まれる。CLAUDE.md「Gradle 配置に関する重要な前提」のとおり、ビルドの
+// 実体ロジックはここへ集約し、root には最小シムのみを置く。
+//
+// 設計書のフォルダ構成を唯一の真実とし、ソース/アセットのパスをそのフォルダへ向ける。
+// 相対パスは root プロジェクトディレクトリ基準で解決される（applied script のため）。
+//
+// 注意：applied script では plugins{} DSL ブロックが使えないため、コアプラグインは
+// レガシーな `apply plugin:` で適用する。
+// =============================================================================
+
+apply plugin: 'java'
+apply plugin: 'application'
+
+group = 'com.phantomnexus'
+version = '0.1.0-SNAPSHOT'
+
+// JDK は Gradle toolchain で Java 17 を指定。手元に JDK17 が無くても
+// settings.gradle の foojay-resolver-convention が自動取得する（要ネットワーク）。
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    // 設計書承認スタック：LibGDX（デスクトップ=LWJGL3 バックエンド）
+    gdxVersion = '1.12.1'
+}
+
+dependencies {
+    implementation "com.badlogicgames.gdx:gdx:${gdxVersion}"
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:${gdxVersion}"
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:${gdxVersion}:natives-desktop"
+}
+
+// 設計書フォルダをソース/リソースのルートに設定（標準の src/main/java は使わない）。
+// 存在しないディレクトリは Gradle が無視するため、空フォルダ段階でもビルドは通る。
+sourceSets {
+    main {
+        java {
+            srcDirs = [
+                'GameRuntime/Core',
+                'GameRuntime/Rendering',
+                'GameRuntime/Input',
+                'GameRuntime/Battle',
+                'GameRuntime/Debug',
+                'Shared/Schema',
+                'Shared/Types',
+                'Shared/Constants',
+                'Tools/CharacterViewer',
+                'Tools/HitboxEditor',
+            ]
+        }
+        resources {
+            // 実行時リソース（外部キャラ JSON 等）の配置先
+            srcDirs = ['Assets']
+        }
+    }
+}
+
+// デスクトップ起動のメインクラス。LWJGL3 ランチャーの実体は Task 3/4 で実装するため、
+// 現段階ではプレースホルダー（build はクラス解決を行わないため緑のまま）。
+application {
+    mainClass = 'com.phantomnexus.runtime.core.DesktopLauncher'
+}

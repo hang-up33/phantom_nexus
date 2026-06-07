@@ -1,0 +1,12 @@
+# 既定：テキストは改行を LF に正規化して格納し、クロスプラットフォーム差異を吸収する
+* text=auto
+
+# Gradle wrapper のシェルスクリプトは Unix / CI で実行されるため必ず LF
+# （CRLF が混入すると `bad interpreter` 等で起動不能になる）
+gradlew text eol=lf
+
+# Windows バッチは CRLF
+*.bat text eol=crlf
+
+# Gradle wrapper jar はバイナリ（改行変換を禁止して破損を防ぐ）
+*.jar binary
