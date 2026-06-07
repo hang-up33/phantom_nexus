@@ -8,7 +8,10 @@ import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.RoundManager;
 import com.phantomnexus.runtime.debug.DebugOverlay;
 import com.phantomnexus.runtime.debug.ScreenshotController;
+import com.phantomnexus.runtime.input.Command;
+import com.phantomnexus.runtime.input.CommandDetector;
 import com.phantomnexus.runtime.input.InputAction;
+import com.phantomnexus.runtime.input.InputHistory;
 import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.runtime.rendering.FighterAnimator;
 import com.phantomnexus.runtime.rendering.GameRenderer;
@@ -39,8 +42,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private FighterAnimator animator2;
     private RoundManager round;
     private DebugOverlay debugOverlay;
+    private final InputHistory history1 = new InputHistory();
+    private final InputHistory history2 = new InputHistory();
+    private Command lastCommand1 = Command.NONE;
+    private Command lastCommand2 = Command.NONE;
+    private int commandTimer1;
+    private int commandTimer2;
     private String controlsHint;
     private ScreenshotController screenshot;
+
+    /** 検出コマンドを HUD に表示し続けるフレーム数。 */
+    private static final int COMMAND_DISPLAY_FRAMES = 90;
 
     @Override
     public void create() {
@@ -75,6 +87,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     @Override
     public void render() {
+        // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
+        screenshot.applyTimedHolds(p1Input, p2Input);
         // デバッグ表示のトグル（グローバルキー。プレイヤー入力とは別系統のため Gdx を直接参照）。
         if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
             debugOverlay.toggle();
@@ -86,14 +100,20 @@ public class PhantomNexusGame extends ApplicationAdapter {
         screenshot.maybeCapture();
     }
 
-    /** 入力 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 勝敗 → 向き直し → アニメ進行の 1 フレーム更新。 */
+    /** 入力 → コマンド検出 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 勝敗 → 向き直し → アニメ進行。 */
     private void update() {
         // ラウンド決着後は全更新を凍結して結果表示の静止画を保つ（MVP）。
         if (round.isFinished()) {
             return;
         }
-        fighter1.update(moveDir(p1Input), p1Input.isPressed(InputAction.UP), p1Input.isPressed(InputAction.ATTACK));
-        fighter2.update(moveDir(p2Input), p2Input.isPressed(InputAction.UP), p2Input.isPressed(InputAction.ATTACK));
+        updateFighterInput(fighter1, p1Input, history1, 1);
+        updateFighterInput(fighter2, p2Input, history2, 2);
+        if (commandTimer1 > 0) {
+            commandTimer1--;
+        }
+        if (commandTimer2 > 0) {
+            commandTimer2--;
+        }
         // 押し合い解消（pushbox の重なりを左右へ分離）。
         CollisionSystem.resolvePush(fighter1, fighter2);
         // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
@@ -106,6 +126,32 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 描画状態の更新（移動・向き確定後にファイター状態からアニメ状態を導出して 1 tick 進める）。
         animator1.update(fighter1);
         animator2.update(fighter2);
+    }
+
+    /**
+     * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
+     * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19）。
+     */
+    private void updateFighterInput(Fighter f, PlayerInput in, InputHistory history, int player) {
+        int dir = moveDir(in);
+        boolean jump = in.isPressed(InputAction.UP);
+        boolean attack = in.isPressed(InputAction.ATTACK);
+        // 向き相対のテンキー方向 + 攻撃立ち上がりを履歴に記録（攻撃値は上で 1 回読んだものを再利用）。
+        int numpad = InputHistory.numpad(
+                in.isDown(InputAction.LEFT), in.isDown(InputAction.RIGHT),
+                in.isDown(InputAction.UP), in.isDown(InputAction.DOWN), f.isFacingRight());
+        history.record(numpad, attack);
+        Command cmd = CommandDetector.detect(history);
+        if (cmd != Command.NONE) {
+            if (player == 2) {
+                lastCommand2 = cmd;
+                commandTimer2 = COMMAND_DISPLAY_FRAMES;
+            } else {
+                lastCommand1 = cmd;
+                commandTimer1 = COMMAND_DISPLAY_FRAMES;
+            }
+        }
+        f.update(dir, jump, attack);
     }
 
     /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13）。 */
@@ -131,12 +177,22 @@ public class PhantomNexusGame extends ApplicationAdapter {
         return dir;
     }
 
-    /** 各ファイターの座標・向き・接地状態を 1 行で返す（移動 / ジャンプの動作確認用 HUD）。 */
+    /** 各ファイターの座標・向き・接地状態（＋検出コマンド）を 1 行で返す（動作確認用 HUD）。 */
     private String statusLine() {
         return String.format(
-                "%s x=%.0f y=%.0f %s%s    %s x=%.0f y=%.0f %s%s",
+                "%s x=%.0f y=%.0f %s%s%s    %s x=%.0f y=%.0f %s%s%s",
                 fighter1.getDef().getName(), fighter1.getX(), fighter1.getY(), facingArrow(fighter1), airTag(fighter1),
-                fighter2.getDef().getName(), fighter2.getX(), fighter2.getY(), facingArrow(fighter2), airTag(fighter2));
+                commandTag(1),
+                fighter2.getDef().getName(), fighter2.getX(), fighter2.getY(), facingArrow(fighter2), airTag(fighter2),
+                commandTag(2));
+    }
+
+    /** 直近に検出したコマンドを表示窓内のあいだだけ付記する（無ければ空文字）。 */
+    private String commandTag(int player) {
+        if (player == 2) {
+            return commandTimer2 > 0 ? "  <" + lastCommand2.label() + ">" : "";
+        }
+        return commandTimer1 > 0 ? "  <" + lastCommand1.label() + ">" : "";
     }
 
     private static String airTag(Fighter f) {
