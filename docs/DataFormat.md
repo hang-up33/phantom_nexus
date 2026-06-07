@@ -41,6 +41,8 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
     "hp": 1000,
     "walkSpeed": 4.0,
     "jumpPower": 12.0,
+    "width": 100,
+    "height": 240,
     "animations": {
       "idle": "idle.png",
       "walk": "walk.png",
