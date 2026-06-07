@@ -3,12 +3,14 @@ package com.phantomnexus.runtime.core;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.Fighter;
+import com.phantomnexus.runtime.battle.RoundManager;
 import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.runtime.rendering.FighterAnimator;
 import com.phantomnexus.runtime.rendering.GameRenderer;
 import com.phantomnexus.shared.constants.GameConstants;
+import com.phantomnexus.shared.types.BattleRules;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
@@ -30,6 +32,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private Fighter fighter2;
     private FighterAnimator animator1;
     private FighterAnimator animator2;
+    private RoundManager round;
     private String controlsHint;
     private ScreenshotController screenshot;
 
@@ -56,27 +59,35 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // アニメーション状態機械（Task 9）。各ファイターの実行時状態から idle/walk/jump を導出する。
         animator1 = new FighterAnimator();
         animator2 = new FighterAnimator();
+        // 対戦ルール / ラウンド管理（Task 14）。撮影時は制限時間をオーバーライド可能（結果表示の撮影用）。
+        BattleRules rules = new BattleRules(screenshot.timeLimitSeconds(BattleRules.defaults().getTimeLimitSeconds()), 1);
+        round = new RoundManager(rules);
         controlsHint = "P1 " + p1Input.describe() + "      P2 Arrows + RCtrl";
     }
 
     @Override
     public void render() {
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, controlsHint, statusLine());
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, round, controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
 
-    /** 入力 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 向き直し → アニメ進行の 1 フレーム更新。 */
+    /** 入力 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 勝敗 → 向き直し → アニメ進行の 1 フレーム更新。 */
     private void update() {
+        // ラウンド決着後は全更新を凍結して結果表示の静止画を保つ（MVP）。
+        if (round.isFinished()) {
+            return;
+        }
         fighter1.update(moveDir(p1Input), p1Input.isPressed(InputAction.UP), p1Input.isPressed(InputAction.ATTACK));
         fighter2.update(moveDir(p2Input), p2Input.isPressed(InputAction.UP), p2Input.isPressed(InputAction.ATTACK));
         // 押し合い解消（pushbox の重なりを左右へ分離）。
         CollisionSystem.resolvePush(fighter1, fighter2);
         // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
-        // ダメージ適用・のけぞりは Task 13 で本判定結果に接続する。
         resolveHit(fighter1, fighter2);
         resolveHit(fighter2, fighter1);
+        // 勝敗判定（KO / タイムアップ）。決着したら次フレーム以降は凍結される。
+        round.update(fighter1, fighter2);
         fighter1.faceTowards(fighter2);
         fighter2.faceTowards(fighter1);
         // 描画状態の更新（移動・向き確定後にファイター状態からアニメ状態を導出して 1 tick 進める）。
