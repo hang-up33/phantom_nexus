@@ -72,6 +72,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `jumpPower` | float | ✅ | ジャンプ初速（px/frame, 上向き正） |
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
+| `color` | float[3] | 任意 | 表示色 RGB（0..1）。スプライト導入までのプレースホルダ矩形色（未設定なら描画側の既定色） |
 | `normalAttack` | object | ✅ | 通常攻撃 1 技（下記 Move）。MVP は 1 キャラ 1 技 |
 | `specialMove` | object | 任意 | 必殺技 1 技（下記 Move ＋ projectile 系）。波動拳で発動（Task 20） |
 
@@ -142,3 +143,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 17) `Shared/Types/Stage` と `Shared/Schema/StageLoader` を新設。`Assets/Stages/stage001.json` を追加し、背景（空グラデ + 地面色）を JSON 駆動で描画。色は RGB float[3]（0..1）。
 - (Task 19) コマンド入力検出を `GameRuntime/Input`（`InputHistory`/`CommandDetector`/`Command`）に実装（波動拳=236+A・溜め・下+A）。MVP はコマンド定義をコード側に持つ（`Commands` の JSON 化は将来）。撮影用にタイムド入力スクリプト（`phantom.screenshot.script`）を追加。
 - (Task 20) `Move` に `projectile`/`projectileSpeed`、`Character` に `specialMove` を追加。fighter JSON に必殺技（fireball, 飛び道具）を追加。`CharacterLoader` は specialMove を任意検証。
+- (Task 22) `Character` に表示色 `color`（RGB float[3], 任意）を追加。2 体目（fighter002 Akane）を別ステータス（HP 850・高速・小柄）・別色・別技に再定義し、**コード変更なし・JSON のみでキャラが変わる**ことを検証。

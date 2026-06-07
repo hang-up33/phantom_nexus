@@ -67,6 +67,7 @@ public final class CharacterLoader {
         requirePositive(c.getJumpPower(), "jumpPower", src);
         requirePositive(c.getWidth(), "width", src);
         requirePositive(c.getHeight(), "height", src);
+        requireOptionalRgb(c.getColor(), "color", src);
         Move atk = c.getNormalAttack();
         if (atk == null) {
             throw new SchemaException("必須フィールド欠落: normalAttack (" + src + ")");
@@ -101,6 +102,21 @@ public final class CharacterLoader {
         requirePositive(sp.getHitboxHeight(), "specialMove.hitboxHeight", src);
         if (sp.isProjectile()) {
             requirePositive(sp.getProjectileSpeed(), "specialMove.projectileSpeed", src);
+        }
+    }
+
+    /** 色は任意（null 可）。設定されていれば RGB（長さ 3・各 0..1）であることを検証する。 */
+    private static void requireOptionalRgb(float[] color, String field, String src) {
+        if (color == null) {
+            return;
+        }
+        if (color.length < 3) {
+            throw new SchemaException("色は長さ 3 の RGB 配列が必要: " + field + " (" + src + ")");
+        }
+        for (int i = 0; i < 3; i++) {
+            if (color[i] < 0f || color[i] > 1f) {
+                throw new SchemaException("色成分は 0..1 の範囲が必要: " + field + "[" + i + "] = " + color[i] + " (" + src + ")");
+            }
         }
     }
 

@@ -247,8 +247,10 @@ public class GameRenderer {
      * ファイターをプレースホルダ矩形で描く。アニメーションの縦ボブを位置に反映し、向きマーカーと
      * 現在フレームを示すピップ列を添える（スプライト導入までの可視化）。
      */
-    private void drawFighter(Fighter f, FighterAnimator anim, Color color) {
+    private void drawFighter(Fighter f, FighterAnimator anim, Color fallback) {
         Character d = f.getDef();
+        // キャラ JSON に色があればそれを使う（Task 22）。無ければプレイヤー既定色。
+        Color color = characterColor(d, fallback);
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
         float bottom = f.getY() + anim.bobOffset();
@@ -292,6 +294,15 @@ public class GameRenderer {
         float boxY = f.getY() + m.getHitboxOffsetY();
         shapes.setColor(attackPhaseColor(f.getAttackPhase()));
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
+    }
+
+    /** キャラ定義の色（長さ 3 の RGB）があればそれを、無ければ既定色を返す（Task 22）。 */
+    private static Color characterColor(Character d, Color fallback) {
+        float[] c = d.getColor();
+        if (c != null && c.length >= 3) {
+            return new Color(c[0], c[1], c[2], 1f);
+        }
+        return fallback;
     }
 
     /** のけぞり用のフラッシュ色（元色を白へ寄せる）。 */
