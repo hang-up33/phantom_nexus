@@ -25,6 +25,7 @@ public final class RoundManager {
     public enum FinishReason { NONE, KO, TIMEOUT }
 
     private final int roundsToWin;
+    private final int maxRounds; // = 2 * roundsToWin - 1：全ラウンドが引き分けでも終了を保証
     private final int totalFrames;
 
     // Win counters
@@ -49,6 +50,7 @@ public final class RoundManager {
 
     public RoundManager(BattleRules rules) {
         this.roundsToWin = rules.getRoundsToWin();
+        this.maxRounds = 2 * roundsToWin - 1;
         this.totalFrames = Math.max(0, rules.getTimeLimitSeconds()) * GameConstants.TARGET_FPS;
         this.remainingFrames = totalFrames;
     }
@@ -98,7 +100,7 @@ public final class RoundManager {
         } else if (roundWinner == Winner.P2) {
             p2Wins++;
         }
-        if (p1Wins >= roundsToWin || p2Wins >= roundsToWin) {
+        if (p1Wins >= roundsToWin || p2Wins >= roundsToWin || currentRound >= maxRounds) {
             matchOver = true;
             matchWinner = p1Wins > p2Wins ? Winner.P1 : (p2Wins > p1Wins ? Winner.P2 : Winner.DRAW);
             matchReason = roundReason;
