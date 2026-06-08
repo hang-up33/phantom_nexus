@@ -7,7 +7,7 @@ assignees: []
 ---
 
 <!-- この Issue に `claude` ラベルが付くと .github/workflows/claude-issue-to-pr.yml が起動し、
-     Claude が実装ブランチと PR を自動生成します（ANTHROPIC_API_KEY と Actions 権限の設定が前提）。
+     Claude が実装ブランチと PR を自動生成します（CLAUDE_CODE_OAUTH_TOKEN と Actions 権限の設定が前提）。
      ラベル不要で本文に @claude と書いても起動します。 -->
 
 ## 背景 / 目的

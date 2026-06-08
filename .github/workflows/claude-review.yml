@@ -16,7 +16,9 @@ name: Claude PR Review
 # 発火する。本レビューワークフローは `pull_request` イベント専用にすることで二重発火しない。
 #
 # 前提:
-# - リポジトリ Secrets に `ANTHROPIC_API_KEY` を登録済みであること（実装ワークフローと共用）
+# - リポジトリ Secrets に `CLAUDE_CODE_OAUTH_TOKEN` を登録済みであること（実装ワークフローと共用）。
+#   ローカルで `claude setup-token` を実行して得たトークンを
+#   `gh secret set CLAUDE_CODE_OAUTH_TOKEN` で登録する（Claude サブスク枠を使う）。
 # - Settings → Actions → General で Workflow permissions が "Read and write" であること
 
 on:
@@ -42,7 +44,7 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
