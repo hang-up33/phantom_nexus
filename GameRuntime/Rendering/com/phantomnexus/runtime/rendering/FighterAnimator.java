@@ -34,7 +34,7 @@ public class FighterAnimator {
         }
     }
 
-    /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
+    /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
     private static AnimationState resolve(Fighter fighter) {
         if (fighter.isInHitstun()) {
             return AnimationState.HITSTUN;
@@ -47,6 +47,10 @@ public class FighterAnimator {
         }
         if (!fighter.isGrounded()) {
             return AnimationState.JUMP;
+        }
+        // しゃがみガード（後退方向保持の低姿勢）は しゃがみ移動 / しゃがみより優先（Task 30）。
+        if (fighter.isCrouchGuarding()) {
+            return AnimationState.CROUCH_GUARD;
         }
         if (fighter.isCrouchWalking()) {
             return AnimationState.CROUCH_WALK;

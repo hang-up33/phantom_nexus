@@ -169,13 +169,13 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 | chip ダメージ | `Math.max(1, attackDamage / 10)` |
 | knockback | 通常の 30%（のけぞりなし、微小後退のみ） |
 | 空中ガード | 不可（接地中のみ） |
-| しゃがみガード | 不可（MVP では立ちガードのみ） |
-| 視覚 | 半透明ブルーオーバーレイ（`GameRenderer.GUARD_COLOR`） |
+| しゃがみガード | 可（Task 30。しゃがみ中の後退方向保持で低姿勢ガード） |
+| 視覚 | 半透明ブルーオーバーレイ（`GameRenderer.GUARD_COLOR`）。しゃがみ時は低姿勢（`height/3`）の高さで重なる |
 
 - **`Fighter.guarding`** フィールドを毎 `update()` の先頭で算出する（接地 + 非のけぞり + 非攻撃 + 後退方向入力）。
 - **`Fighter.applyGuard(attackDamage, knockbackDir)`** — chip ダメージ適用と微小 knockback を行う。のけぞりカウンタは変更しない。
 - **`PhantomNexusGame.resolveHit()`** および **`updateProjectiles()`** で `defender.isGuarding()` を確認し、ガード中は `applyHit()` の代わりに `applyGuard()` を呼ぶ。
-- **`AnimationState.GUARD`** と **`FighterAnimator.resolve()`** への GUARD 優先度（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみ > ガード > 歩行 > 待機）を追加。
+- **`AnimationState.GUARD`** と **`FighterAnimator.resolve()`** への GUARD 優先度（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機）を追加。
 
 ---
 
@@ -185,7 +185,7 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 |---|---|
 | 発動条件 | `crouching == true`（既にしゃがみ状態）かつ攻撃ボタン押下 |
 | 遷移フレームブロック | DOWN 押下と同フレームの攻撃入力は無視（`crouching=false` の遷移フレームでは `!crouchHeld` が false） |
-| 技データ | `normalMoves[]` の同一技を使用（hitbox は立ち技と同一 Y。下段 hitbox は Task 30 で追加予定） |
+| 技データ | `normalMoves[]` の同一技を使用（hitbox は立ち技と同一 Y。下段 hitbox は将来追加予定） |
 | 姿勢維持 | 攻撃中も `crouching=true` を維持 → hurtbox 低高さ・プレースホルダ矩形短縮 |
 | 立ち上がり | 攻撃終了後に `crouchHeld` が `false` なら自動で `crouching=false`（既存ロジックと共通） |
 | 中断 | `applyHit()` で `crouchAttacking=false` / `crouching=false` にリセット |
@@ -245,10 +245,27 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - **入力**：しゃがみ状態（DOWN 押し続け + 接地中）に左右入力を同時押しすることで発動する低速クロール。
 - **速度**：通常の歩行速度（`Character.walkSpeed`）の **50%**。
 - **拘束維持**：クロール中もしゃがみ中の制約（ジャンプ不可・hurtbox 1/3 高さ）を維持する。クロール中に攻撃ボタンを押すとしゃがみ攻撃として発動する（Task 28・`moveDir=0` で停止して攻撃）。
-- **ガード**：DOWN 保持中は `!crouchHeld` が false となるためガード条件を満たさず、クロール中にガードに入ることはない。
-- **アニメーション**：`AnimationState.CROUCH_WALK`（2 フレームループ・8 tick/frame）で小刻みな低姿勢移動を可視化。`FighterAnimator.resolve()` で `isCrouchWalking()==true` の場合に選択される。
+- **ガードとの関係**：**後退方向**へのクロールは Task 30 でしゃがみガード（低姿勢ガード）になる。**前進方向**（相手側）へのクロールのみが純粋なしゃがみ移動として `CROUCH_WALK` に解決される。
+- **アニメーション**：`AnimationState.CROUCH_WALK`（2 フレームループ・8 tick/frame）で小刻みな低姿勢移動を可視化。`FighterAnimator.resolve()` で `isCrouchGuarding()==false`（＝前進クロール）かつ `isCrouchWalking()==true` の場合に選択される。
 - **`isWalking()` との分離**：`isWalking()` は `!crouching` を条件に含めたため、クロール中に `WALK` アニメに遷移しない。
 - **AI**：`AiController` は `crouchHeld=false` のままなのでクロールは行わない（影響なし）。
+
+---
+
+## しゃがみガード（Task 30）
+
+しゃがみ（DOWN 押し続け）中に**後退方向**を保持すると、低姿勢を維持したままガード状態に入る。立ちガード（Task 27）のしゃがみ版。
+
+| 項目 | 仕様 |
+|---|---|
+| 発動条件 | 接地中 + 非のけぞり + 非攻撃中 + しゃがみ中（DOWN 保持）+ 後退方向入力 |
+| ガード判定 | 立ちガードと共通の `Fighter.guarding`（`update()` 先頭で算出）。条件から `!crouchHeld` を撤廃し、立ち・しゃがみ両方で後退方向保持を許可 |
+| chip / knockback / のけぞり | 立ちガードと同一（`applyGuard()`：chip = `max(1, damage/10)`、knockback 30%、のけぞりなし） |
+| 食らい判定 | しゃがみの hurtbox（`height/3` ≒ 80px）を維持。現データでは全技の `hitboxOffsetY ≥ 90px` がこの高さを超えるため、しゃがみ自体の**回避優位**が先に効き、chip が乗るのは将来の下段 hitbox 追加後 |
+| アニメーション | `AnimationState.CROUCH_GUARD`（単一ポーズ）。優先順: hitstun > しゃがみ攻撃 > 攻撃 > 空中 > **しゃがみガード** > しゃがみ移動 > しゃがみ > 立ちガード > 歩行 > 待機 |
+| 視覚 | 立ちガードと同じ半透明ブルーオーバーレイ。`GameRenderer` は `drawHeight`（しゃがみ時 `height/3`）に重ねるため自動で低姿勢になる（描画コード変更なし） |
+| 判定ヘルパ | `Fighter.isCrouchGuarding()`（`guarding && crouching`） |
+| AI | `AiController` は `crouchHeld=false` のままなのでしゃがみガードはしない |
 
 ---
 
@@ -277,3 +294,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 27) ガードを追記。`Fighter.guarding` フィールド・`applyGuard()`・`isGuarding()`、`AnimationState.GUARD`、`FighterAnimator` 優先順の更新、`GameRenderer.GUARD_COLOR` のオーバーレイ描画、`resolveHit()`/`updateProjectiles()` のガード分岐を実装。「ガード（Task 27）」節を追加。
 - (Task 28) しゃがみ攻撃追加。`Fighter` に `crouchAttacking` フィールド・`isCrouchAttacking()` を追加。しゃがみ状態中の攻撃入力を解禁し、発動時に `crouchAttacking=true` → 攻撃中も `crouching=true` を維持して低姿勢で攻撃する。立ち上がりは攻撃終了後に `crouchHeld` の状態で決まる（押し続け中はそのまましゃがみへ）。`AnimationState.CROUCH_ATTACK` を追加し `FighterAnimator.resolve()` に織り込み（しゃがみ攻撃 > 通常攻撃の優先順）。しゃがみ（Task 25）節の行動拘束記述を更新。「しゃがみ攻撃（Task 28）」節を追加。
 - (Task 29) しゃがみ移動（低速クロール）を追記。`Fighter` のしゃがみ分岐で `moveDir` を記録し `walkSpeed * 0.5f` で移動するよう変更。`isWalking()` を `!crouching` 条件付きに修正し `isCrouchWalking()` を追加。`AnimationState.CROUCH_WALK`（2 フレームループ）と `FighterAnimator.bobOffset()` の CROUCH_WALK ケースを追加。「しゃがみ移動（Task 29）」節を追加。
+- (Task 30) しゃがみガードを追記。`Fighter.guarding` のガード条件から `!crouchHeld` を撤廃し、しゃがみ中の後退方向保持でも低姿勢ガードに入れるようにした。`isCrouchGuarding()`（`guarding && crouching`）を追加。`AnimationState.CROUCH_GUARD` を追加し `FighterAnimator.resolve()` の優先順（しゃがみ攻撃/攻撃/空中 > しゃがみガード > しゃがみ移動/しゃがみ > 立ちガード）に織り込み。ガードオーバーレイは既存の `drawHeight` 流用で自動的に低姿勢になる（描画変更なし）。ガード（Task 27）節の「しゃがみガード」行・しゃがみ移動（Task 29）節のガード記述を更新し「しゃがみガード（Task 30）」節を追加。
