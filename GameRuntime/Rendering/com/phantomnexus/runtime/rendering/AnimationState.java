@@ -24,7 +24,9 @@ public enum AnimationState {
     /** 攻撃。区間（startup/active/recovery）の進行は {@code Fighter.attackPhase} 側が持つ単一状態。 */
     ATTACK(1, 1, false),
     /** のけぞり（hitstun）。被弾中の単一ポーズ（残フレームは {@code Fighter.hitstunFrames} 側が持つ）。 */
-    HITSTUN(1, 1, false);
+    HITSTUN(1, 1, false),
+    /** しゃがみ（Task 25）。接地中に DOWN を押し続けている低姿勢ループ。 */
+    CROUCH(2, 10, true);
 
     private final int frameCount;
     private final int ticksPerFrame;
