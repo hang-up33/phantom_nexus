@@ -203,7 +203,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
         String cmdName = cmd.name(); // "HADOUKEN" / "CHARGE_SHOT" / "DOWN_ATTACK"
         for (Move m : specials) {
-            if (cmdName.equalsIgnoreCase(m.getCommand())) {
+            String mc = m.getCommand();
+            if (mc != null && cmdName.equalsIgnoreCase(mc.trim())) {
                 return m;
             }
         }

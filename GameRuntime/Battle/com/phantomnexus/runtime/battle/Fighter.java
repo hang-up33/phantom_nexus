@@ -122,8 +122,10 @@ public class Fighter {
         if (moves == null) {
             return null;
         }
+        String trimmed = button.trim();
         for (Move m : moves) {
-            if (button.equalsIgnoreCase(m.getButton())) {
+            String mb = m.getButton();
+            if (mb != null && trimmed.equalsIgnoreCase(mb.trim())) {
                 return m;
             }
         }
