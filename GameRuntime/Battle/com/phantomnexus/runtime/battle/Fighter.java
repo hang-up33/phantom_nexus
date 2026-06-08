@@ -58,8 +58,8 @@ public class Fighter {
                 velocityX = 0f;
             }
         } else {
-            // しゃがみ中は通常技入力を受け付けない（しゃがみ攻撃は将来拡張）。
-            if (attackPhase == AttackPhase.NONE && attackButton != null && grounded && !crouching) {
+            // しゃがみ中・しゃがみ遷移フレームは通常技入力を受け付けない（同フレームで DOWN+攻撃しても技が出ない）。
+            if (attackPhase == AttackPhase.NONE && attackButton != null && grounded && !crouching && !crouchHeld) {
                 Move move = selectNormalMove(attackButton);
                 if (move != null) {
                     beginAttack(move);
