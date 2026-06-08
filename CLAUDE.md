@@ -9,7 +9,7 @@
 
 **Phantom Nexus** は、MUGEN のようにキャラクター・ステージ・技・当たり判定・AI を **外部データ（JSON）** として追加・編集できる、拡張性の高い 2D 格闘ゲーム基盤。固定キャラ制ではなく「ユーザーが独自キャラを足せる格闘ゲームエンジン」を目指す。技術スタックは Java / LibGDX / Gradle、対象は Windows PC（将来 Linux・macOS）。詳細は [README.md](README.md) と第一設計書を参照。
 
-**現在のフェーズ**：設計書タスク 1〜27 を完了（MVP ＋ コマンド技/必殺技/簡易 AI ＋ 2 体目検証 ＋ ドキュメント整備 ＋ 複数技 JSON 化 ＋ しゃがみ ＋ 複数ラウンド制 ＋ ガード）。1対1対戦・移動/ジャンプ/しゃがみ・通常攻撃/必殺技（波動拳=飛び道具）・HP ゲージ・攻撃/食らい/押し合い判定・立ちガード（chip ダメージ）・複数ラウンド制（ベスト・オブ 3）・外部 JSON 駆動（キャラ/ステージ）・デバッグ当たり判定表示・簡易 AI までが動作。次フェーズ候補は Tools（CharacterViewer / HitboxEditor）・スプライト描画・サウンド・しゃがみガード等。
+**現在のフェーズ**：設計書タスク 1〜30 を完了（MVP ＋ コマンド技/必殺技/簡易 AI ＋ 2 体目検証 ＋ ドキュメント整備 ＋ 複数技 JSON 化 ＋ しゃがみ ＋ 複数ラウンド制 ＋ ガード ＋ しゃがみ攻撃 ＋ しゃがみ移動 ＋ しゃがみガード）。1対1対戦・移動/ジャンプ/しゃがみ（攻撃/移動/ガード）・通常攻撃/必殺技（波動拳=飛び道具）・HP ゲージ・攻撃/食らい/押し合い判定・立ち＆しゃがみガード（chip ダメージ）・複数ラウンド制（ベスト・オブ 3）・外部 JSON 駆動（キャラ/ステージ）・デバッグ当たり判定表示・簡易 AI までが動作。次フェーズ候補は Tools（CharacterViewer / HitboxEditor）・スプライト描画・サウンド・下段/中段 hitbox（攻撃の高さ判定）等。
 
 ---
 
@@ -173,6 +173,8 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 - **複数ラウンド制で引き分けの扱いには `decisiveRounds` カウンタを使う**（Task 26 確立）— 引き分けラウンドを maxRounds にカウントすると BO3 で DRAW→P1→DRAW→P2→... が maxRounds=3 達成前に終わらないリスクがある。`p1Wins/p2Wins/decisiveRounds`（引き分け除く）を別管理し、終了条件は `p1Wins >= roundsToWin || p2Wins >= roundsToWin || decisiveRounds >= maxRounds || (maxRounds == 1 && roundWinner == DRAW)` とすることで 1 ラウンド引き分けの即終了と BO3 全引き分けのループ防止を両立する。`AiController` には `reset()` メソッドを追加しラウンド間でクールダウンをリセットする。
 - **feature branch は必ず最新 main から切る**（Task 28 で踏んだ罠）— 症状：task/28 を task/26 ベースで切ったため、Task 27（ガード）が入った main を後から `git merge main` する必要が生じ、5 ファイルのコンフリクト解消が発生した。対処：ブランチ作成前に必ず `git checkout main && git pull --ff-only` を実行し、最新 main から `git checkout -b task/<N>-<name>` する（next-task スキルの手順 3 参照）。
 - **PR/タスク名に未実装の効果を含めると Codex が収束しない**（Task 28 で踏んだ罠）— 症状：タスク名に「下段判定」と書いたところ Codex が3ラウンド連続で hitbox 未変更を指摘し続け、"Didn't find any major issues" まで進めなかった。対処：コミット・PR タイトル・README の機能説明は**実装済みの事実だけ**を正確に表現する（例：「下段判定」→「低姿勢を維持したまま攻撃」）。次タスクで hitbox を変えたら改めてドキュメントを更新する。
+- **しゃがみ状態の chip / 被弾はスクショで観測できない（しゃがみが回避優位）**（Task 30 で踏んだ罠）— 症状：しゃがみガードの被弾スクショを撮っても P1 の HP が満タンのまま（chip が乗らない）。原因：しゃがみ時の hurtbox は `height/3`（Aoi=240 → 80px）に縮むが、全キャラの最も低い技でも `hitboxOffsetY ≥ 90px`（fighter002 medium=90, heavy=100, light=120）でこの上端を超えるため、近接技がしゃがみ食らい判定に届かず「ガード以前に空振り＝回避」になる。対処：しゃがみ系（攻撃/ガード）の証跡は **状態ラベル（`crouch_guard` 等）＋低姿勢オーバーレイの可視化**で示す（Task 28「下段判定なし」と同じ割り切り）。chip が乗る証跡が要るのは将来 `hitboxOffsetY < 80` の下段 hitbox を追加してから。
+- **ガード判定を「立ち + しゃがみ」両対応にするときはアニメ優先順で `CROUCH_GUARD` を `CROUCH_WALK`/`CROUCH` より前に置く**（Task 30 確立）— `guarding` の条件から `!crouchHeld` を外すと、しゃがみ後退でも `isGuarding()==true` になる（立ちガード版のしゃがみ＝しゃがみガード）。`isCrouchGuarding()` は `guarding && crouching`。`FighterAnimator.resolve()` で `CROUCH_GUARD` を `CROUCH_WALK`/`CROUCH`/`GUARD` より前に評価しないと、しゃがみ後退が `CROUCH_WALK`（前進クロール）に化ける。なお**ガードオーバーレイ描画は追加不要** — `GameRenderer.drawFighter` の `drawHeight`（しゃがみ時 `height/3`）に `isGuarding()` のオーバーレイを重ねる既存コードが、そのまま低姿勢ガードを正しく描く。
 <!-- 以降、kaizen-close でビルド系の罠を発見したら「症状 / 原因 / 対処」で追記する。 -->
 
 ---

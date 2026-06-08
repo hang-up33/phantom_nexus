@@ -32,7 +32,9 @@ public enum AnimationState {
     /** ガード中（後退方向保持・接地）。単一ポーズ（Task 27）。 */
     GUARD(1, 1, false),
     /** しゃがみ移動（低速クロール）（Task 29）。低姿勢のまま左右移動するループ。 */
-    CROUCH_WALK(2, 8, true);
+    CROUCH_WALK(2, 8, true),
+    /** しゃがみガード（Task 30）。低姿勢を維持したまま後退方向を保持する単一ポーズ。 */
+    CROUCH_GUARD(1, 1, false);
 
     private final int frameCount;
     private final int ticksPerFrame;

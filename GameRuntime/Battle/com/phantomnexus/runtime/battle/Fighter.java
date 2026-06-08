@@ -5,7 +5,7 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
 /**
- * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード / Task 28: しゃがみ攻撃 / Task 29: しゃがみ移動）。
+ * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード / Task 28: しゃがみ攻撃 / Task 29: しゃがみ移動 / Task 30: しゃがみガード）。
  *
  * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
  * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）・
@@ -50,9 +50,11 @@ public class Fighter {
      */
     public void update(int moveDir, boolean jumpPressed, String attackButton, boolean crouchHeld) {
         // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
+        // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
+        // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30）。低姿勢判定は crouching を併用。
         int backDir = facingRight ? -1 : 1;
         guarding = grounded && hitstunFrames <= 0 && attackPhase == AttackPhase.NONE
-                   && !crouchHeld && moveDir != 0 && moveDir == backDir;
+                   && moveDir != 0 && moveDir == backDir;
         if (hitstunFrames > 0) {
             crouching = false;
             this.moveDir = 0;
@@ -318,9 +320,14 @@ public class Fighter {
         currentHp = Math.max(0, currentHp - amount);
     }
 
-    /** ガード中か（後退方向保持・接地・非のけぞり・非攻撃）。 */
+    /** ガード中か（後退方向保持・接地・非のけぞり・非攻撃）。立ち / しゃがみ両方を含む。 */
     public boolean isGuarding() {
         return guarding;
+    }
+
+    /** しゃがみガード中か（ガード中 + 低姿勢を維持）（Task 30）。 */
+    public boolean isCrouchGuarding() {
+        return guarding && crouching;
     }
 
     public boolean isKO() {
