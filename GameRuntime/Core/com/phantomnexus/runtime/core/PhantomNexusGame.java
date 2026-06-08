@@ -60,6 +60,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
     private ScreenshotController screenshot;
+    private float spawnX1;
+    private float spawnX2;
 
     /** 検出コマンドを HUD に表示し続けるフレーム数。 */
     private static final int COMMAND_DISPLAY_FRAMES = 90;
@@ -81,13 +83,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
         Character aoi = CharacterLoader.load("fighter001");
         Character akane = CharacterLoader.load("fighter002");
         // 撮影モード時は初期 X をオーバーライド可能（近接が必要な被弾スクショ等の再現用）。
-        fighter1 = new Fighter(aoi, screenshot.spawnX(1, GameConstants.P1_SPAWN_X), true);
-        fighter2 = new Fighter(akane, screenshot.spawnX(2, GameConstants.P2_SPAWN_X), false);
+        spawnX1 = screenshot.spawnX(1, GameConstants.P1_SPAWN_X);
+        spawnX2 = screenshot.spawnX(2, GameConstants.P2_SPAWN_X);
+        fighter1 = new Fighter(aoi, spawnX1, true);
+        fighter2 = new Fighter(akane, spawnX2, false);
         // アニメーション状態機械（Task 9）。各ファイターの実行時状態から idle/walk/jump を導出する。
         animator1 = new FighterAnimator();
         animator2 = new FighterAnimator();
-        // 対戦ルール / ラウンド管理（Task 14）。撮影時は制限時間をオーバーライド可能（結果表示の撮影用）。
-        BattleRules rules = new BattleRules(screenshot.timeLimitSeconds(BattleRules.defaults().getTimeLimitSeconds()), 1);
+        // 対戦ルール / ラウンド管理（Task 14 / Task 26）。撮影時は制限時間をオーバーライド可能（結果表示の撮影用）。
+        BattleRules rules = new BattleRules(
+                screenshot.timeLimitSeconds(BattleRules.defaults().getTimeLimitSeconds()),
+                BattleRules.defaults().getRoundsToWin());
         round = new RoundManager(rules);
         // デバッグ当たり判定表示（Task 18）。既定 OFF・F1 でトグル。撮影時は debug=true で強制 ON。
         debugOverlay = new DebugOverlay();
@@ -117,36 +123,56 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** 入力 → コマンド検出 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 勝敗 → 向き直し → アニメ進行。 */
     private void update() {
-        // ラウンド決着後は全更新を凍結して結果表示の静止画を保つ（MVP）。
+        // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
         if (round.isFinished()) {
             return;
         }
-        updateFighterInput(fighter1, p1Input, history1, 1);
-        if (p2AiEnabled) {
-            p2Ai.control(fighter2, fighter1);
-        } else {
-            updateFighterInput(fighter2, p2Input, history2, 2);
+        // ラウンド間インターバル中はファイター操作・判定を停止し、カウントダウンのみ進める。
+        if (!round.isBetweenRounds()) {
+            updateFighterInput(fighter1, p1Input, history1, 1);
+            if (p2AiEnabled) {
+                p2Ai.control(fighter2, fighter1);
+            } else {
+                updateFighterInput(fighter2, p2Input, history2, 2);
+            }
+            if (commandTimer1 > 0) {
+                commandTimer1--;
+            }
+            if (commandTimer2 > 0) {
+                commandTimer2--;
+            }
+            // 押し合い解消（pushbox の重なりを左右へ分離）。
+            CollisionSystem.resolvePush(fighter1, fighter2);
+            // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
+            resolveHit(fighter1, fighter2);
+            resolveHit(fighter2, fighter1);
+            // 飛び道具（必殺技）の更新と命中処理（Task 20）。
+            updateProjectiles();
         }
-        if (commandTimer1 > 0) {
-            commandTimer1--;
-        }
-        if (commandTimer2 > 0) {
-            commandTimer2--;
-        }
-        // 押し合い解消（pushbox の重なりを左右へ分離）。
-        CollisionSystem.resolvePush(fighter1, fighter2);
-        // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
-        resolveHit(fighter1, fighter2);
-        resolveHit(fighter2, fighter1);
-        // 飛び道具（必殺技）の更新と命中処理（Task 20）。
-        updateProjectiles();
-        // 勝敗判定（KO / タイムアップ）。決着したら次フレーム以降は凍結される。
+        // 勝敗 / ラウンド間カウントダウンを進める。
         round.update(fighter1, fighter2);
+        // カウントダウン完了 → ファイターをスポーン位置にリセットして新ラウンド開始。
+        if (round.consumeNextRoundReady()) {
+            resetFighters();
+        }
         fighter1.faceTowards(fighter2);
         fighter2.faceTowards(fighter1);
         // 描画状態の更新（移動・向き確定後にファイター状態からアニメ状態を導出して 1 tick 進める）。
         animator1.update(fighter1);
         animator2.update(fighter2);
+    }
+
+    /** ラウンド間リセット：両ファイターをスポーン位置に戻し、入力履歴・弾をクリアする。 */
+    private void resetFighters() {
+        fighter1.reset(spawnX1, true);
+        fighter2.reset(spawnX2, false);
+        history1.reset();
+        history2.reset();
+        lastCommand1 = Command.NONE;
+        lastCommand2 = Command.NONE;
+        commandTimer1 = 0;
+        commandTimer2 = 0;
+        projectiles.clear();
     }
 
     /**

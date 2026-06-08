@@ -22,9 +22,9 @@ public class BattleRules {
         this.rounds = rounds;
     }
 
-    /** MVP 既定：制限時間 99 秒・1 ラウンド。 */
+    /** 既定：制限時間 99 秒・先取 2 ラウンド（ベスト・オブ 3）。 */
     public static BattleRules defaults() {
-        return new BattleRules(99, 1);
+        return new BattleRules(99, 2);
     }
 
     /** 1 ラウンドの制限時間（秒）。 */
@@ -32,8 +32,13 @@ public class BattleRules {
         return timeLimitSeconds;
     }
 
-    /** ラウンド数（MVP は 1）。 */
+    /** ラウンド数（先取何ラウンドで勝ちか）。例：2 = ベスト・オブ 3。 */
     public int getRounds() {
+        return rounds;
+    }
+
+    /** {@link #getRounds()} の別名（RoundManager 向け）。 */
+    public int getRoundsToWin() {
         return rounds;
     }
 }

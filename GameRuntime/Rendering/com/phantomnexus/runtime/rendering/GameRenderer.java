@@ -54,6 +54,10 @@ public class GameRenderer {
     private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
+    private static final Color WIN_DOT_ON = new Color(1f, 0.85f, 0.20f, 1f);
+    private static final Color WIN_DOT_OFF = new Color(0.28f, 0.30f, 0.36f, 1f);
+    private static final float WIN_DOT_SIZE = 14f;
+    private static final float WIN_DOT_GAP = 5f;
     private static final float MARKER_SIZE = 18f;
     private static final float PIP_SIZE = 8f;
     private static final float PIP_GAP = 5f;
@@ -137,6 +141,8 @@ public class GameRenderer {
         // HP ゲージ（HUD 上端）。P1 は左から、P2 は右から減る方向に塗る。
         drawHpBar(p1, true);
         drawHpBar(p2, false);
+        // 勝利ラウンド数を示すドット（HP バー内側端の下）。金色=獲得、暗色=未獲得。
+        drawWinDots(round);
         shapes.end();
 
         // --- デバッグ当たり判定枠（有効時のみ。Line で重ね描き。投影は上で設定済み）---
@@ -165,15 +171,35 @@ public class GameRenderer {
         }
         if (round.isFinished()) {
             drawResultBanner(p1, p2, round);
+        } else if (round.isBetweenRounds()) {
+            drawBetweenRoundBanner(p1, p2, round);
         }
         batch.end();
     }
 
-    /** 決着時の結果バナー（理由 + 勝者）を画面中央に大きく描く。 */
-    private void drawResultBanner(Fighter p1, Fighter p2, RoundManager round) {
+    /** 勝利ラウンド数ドット（HP バー内側端の直下）。P1 は左バー右端から右へ、P2 は右バー左端から左へ並べる。 */
+    private void drawWinDots(RoundManager round) {
+        int rtw = round.getRoundsToWin();
+        float barBottom = GameConstants.WORLD_HEIGHT - HP_BAR_TOP - HP_BAR_HEIGHT;
+        float dotY = barBottom - WIN_DOT_SIZE - 4f;
+        float p1BarRight = HP_BAR_MARGIN + HP_BAR_WIDTH;
+        float p2BarLeft = GameConstants.WORLD_WIDTH - HP_BAR_MARGIN - HP_BAR_WIDTH;
+        for (int i = 0; i < rtw; i++) {
+            shapes.setColor(i < round.getP1Wins() ? WIN_DOT_ON : WIN_DOT_OFF);
+            shapes.rect(p1BarRight + 8f + i * (WIN_DOT_SIZE + WIN_DOT_GAP), dotY, WIN_DOT_SIZE, WIN_DOT_SIZE);
+        }
+        for (int i = 0; i < rtw; i++) {
+            shapes.setColor(i < round.getP2Wins() ? WIN_DOT_ON : WIN_DOT_OFF);
+            float x = p2BarLeft - 8f - (i + 1) * WIN_DOT_SIZE - i * WIN_DOT_GAP;
+            shapes.rect(x, dotY, WIN_DOT_SIZE, WIN_DOT_SIZE);
+        }
+    }
+
+    /** ラウンド間バナー：決着理由 + ラウンド勝者 + 次ラウンド開始カウントダウン。 */
+    private void drawBetweenRoundBanner(Fighter p1, Fighter p2, RoundManager round) {
         String reason = round.getReason() == RoundManager.FinishReason.KO ? "K.O." : "TIME UP";
         String result;
-        switch (round.getWinner()) {
+        switch (round.getRoundWinner()) {
             case P1:
                 result = p1.getDef().getName() + " WINS";
                 break;
@@ -184,11 +210,41 @@ public class GameRenderer {
                 result = "DRAW";
                 break;
         }
+        int secsLeft = (round.getBetweenCountdown() + GameConstants.TARGET_FPS - 1) / GameConstants.TARGET_FPS;
+        float cx = GameConstants.WORLD_WIDTH / 2f;
+        font.getData().setScale(2.5f);
+        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
+        font.getData().setScale(1.8f);
+        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f + 5f);
+        font.getData().setScale(1.2f);
+        drawCentered("ROUND " + (round.getCurrentRound() + 1) + "  in " + secsLeft,
+                cx, GameConstants.WORLD_HEIGHT / 2f - 35f);
+        font.getData().setScale(1.0f);
+    }
+
+    /** マッチ決着時のバナー（決着理由 + マッチ勝者 + スコア）を画面中央に大きく描く。 */
+    private void drawResultBanner(Fighter p1, Fighter p2, RoundManager round) {
+        String reason = round.getReason() == RoundManager.FinishReason.KO ? "K.O." : "TIME UP";
+        String result;
+        switch (round.getMatchWinner()) {
+            case P1:
+                result = p1.getDef().getName() + " WINS!";
+                break;
+            case P2:
+                result = p2.getDef().getName() + " WINS!";
+                break;
+            default:
+                result = "DRAW";
+                break;
+        }
+        String score = round.getP1Wins() + " - " + round.getP2Wins();
         float cx = GameConstants.WORLD_WIDTH / 2f;
         font.getData().setScale(3.0f);
-        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 40f);
+        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
         font.getData().setScale(2.0f);
-        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f - 30f);
+        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f);
+        font.getData().setScale(1.5f);
+        drawCentered(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f);
         font.getData().setScale(1.0f);
     }
 
