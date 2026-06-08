@@ -187,12 +187,13 @@ public class Fighter {
         return null;
     }
 
-    /** 指定の技で攻撃ステートを開始する（通常 / 必殺で共通）。 */
+    /** 指定の技で攻撃ステートを開始する（通常 / 必殺で共通）。攻撃開始時にガードを解除する。 */
     private void beginAttack(Move move) {
         currentMove = move;
         attackPhase = AttackPhase.STARTUP;
         attackFrame = 0;
         attackConnected = false;
+        guarding = false; // 攻撃開始フレームにガード状態を残さない（同フレームの被弾が誤って applyGuard になるのを防ぐ）
     }
 
     /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
