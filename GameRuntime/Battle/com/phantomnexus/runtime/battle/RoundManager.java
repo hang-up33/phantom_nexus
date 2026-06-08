@@ -103,8 +103,15 @@ public final class RoundManager {
             p2Wins++;
             decisiveRounds++;
         }
-        // 引き分けラウンドは decisiveRounds に加算しない（先取条件を満たすまで続行）。
-        if (p1Wins >= roundsToWin || p2Wins >= roundsToWin || decisiveRounds >= maxRounds) {
+        // 終了条件（引き分けは decisiveRounds に含めない）：
+        //  1. いずれかが先取ラウンド数に到達
+        //  2. 引き分け除く決着ラウンドが上限に到達（＝最多勝者が確定）
+        //  3. 1 本勝負（maxRounds=1）で引き分け → 再戦なし
+        boolean done = p1Wins >= roundsToWin
+                || p2Wins >= roundsToWin
+                || decisiveRounds >= maxRounds
+                || (maxRounds == 1 && roundWinner == Winner.DRAW);
+        if (done) {
             matchOver = true;
             matchWinner = p1Wins > p2Wins ? Winner.P1 : (p2Wins > p1Wins ? Winner.P2 : Winner.DRAW);
             matchReason = roundReason;
