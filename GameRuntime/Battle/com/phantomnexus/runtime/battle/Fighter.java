@@ -96,6 +96,23 @@ public class Fighter {
         }
     }
 
+    /** ラウンド間リセット（HP・位置・向き・全状態をスポーン時の値に戻す）。 */
+    public void reset(float spawnX, boolean spawnFacingRight) {
+        x = spawnX;
+        y = GameConstants.GROUND_Y;
+        velocityY = 0f;
+        velocityX = 0f;
+        grounded = true;
+        facingRight = spawnFacingRight;
+        moveDir = 0;
+        currentHp = def.getHp();
+        attackPhase = AttackPhase.NONE;
+        attackFrame = 0;
+        currentMove = null;
+        attackConnected = false;
+        hitstunFrames = 0;
+    }
+
     /**
      * 被弾を適用する（HP 減算・のけぞり遷移・knockback）。攻撃中だった場合は中断する。
      */

@@ -58,6 +58,12 @@ public final class InputHistory {
         return size;
     }
 
+    /** 履歴をクリアする（ラウンド間リセット時などに使用）。 */
+    public void reset() {
+        head = -1;
+        size = 0;
+    }
+
     /**
      * 方向ボタンの押下状態を向き相対のテンキー方向（1〜9）に変換する。
      *
