@@ -96,6 +96,7 @@ public class Fighter {
                 if (jumpPressed && grounded) {
                     velocityY = def.getJumpPower();
                     grounded = false;
+                    guarding = false; // 空中ガード不可：ジャンプ成立フレームでガードをクリア
                 }
             }
         }

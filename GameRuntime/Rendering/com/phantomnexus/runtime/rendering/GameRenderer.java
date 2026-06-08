@@ -1,6 +1,8 @@
 package com.phantomnexus.runtime.rendering;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -125,6 +127,8 @@ public class GameRenderer {
 
         // --- ステージ背景（空グラデ + 地面）+ キャラクター矩形 + 向きマーカー + アニメフレームピップ ---
         shapes.setProjectionMatrix(camera.combined);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
