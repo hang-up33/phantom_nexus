@@ -435,7 +435,8 @@ public class GameRenderer {
         if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
-            stateLabel = (f.isSpecialActive() ? "special:" : "attack:") + f.getAttackPhase().name().toLowerCase();
+            String prefix = f.isSpecialActive() ? "special" : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
+            stateLabel = prefix + ":" + f.getAttackPhase().name().toLowerCase();
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
         }

@@ -26,7 +26,9 @@ public enum AnimationState {
     /** のけぞり（hitstun）。被弾中の単一ポーズ（残フレームは {@code Fighter.hitstunFrames} 側が持つ）。 */
     HITSTUN(1, 1, false),
     /** しゃがみ（Task 25）。接地中に DOWN を押し続けている低姿勢ループ。 */
-    CROUCH(2, 10, true);
+    CROUCH(2, 10, true),
+    /** しゃがみ攻撃（Task 28）。低姿勢を維持したまま攻撃する単一ポーズ。 */
+    CROUCH_ATTACK(1, 1, false);
 
     private final int frameCount;
     private final int ticksPerFrame;
