@@ -64,17 +64,31 @@ public class PlayerInput {
     }
 
     /**
-     * 過渡状態スクショ用に、起動時からアクションを「押下状態」に固定する（テスト/撮影専用）。
+     * 過渡状態スクショ用に、アクションを「押下状態」に固定する（テスト/撮影専用）。
      *
      * <p>{@link #isDown} は対象アクションを常時 true にし、{@link #isPressed}（立ち上がり）は
-     * 最初の 1 回だけ true を返す（ジャンプ/攻撃を一度だけ発動させる）。通常プレイでは呼ばれない。
+     * <strong>押下開始フレームの 1 回だけ</strong> true を返す（ジャンプ/攻撃を一度だけ発動させる）。
+     *
+     * <p>毎フレーム呼ばれる（タイムド入力スクリプトと {@code -k} 併用）ことを前提に、
+     * 立ち上がりエッジは「前フレームは未押下で今フレーム押下」になったアクションにのみ供給する。
+     * 押下が継続中のアクションはエッジを再生成しないため、{@code -k p1.attack} のような基礎 hold を
+     * スクリプトと併用しても毎フレーム発火しない（離されたアクションの未消費エッジは破棄する）。
+     * 通常プレイでは呼ばれない。
      */
     public void setForcedHold(Set<InputAction> actions) {
-        forcedHold = (actions == null || actions.isEmpty())
-                ? EnumSet.noneOf(InputAction.class)
-                : EnumSet.copyOf(actions);
-        forcedEdgePending.clear();
-        forcedEdgePending.addAll(forcedHold);
+        EnumSet<InputAction> next = EnumSet.noneOf(InputAction.class);
+        if (actions != null) {
+            next.addAll(actions);
+        }
+        // 新たに押下された（前フレーム未押下）アクションだけを立ち上がりエッジとして供給する。
+        for (InputAction action : next) {
+            if (!forcedHold.contains(action)) {
+                forcedEdgePending.add(action);
+            }
+        }
+        // 押下が解除されたアクションの未消費エッジは破棄する。
+        forcedEdgePending.retainAll(next);
+        forcedHold = next;
     }
 
     /** 当該フレームでアクションのキーが押下中か（押しっぱなし検出。移動 / しゃがみ向け）。 */
