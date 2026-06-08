@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24・25・26・27・29 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24・25・26・27・28・29 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -175,7 +175,22 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **`Fighter.guarding`** フィールドを毎 `update()` の先頭で算出する（接地 + 非のけぞり + 非攻撃 + 後退方向入力）。
 - **`Fighter.applyGuard(attackDamage, knockbackDir)`** — chip ダメージ適用と微小 knockback を行う。のけぞりカウンタは変更しない。
 - **`PhantomNexusGame.resolveHit()`** および **`updateProjectiles()`** で `defender.isGuarding()` を確認し、ガード中は `applyHit()` の代わりに `applyGuard()` を呼ぶ。
-- **`AnimationState.GUARD`** と **`FighterAnimator.resolve()`** への GUARD 優先度（のけぞり > 攻撃 > 空中 > ガード > 歩行 > 待機）を追加。
+- **`AnimationState.GUARD`** と **`FighterAnimator.resolve()`** への GUARD 優先度（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみ > ガード > 歩行 > 待機）を追加。
+
+---
+
+## しゃがみ攻撃（Task 28）
+
+| 項目 | 仕様 |
+|---|---|
+| 発動条件 | `crouching == true`（既にしゃがみ状態）かつ攻撃ボタン押下 |
+| 遷移フレームブロック | DOWN 押下と同フレームの攻撃入力は無視（`crouching=false` の遷移フレームでは `!crouchHeld` が false） |
+| 技データ | `normalMoves[]` の同一技を使用（hitbox は立ち技と同一 Y。下段 hitbox は Task 30 で追加予定） |
+| 姿勢維持 | 攻撃中も `crouching=true` を維持 → hurtbox 低高さ・プレースホルダ矩形短縮 |
+| 立ち上がり | 攻撃終了後に `crouchHeld` が `false` なら自動で `crouching=false`（既存ロジックと共通） |
+| 中断 | `applyHit()` で `crouchAttacking=false` / `crouching=false` にリセット |
+| アニメーション | `AnimationState.CROUCH_ATTACK`（単一ポーズ）。優先順: hitstun > **crouch_attack** > attack > jump > crouch > guard > walk > idle |
+| AI | `AiController` は `crouchHeld=false` を渡すのでしゃがみ攻撃は発動しない |
 
 ---
 
@@ -205,10 +220,10 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 ## しゃがみ（Task 25）
 
 - **入力**：DOWN キー押し続け（P1: S、P2: ↓）で発動。**接地中・非攻撃中・非のけぞり中**のみ遷移する。
-- **行動拘束**：しゃがみ中はジャンプ・通常技入力を受け付けない。DOWN を離すと立ち上がる。横移動は **Task 29 で低速クロールとして許可**。
+- **行動拘束**：しゃがみ中はジャンプを受け付けない。通常技は入力可（しゃがみ攻撃として発動 → Task 28 参照）。横移動は **Task 29 で低速クロールとして許可**。DOWN を離すと立ち上がる。ただし DOWN 押下と同フレームの攻撃入力は無視（遷移フレームの誤入力防止）。
 - **食らい判定**：しゃがみ中は hurtbox の高さを 1/3（`def.getHeight() / 3`、height=240 なら 80px）にする。これにより `hitboxOffsetY ≥ 100px` の飛び道具や高めの攻撃をかわせる（`CollisionSystem.hurtbox()` が `Fighter.isCrouching()` を参照）。
-- **攻撃・被弾による解除**：攻撃開始または `applyHit()` で `crouching = false` にリセットする。
-- **アニメーション**：`AnimationState.CROUCH`（2 フレームループ）または移動中は `CROUCH_WALK`（Task 29）。優先順は **のけぞり > 攻撃 > 空中 > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**。
+- **攻撃・被弾による解除**：攻撃開始（立ち攻撃のみ）または `applyHit()` で `crouching = false` にリセットする。しゃがみ攻撃中は低姿勢を維持する（Task 28）。
+- **アニメーション**：`AnimationState.CROUCH`（2 フレームループ）、移動中は `CROUCH_WALK`（Task 29）、攻撃中は `CROUCH_ATTACK`（Task 28）。優先順は **のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**。
 - **プレースホルダ描画**：`GameRenderer` がしゃがみ中のキャラを `height / 3` の矩形で描く（スプライト導入後は専用コマに差し替え）。
 - **AI**：`AiController` は常に `crouchHeld=false` を渡す（AI はしゃがまない）。
 
@@ -229,7 +244,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 - **入力**：しゃがみ状態（DOWN 押し続け + 接地中）に左右入力を同時押しすることで発動する低速クロール。
 - **速度**：通常の歩行速度（`Character.walkSpeed`）の **50%**。
-- **拘束維持**：クロール中もしゃがみ中の全制約（ジャンプ不可・通常技不可・hurtbox 1/3 高さ）を維持する。
+- **拘束維持**：クロール中もしゃがみ中の制約（ジャンプ不可・hurtbox 1/3 高さ）を維持する。クロール中に攻撃ボタンを押すとしゃがみ攻撃として発動する（Task 28・`moveDir=0` で停止して攻撃）。
 - **ガード**：DOWN 保持中は `!crouchHeld` が false となるためガード条件を満たさず、クロール中にガードに入ることはない。
 - **アニメーション**：`AnimationState.CROUCH_WALK`（2 フレームループ・8 tick/frame）で小刻みな低姿勢移動を可視化。`FighterAnimator.resolve()` で `isCrouchWalking()==true` の場合に選択される。
 - **`isWalking()` との分離**：`isWalking()` は `!crouching` を条件に含めたため、クロール中に `WALK` アニメに遷移しない。
@@ -260,4 +275,5 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 24) 複数技対応。`InputAction.ATTACK` → `ATTACK_LIGHT`/`ATTACK_MEDIUM`/`ATTACK_HEAVY` の 3 ボタン化、`Character.normalMoves[]`/`specialMoves[]` への配列拡張、後方互換マイグレーション（`migrateIfLegacy`）、button/command バリデーション（`VALID_BUTTONS`/`VALID_COMMANDS`）を追記。攻撃処理・必殺技ステートの各節を更新し「複数技対応（Task 24）」節を追加。
 - (Task 26) 複数ラウンド制（ベスト・オブ 3）を追記。`BattleRules.defaults()` を `rounds=2` へ、`RoundManager` を複数ラウンド対応（インターバル・マッチ確定・リセット）へ拡張。`Fighter.reset()`・`InputHistory.reset()`・Core の between-round ガード・勝利ドット描画・ラウンド結果バナーを実装。「複数ラウンド制（Task 26）」節を追加し、ラウンド/勝敗節を更新。
 - (Task 27) ガードを追記。`Fighter.guarding` フィールド・`applyGuard()`・`isGuarding()`、`AnimationState.GUARD`、`FighterAnimator` 優先順の更新、`GameRenderer.GUARD_COLOR` のオーバーレイ描画、`resolveHit()`/`updateProjectiles()` のガード分岐を実装。「ガード（Task 27）」節を追加。
+- (Task 28) しゃがみ攻撃追加。`Fighter` に `crouchAttacking` フィールド・`isCrouchAttacking()` を追加。しゃがみ状態中の攻撃入力を解禁し、発動時に `crouchAttacking=true` → 攻撃中も `crouching=true` を維持して低姿勢で攻撃する。立ち上がりは攻撃終了後に `crouchHeld` の状態で決まる（押し続け中はそのまましゃがみへ）。`AnimationState.CROUCH_ATTACK` を追加し `FighterAnimator.resolve()` に織り込み（しゃがみ攻撃 > 通常攻撃の優先順）。しゃがみ（Task 25）節の行動拘束記述を更新。「しゃがみ攻撃（Task 28）」節を追加。
 - (Task 29) しゃがみ移動（低速クロール）を追記。`Fighter` のしゃがみ分岐で `moveDir` を記録し `walkSpeed * 0.5f` で移動するよう変更。`isWalking()` を `!crouching` 条件付きに修正し `isCrouchWalking()` を追加。`AnimationState.CROUCH_WALK`（2 フレームループ）と `FighterAnimator.bobOffset()` の CROUCH_WALK ケースを追加。「しゃがみ移動（Task 29）」節を追加。

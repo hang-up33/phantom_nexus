@@ -88,8 +88,8 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 25 | しゃがみ（Crouch） | ✅ 完了 |
 | 26 | 複数ラウンド制（ベスト・オブ 3） | ✅ 完了 |
 | 27 | ガード（立ちガード・chip ダメージ） | ✅ 完了 |
-| 28 | しゃがみ攻撃（低姿勢攻撃・下段判定） | 🟦 PR レビュー中 (#30) |
-| 29 | しゃがみ移動（低速クロール） | 🟦 進行中 |
+| 28 | しゃがみ攻撃（低姿勢を維持したまま攻撃） | 🟦 PR レビュー中 (#30) |
+| 29 | しゃがみ移動（低速クロール） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了
 
@@ -99,8 +99,8 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 
 - **基盤**：LibGDX/LWJGL3 ウィンドウ・固定仮想解像度（1280×720）・60fps 固定ステップ
 - **操作/移動**：キーボード入力抽象・左右移動・ジャンプ（重力/接地）・向き自動追従・しゃがみ（DOWN 押しで低姿勢）・しゃがみ移動（DOWN+左右で通常速度の半分でクロール）
-- **アニメーション**：idle / walk / jump / attack / hitstun / guard / crouch / crouch_walk の状態機械（tick ベース、プレースホルダ可視化）
-- **戦闘**：HP ゲージ・通常攻撃（startup/active/recovery）・当たり判定（hit/hurt/push）・ダメージ/のけぞり/knockback・ラウンド勝敗（KO/タイムアップ）
+- **アニメーション**：idle / walk / jump / attack / hitstun / guard / crouch / crouch_attack / crouch_walk の状態機械（tick ベース、プレースホルダ可視化）
+- **戦闘**：HP ゲージ・通常攻撃（startup/active/recovery）・しゃがみ攻撃（低姿勢を維持したまま攻撃・DOWN 離しで攻撃終了と同フレームに立ち上がり）・当たり判定（hit/hurt/push）・ダメージ/のけぞり/knockback・ラウンド勝敗（KO/タイムアップ）
 - **ガード（Task 27）**：後退方向保持で立ちガード・chip ダメージ（通常の 10%、最低 1）・のけぞりなし・半透明ブルーオーバーレイ
 - **複数ラウンド制（Task 26）**：先取 2 ラウンド（ベスト・オブ 3）・インターバルバナー・勝利ドット（HP バー横）・マッチ結果表示（勝者 + スコア）
 - **データ駆動**：キャラ/ステージを外部 JSON から読込（`Shared/Schema` の単一の真実 + バリデーション）

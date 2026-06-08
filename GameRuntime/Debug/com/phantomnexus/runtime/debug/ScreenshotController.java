@@ -138,8 +138,9 @@ public final class ScreenshotController {
         if (script.isEmpty()) {
             return;
         }
-        EnumSet<InputAction> p1 = EnumSet.noneOf(InputAction.class);
-        EnumSet<InputAction> p2 = EnumSet.noneOf(InputAction.class);
+        // -k の初期 hold をベースにスクリプト追加分をマージする（-k を上書きしない）。
+        EnumSet<InputAction> p1 = p1Hold.isEmpty() ? EnumSet.noneOf(InputAction.class) : EnumSet.copyOf(p1Hold);
+        EnumSet<InputAction> p2 = p2Hold.isEmpty() ? EnumSet.noneOf(InputAction.class) : EnumSet.copyOf(p2Hold);
         for (ScriptSegment s : script) {
             if (scriptFrame >= s.start && scriptFrame <= s.end) {
                 p1.addAll(s.p1);

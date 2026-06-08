@@ -27,6 +27,8 @@ public enum AnimationState {
     HITSTUN(1, 1, false),
     /** しゃがみ（Task 25）。接地中に DOWN を押し続けている低姿勢ループ。 */
     CROUCH(2, 10, true),
+    /** しゃがみ攻撃（Task 28）。低姿勢を維持したまま攻撃する単一ポーズ。 */
+    CROUCH_ATTACK(1, 1, false),
     /** ガード中（後退方向保持・接地）。単一ポーズ（Task 27）。 */
     GUARD(1, 1, false),
     /** しゃがみ移動（低速クロール）（Task 29）。低姿勢のまま左右移動するループ。 */

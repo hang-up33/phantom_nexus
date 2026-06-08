@@ -232,7 +232,7 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
   - `timelimit`：ラウンド制限時間（秒）。タイムアップ結果バナーを短時間で撮る（例 `-x timelimit=1 -f 80`）
   - `debug=true`：デバッグ当たり判定表示を起動時 ON（F1 トグルの代替）
   - `ai=false`：P2 の AI を無効化（コマンド/飛び道具の撮影で P2 を静止させる）
-  - `script=start-end:tok+tok;...`：タイムド入力スクリプト（コマンド技の再現）。例（波動拳）：`-x "script=1-12:p1.down;8-18:p1.down+p1.right;19-30:p1.right;22-22:p1.attack" -f 42`。区間は重ねてよく、各フレームで和集合を `setForcedHold`。攻撃は単フレーム指定（連続フレームに置くと毎フレーム発火する）。
+  - `script=start-end:tok+tok;...`：タイムド入力スクリプト（コマンド技の再現）。例（波動拳）：`-x "script=1-12:p1.down;8-18:p1.down+p1.right;19-30:p1.right;22-22:p1.attack" -f 42`。区間は重ねてよく、各フレームで和集合を `setForcedHold`。攻撃の立ち上がりエッジは押下開始フレームのみ発火するため、連続フレームに置いても発火は 1 回（基礎 `-k` hold と script の併用でも基礎 hold が毎フレーム再発火しない。`PlayerInput.setForcedHold` が「前フレーム未押下 → 今フレーム押下」のアクションにのみエッジを供給する仕様に修正済み）。
 - **強制エッジは 1 フレーム 1 回しか消費されない** — `PlayerInput.isPressed`（forced 時）は `forcedEdgePending.remove` で消費するため、同一フレームに 2 回呼ぶと 2 回目は false。Core は攻撃/ジャンプ入力を 1 回だけ読み、その値を `Fighter.update` と入力履歴の両方に使い回す（`updateFighterInput`）。
 - 撮影後は **必ず Read ツールで PNG を目視**（黒画面・崩れが無いか）。ALSA の `cannot find card` 警告は音源無しによる無害ログ。
 - 注意：対話的に動かす確認はローカル Windows が確実。web は静止画前提。
