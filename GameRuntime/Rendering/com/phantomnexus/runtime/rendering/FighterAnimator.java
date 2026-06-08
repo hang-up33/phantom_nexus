@@ -34,7 +34,7 @@ public class FighterAnimator {
         }
     }
 
-    /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
+    /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > しゃがみ攻撃 > 攻撃 > 空中 > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
     private static AnimationState resolve(Fighter fighter) {
         if (fighter.isInHitstun()) {
             return AnimationState.HITSTUN;
@@ -47,6 +47,9 @@ public class FighterAnimator {
         }
         if (!fighter.isGrounded()) {
             return AnimationState.JUMP;
+        }
+        if (fighter.isCrouchWalking()) {
+            return AnimationState.CROUCH_WALK;
         }
         if (fighter.isCrouching()) {
             return AnimationState.CROUCH;
@@ -94,6 +97,9 @@ public class FighterAnimator {
             case WALK:
                 // 1 フレームおきに 4px 持ち上げて歩行の弾みを表現。
                 return (getFrameIndex() % 2 == 0) ? 0f : 4f;
+            case CROUCH_WALK:
+                // 低姿勢のまま 2px の小刻みな動きでクロールを可視化。
+                return (getFrameIndex() % 2 == 0) ? 0f : 2f;
             default:
                 return 0f;
         }

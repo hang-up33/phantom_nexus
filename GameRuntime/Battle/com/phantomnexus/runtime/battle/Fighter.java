@@ -5,12 +5,12 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
 /**
- * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード / Task 28: しゃがみ攻撃）。
+ * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード / Task 28: しゃがみ攻撃 / Task 29: しゃがみ移動）。
  *
  * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
  * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）・
  * しゃがみ押下は {@link #update(int, boolean, String, boolean)} に外部から渡す。
- * しゃがみ中は移動・ジャンプを受け付けず、食らい判定が低くなる。しゃがみ攻撃は低姿勢を維持したまま発動する。
+ * しゃがみ中は低姿勢を維持し通常速度の半分でクロール移動できる（ジャンプは受け付けない）。しゃがみ攻撃は低姿勢を維持したまま発動する。
  */
 public class Fighter {
 
@@ -97,7 +97,9 @@ public class Fighter {
                 }
             } else if (crouchHeld && grounded) {
                 crouching = true;
-                this.moveDir = 0;   // しゃがみ中は横移動不可
+                this.moveDir = moveDir;                     // 低速クロール：方向を記録
+                x += moveDir * def.getWalkSpeed() * 0.5f;  // 通常の半速で移動
+                clampToStage();
                 // ジャンプ入力は無視
             } else {
                 crouching = false;
@@ -279,7 +281,12 @@ public class Fighter {
     }
 
     public boolean isWalking() {
-        return grounded && moveDir != 0;
+        return grounded && moveDir != 0 && !crouching;
+    }
+
+    /** しゃがみ移動中か（低速クロール）（Task 29）。 */
+    public boolean isCrouchWalking() {
+        return crouching && grounded && moveDir != 0;
     }
 
     public boolean isCrouching() {
