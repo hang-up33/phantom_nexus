@@ -51,7 +51,7 @@ public class Fighter {
         // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
         int backDir = facingRight ? -1 : 1;
         guarding = grounded && hitstunFrames <= 0 && attackPhase == AttackPhase.NONE
-                   && moveDir != 0 && moveDir == backDir;
+                   && !crouchHeld && moveDir != 0 && moveDir == backDir;
         if (hitstunFrames > 0) {
             crouching = false;
             this.moveDir = 0;
@@ -63,6 +63,15 @@ public class Fighter {
                 velocityX = 0f;
             }
         } else {
+            // ガード knockback：hitstun 無しでも velocityX（applyGuard 由来）を位置へ反映する。
+            if (velocityX != 0) {
+                x += velocityX;
+                clampToStage();
+                velocityX *= GameConstants.KNOCKBACK_FRICTION;
+                if (Math.abs(velocityX) < 0.1f) {
+                    velocityX = 0f;
+                }
+            }
             // しゃがみ中・しゃがみ遷移フレームは通常技入力を受け付けない（同フレームで DOWN+攻撃しても技が出ない）。
             if (attackPhase == AttackPhase.NONE && attackButton != null && grounded && !crouching && !crouchHeld) {
                 Move move = selectNormalMove(attackButton);
