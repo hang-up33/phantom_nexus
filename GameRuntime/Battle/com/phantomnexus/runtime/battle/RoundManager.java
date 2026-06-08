@@ -25,13 +25,14 @@ public final class RoundManager {
     public enum FinishReason { NONE, KO, TIMEOUT }
 
     private final int roundsToWin;
-    private final int maxRounds; // = 2 * roundsToWin - 1：全ラウンドが引き分けでも終了を保証
+    private final int maxRounds; // = 2 * roundsToWin - 1：引き分けを除いた決着ラウンド上限
     private final int totalFrames;
 
     // Win counters
     private int p1Wins = 0;
     private int p2Wins = 0;
     private int currentRound = 1;
+    private int decisiveRounds = 0; // 引き分け以外（P1/P2 いずれかが勝利）のラウンド数
 
     // Current round state
     private int remainingFrames;
@@ -97,10 +98,13 @@ public final class RoundManager {
     private void finishRound() {
         if (roundWinner == Winner.P1) {
             p1Wins++;
+            decisiveRounds++;
         } else if (roundWinner == Winner.P2) {
             p2Wins++;
+            decisiveRounds++;
         }
-        if (p1Wins >= roundsToWin || p2Wins >= roundsToWin || currentRound >= maxRounds) {
+        // 引き分けラウンドは decisiveRounds に加算しない（先取条件を満たすまで続行）。
+        if (p1Wins >= roundsToWin || p2Wins >= roundsToWin || decisiveRounds >= maxRounds) {
             matchOver = true;
             matchWinner = p1Wins > p2Wins ? Winner.P1 : (p2Wins > p1Wins ? Winner.P2 : Winner.DRAW);
             matchReason = roundReason;
