@@ -19,6 +19,11 @@ public final class AiController {
 
     private int cooldown;
 
+    /** ラウンド間リセット（クールダウンを消去して次ラウンド開始時の攻撃可否を初期化する）。 */
+    public void reset() {
+        cooldown = 0;
+    }
+
     /**
      * 1 フレーム分、AI の判断で {@code self} を操作する。
      *

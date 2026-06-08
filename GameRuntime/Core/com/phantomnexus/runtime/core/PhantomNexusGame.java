@@ -162,7 +162,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         animator2.update(fighter2);
     }
 
-    /** ラウンド間リセット：両ファイターをスポーン位置に戻し、入力履歴・弾をクリアする。 */
+    /** ラウンド間リセット：両ファイターをスポーン位置に戻し、入力履歴・弾・AI をクリアする。 */
     private void resetFighters() {
         fighter1.reset(spawnX1, true);
         fighter2.reset(spawnX2, false);
@@ -173,6 +173,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         commandTimer1 = 0;
         commandTimer2 = 0;
         projectiles.clear();
+        p2Ai.reset();
     }
 
     /**
