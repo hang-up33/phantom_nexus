@@ -185,7 +185,7 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 |---|---|
 | 発動条件 | `crouching == true`（既にしゃがみ状態）かつ攻撃ボタン押下 |
 | 遷移フレームブロック | DOWN 押下と同フレームの攻撃入力は無視（`crouching=false` の遷移フレームでは `!crouchHeld` が false） |
-| 技データ | `normalMoves[]` の同一技を使用（しゃがみ専用技は将来追加可） |
+| 技データ | `normalMoves[]` の同一技を使用（hitbox は立ち技と同一 Y。下段 hitbox は Task 30 で追加予定） |
 | 姿勢維持 | 攻撃中も `crouching=true` を維持 → hurtbox 低高さ・プレースホルダ矩形短縮 |
 | 立ち上がり | 攻撃終了後に `crouchHeld` が `false` なら自動で `crouching=false`（既存ロジックと共通） |
 | 中断 | `applyHit()` で `crouchAttacking=false` / `crouching=false` にリセット |
