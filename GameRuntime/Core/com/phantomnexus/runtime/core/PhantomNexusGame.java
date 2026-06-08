@@ -263,7 +263,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             Fighter target = p.getOwner() == fighter1 ? fighter2 : fighter1;
             if (p.isAlive() && CollisionSystem.hits(p, target)) {
                 int knockbackDir = target.getX() >= p.getX() ? 1 : -1;
-                target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+                if (target.isGuarding()) {
+                    target.applyGuard(p.getDamage(), knockbackDir);
+                } else {
+                    target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+                }
                 p.kill();
             }
             if (!p.isAlive()) {
@@ -272,14 +276,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
     }
 
-    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13）。 */
+    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27）。 */
     private static void resolveHit(Fighter attacker, Fighter defender) {
         if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
             attacker.markAttackConnected();
             Hitbox hb = CollisionSystem.activeHitbox(attacker);
-            // 後方への向き：defender が attacker より右なら +1（右へ吹き飛ぶ）。
             int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
-            defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+            if (defender.isGuarding()) {
+                // ガード成立：chip ダメージのみ（のけぞりなし）。
+                defender.applyGuard(hb.getDamage(), knockbackDir);
+            } else {
+                defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+            }
         }
     }
 

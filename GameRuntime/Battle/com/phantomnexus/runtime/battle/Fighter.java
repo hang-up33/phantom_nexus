@@ -5,7 +5,7 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
 /**
- * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ）。
+ * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード）。
  *
  * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
  * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）・
@@ -29,6 +29,7 @@ public class Fighter {
     private int hitstunFrames;
     private float velocityX;
     private boolean crouching;
+    private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -47,6 +48,10 @@ public class Fighter {
      * @param crouchHeld   DOWN ボタンを押し続けているか（接地中のみしゃがみ遷移）
      */
     public void update(int moveDir, boolean jumpPressed, String attackButton, boolean crouchHeld) {
+        // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
+        int backDir = facingRight ? -1 : 1;
+        guarding = grounded && hitstunFrames <= 0 && attackPhase == AttackPhase.NONE
+                   && !crouchHeld && moveDir != 0 && moveDir == backDir;
         if (hitstunFrames > 0) {
             crouching = false;
             this.moveDir = 0;
@@ -58,6 +63,15 @@ public class Fighter {
                 velocityX = 0f;
             }
         } else {
+            // ガード knockback：hitstun 無しでも velocityX（applyGuard 由来）を位置へ反映する。
+            if (velocityX != 0) {
+                x += velocityX;
+                clampToStage();
+                velocityX *= GameConstants.KNOCKBACK_FRICTION;
+                if (Math.abs(velocityX) < 0.1f) {
+                    velocityX = 0f;
+                }
+            }
             // しゃがみ中・しゃがみ遷移フレームは通常技入力を受け付けない（同フレームで DOWN+攻撃しても技が出ない）。
             if (attackPhase == AttackPhase.NONE && attackButton != null && grounded && !crouching && !crouchHeld) {
                 Move move = selectNormalMove(attackButton);
@@ -82,6 +96,7 @@ public class Fighter {
                 if (jumpPressed && grounded) {
                     velocityY = def.getJumpPower();
                     grounded = false;
+                    guarding = false; // 空中ガード不可：ジャンプ成立フレームでガードをクリア
                 }
             }
         }
@@ -111,6 +126,17 @@ public class Fighter {
         currentMove = null;
         attackConnected = false;
         hitstunFrames = 0;
+        guarding = false;
+    }
+
+    /**
+     * ガード中の被弾を適用する（chip ダメージのみ・のけぞりなし・軽微な knockback）（Task 27）。
+     * chip ダメージは通常ダメージの 10%（最低 1）。攻撃の勢いで微小後退する。
+     */
+    public void applyGuard(int attackDamage, int knockbackDir) {
+        int chip = Math.max(1, attackDamage / 10);
+        applyDamage(chip);
+        velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.3f;
     }
 
     /**
@@ -161,12 +187,13 @@ public class Fighter {
         return null;
     }
 
-    /** 指定の技で攻撃ステートを開始する（通常 / 必殺で共通）。 */
+    /** 指定の技で攻撃ステートを開始する（通常 / 必殺で共通）。攻撃開始時にガードを解除する。 */
     private void beginAttack(Move move) {
         currentMove = move;
         attackPhase = AttackPhase.STARTUP;
         attackFrame = 0;
         attackConnected = false;
+        guarding = false; // 攻撃開始フレームにガード状態を残さない（同フレームの被弾が誤って applyGuard になるのを防ぐ）
     }
 
     /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
@@ -264,6 +291,11 @@ public class Fighter {
             return;
         }
         currentHp = Math.max(0, currentHp - amount);
+    }
+
+    /** ガード中か（後退方向保持・接地・非のけぞり・非攻撃）。 */
+    public boolean isGuarding() {
+        return guarding;
     }
 
     public boolean isKO() {

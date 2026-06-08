@@ -1,6 +1,8 @@
 package com.phantomnexus.runtime.rendering;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -54,6 +56,7 @@ public class GameRenderer {
     private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
+    private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
     private static final Color WIN_DOT_ON = new Color(1f, 0.85f, 0.20f, 1f);
     private static final Color WIN_DOT_OFF = new Color(0.28f, 0.30f, 0.36f, 1f);
     private static final float WIN_DOT_SIZE = 14f;
@@ -124,6 +127,8 @@ public class GameRenderer {
 
         // --- ステージ背景（空グラデ + 地面）+ キャラクター矩形 + 向きマーカー + アニメフレームピップ ---
         shapes.setProjectionMatrix(camera.combined);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
@@ -315,6 +320,11 @@ public class GameRenderer {
         // のけぞり中は白くフラッシュして被弾を可視化する。
         shapes.setColor(f.isInHitstun() ? hitstunFlash(color) : color);
         shapes.rect(left, bottom, d.getWidth(), drawHeight);
+        // ガード中：半透明ブルーのオーバーレイで盾状態を可視化する（Task 27）。
+        if (f.isGuarding()) {
+            shapes.setColor(GUARD_COLOR);
+            shapes.rect(left, bottom, d.getWidth(), drawHeight);
+        }
         // 向きマーカー：上部の前面側に小矩形を置く。
         float markerY = bottom + drawHeight - MARKER_SIZE - 12f;
         float markerX = f.isFacingRight()
