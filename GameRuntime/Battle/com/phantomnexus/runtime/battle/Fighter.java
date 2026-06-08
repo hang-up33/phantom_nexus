@@ -5,11 +5,12 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
 /**
- * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技）。
+ * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ）。
  *
  * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
- * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）は
- * {@link #update(int, boolean, String)} に外部から渡す。攻撃は startup/active/recovery の 3 区間を進む。
+ * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）・
+ * しゃがみ押下は {@link #update(int, boolean, String, boolean)} に外部から渡す。
+ * しゃがみ中は移動・ジャンプ・通常技入力を受け付けず、食らい判定が半分の高さになる。
  */
 public class Fighter {
 
@@ -27,6 +28,7 @@ public class Fighter {
     private boolean attackConnected;
     private int hitstunFrames;
     private float velocityX;
+    private boolean crouching;
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -37,14 +39,16 @@ public class Fighter {
     }
 
     /**
-     * 1 フレームの攻撃・移動・ジャンプを適用する。
+     * 1 フレームの攻撃・移動・ジャンプ・しゃがみを適用する。
      *
      * @param moveDir      左右移動方向（-1 = 左 / 0 = 静止 / +1 = 右）
      * @param jumpPressed  このフレームでジャンプ入力の立ち上がりがあったか
      * @param attackButton 押されたボタン種別（"light" / "medium" / "heavy"）。null なら攻撃なし
+     * @param crouchHeld   DOWN ボタンを押し続けているか（接地中のみしゃがみ遷移）
      */
-    public void update(int moveDir, boolean jumpPressed, String attackButton) {
+    public void update(int moveDir, boolean jumpPressed, String attackButton, boolean crouchHeld) {
         if (hitstunFrames > 0) {
+            crouching = false;
             this.moveDir = 0;
             hitstunFrames--;
             x += velocityX;
@@ -54,7 +58,8 @@ public class Fighter {
                 velocityX = 0f;
             }
         } else {
-            if (attackPhase == AttackPhase.NONE && attackButton != null && grounded) {
+            // しゃがみ中・しゃがみ遷移フレームは通常技入力を受け付けない（同フレームで DOWN+攻撃しても技が出ない）。
+            if (attackPhase == AttackPhase.NONE && attackButton != null && grounded && !crouching && !crouchHeld) {
                 Move move = selectNormalMove(attackButton);
                 if (move != null) {
                     beginAttack(move);
@@ -62,9 +67,15 @@ public class Fighter {
             }
 
             if (attackPhase != AttackPhase.NONE) {
+                crouching = false;  // 攻撃開始でしゃがみ解除
                 this.moveDir = 0;
                 advanceAttack();
+            } else if (crouchHeld && grounded) {
+                crouching = true;
+                this.moveDir = 0;   // しゃがみ中は横移動不可
+                // ジャンプ入力は無視
             } else {
+                crouching = false;
                 this.moveDir = moveDir;
                 x += moveDir * def.getWalkSpeed();
                 clampToStage();
@@ -95,6 +106,7 @@ public class Fighter {
         attackPhase = AttackPhase.NONE;
         attackFrame = 0;
         currentMove = null;
+        crouching = false;
     }
 
     /**
@@ -211,6 +223,10 @@ public class Fighter {
 
     public boolean isWalking() {
         return grounded && moveDir != 0;
+    }
+
+    public boolean isCrouching() {
+        return crouching;
     }
 
     public int getCurrentHp() {

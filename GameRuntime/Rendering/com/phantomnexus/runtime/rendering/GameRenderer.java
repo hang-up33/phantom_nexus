@@ -254,11 +254,13 @@ public class GameRenderer {
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
         float bottom = f.getY() + anim.bobOffset();
+        // しゃがみ中は高さを半分にして低姿勢を可視化（Task 25）。
+        float drawHeight = f.isCrouching() ? d.getHeight() / 3f : d.getHeight();
         // のけぞり中は白くフラッシュして被弾を可視化する。
         shapes.setColor(f.isInHitstun() ? hitstunFlash(color) : color);
-        shapes.rect(left, bottom, d.getWidth(), d.getHeight());
+        shapes.rect(left, bottom, d.getWidth(), drawHeight);
         // 向きマーカー：上部の前面側に小矩形を置く。
-        float markerY = bottom + d.getHeight() - MARKER_SIZE - 12f;
+        float markerY = bottom + drawHeight - MARKER_SIZE - 12f;
         float markerX = f.isFacingRight()
                 ? left + d.getWidth() - MARKER_SIZE - 8f
                 : left + 8f;
@@ -370,7 +372,8 @@ public class GameRenderer {
     /** ファイターの名前と現在の状態（攻撃中は区間、それ以外はアニメ状態 / フレーム）を矩形の上に表示する。 */
     private void drawNameLabel(Fighter f, FighterAnimator anim) {
         float centerX = f.getX();
-        float top = f.getY() + f.getDef().getHeight();
+        float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
+        float top = f.getY() + displayHeight;
         drawCentered(f.getDef().getName(), centerX, top + 30f);
         String stateLabel;
         if (f.isInHitstun()) {

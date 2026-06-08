@@ -26,10 +26,16 @@ public final class CollisionSystem {
         // ユーティリティ（インスタンス化禁止）
     }
 
-    /** ファイターの食らい判定（キャラ矩形をワールド座標に置いたもの）。 */
+    /**
+     * ファイターの食らい判定。しゃがみ中は高さを 1/3 に削減して弾や高攻撃をかわせるようにする（Task 25）。
+     *
+     * <p>1/3（≒80px for height=240）にすることで、既定の弾 hitboxOffsetY（最低 100px）を下回り、
+     * しゃがみで飛び道具を実際に回避できる。
+     */
     public static Hurtbox hurtbox(Fighter f) {
         Character d = f.getDef();
-        return new Hurtbox(f.getX() - d.getWidth() / 2f, f.getY(), d.getWidth(), d.getHeight());
+        float h = f.isCrouching() ? d.getHeight() / 3f : d.getHeight();
+        return new Hurtbox(f.getX() - d.getWidth() / 2f, f.getY(), d.getWidth(), h);
     }
 
     /** ファイターの押し合い判定（MVP はキャラ矩形）。 */

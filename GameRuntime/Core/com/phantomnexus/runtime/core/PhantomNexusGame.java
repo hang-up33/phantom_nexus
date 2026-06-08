@@ -192,7 +192,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 attackButton = null;
             }
         }
-        f.update(dir, jump, attackButton);
+        boolean crouchHeld = in.isDown(InputAction.DOWN);
+        f.update(dir, jump, attackButton, crouchHeld);
     }
 
     /** キャラの specialMoves[] からコマンドに対応する技を返す（見つからなければ null）。 */

@@ -85,16 +85,17 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 22 | キャラクター追加検証 | ✅ 完了 |
 | 23 | ドキュメント整備 | ✅ 完了 |
 | 24 | 複数技の JSON 化（弱/中/強 + 複数必殺技） | ✅ 完了 |
+| 25 | しゃがみ（Crouch） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了
 
 ---
 
-## 実装済み機能（タスク 1〜24）
+## 実装済み機能（タスク 1〜25）
 
 - **基盤**：LibGDX/LWJGL3 ウィンドウ・固定仮想解像度（1280×720）・60fps 固定ステップ
-- **操作/移動**：キーボード入力抽象・左右移動・ジャンプ（重力/接地）・向き自動追従
-- **アニメーション**：idle / walk / jump / attack / hitstun の状態機械（tick ベース、プレースホルダ可視化）
+- **操作/移動**：キーボード入力抽象・左右移動・ジャンプ（重力/接地）・向き自動追従・しゃがみ（S/↓）
+- **アニメーション**：idle / walk / jump / attack / hitstun / crouch の状態機械（tick ベース、プレースホルダ可視化）
 - **戦闘**：HP ゲージ・通常攻撃（startup/active/recovery）・当たり判定（hit/hurt/push）・ダメージ/のけぞり/knockback・ラウンド勝敗（KO/タイムアップ）
 - **データ駆動**：キャラ/ステージを外部 JSON から読込（`Shared/Schema` の単一の真実 + バリデーション）
 - **複数技（Task 24）**：`normalMoves[]`（弱/中/強 3 ボタン）・`specialMoves[]`（複数コマンド技）を JSON で定義。P1: F/G/H、P2: Numpad 1/2/3
