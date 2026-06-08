@@ -99,10 +99,19 @@ public final class CharacterLoader {
             c.setNormalMoves(new Move[]{legacy});
             needsMigration = true;
         }
-        // specialMove → specialMoves[0] への移行
+        // specialMove → specialMoves[0] への移行。
+        // 旧形式の command は Command.name() 形式（"HADOUKEN" 等）で保存されていたため変換不要。
+        // 未知コマンド（null / VALID_COMMANDS 外）は移行対象外とし validate() での SchemaException を防ぐ。
         if ((c.getSpecialMoves() == null || c.getSpecialMoves().length == 0) && c.legacySpecialMove() != null) {
-            c.setSpecialMoves(new Move[]{c.legacySpecialMove()});
-            needsMigration = true;
+            Move legacy = c.legacySpecialMove();
+            String legacyCmd = legacy.getCommand();
+            if (legacyCmd != null && VALID_COMMANDS.contains(legacyCmd.trim().toUpperCase())) {
+                c.setSpecialMoves(new Move[]{legacy});
+                needsMigration = true;
+            } else {
+                Gdx.app.log("CharacterLoader",
+                        "旧形式 specialMove のコマンド '" + legacyCmd + "' は未知のため移行をスキップ: " + src);
+            }
         }
         if (needsMigration) {
             Gdx.app.log("CharacterLoader", "旧形式 JSON を新形式配列へ自動移行しました: " + src);
