@@ -9,7 +9,7 @@
 
 **Phantom Nexus** は、MUGEN のようにキャラクター・ステージ・技・当たり判定・AI を **外部データ（JSON）** として追加・編集できる、拡張性の高い 2D 格闘ゲーム基盤。固定キャラ制ではなく「ユーザーが独自キャラを足せる格闘ゲームエンジン」を目指す。技術スタックは Java / LibGDX / Gradle、対象は Windows PC（将来 Linux・macOS）。詳細は [README.md](README.md) と第一設計書を参照。
 
-**現在のフェーズ**：設計書タスク 1〜23 を完了（MVP ＋ コマンド技/必殺技/簡易 AI ＋ 2 体目検証 ＋ ドキュメント整備）。1対1対戦・移動/ジャンプ・通常攻撃/必殺技（波動拳=飛び道具）・HP ゲージ・攻撃/食らい/押し合い判定・ラウンド勝敗・外部 JSON 駆動（キャラ/ステージ）・デバッグ当たり判定表示・簡易 AI までが動作。次フェーズ候補は Tools（CharacterViewer / HitboxEditor）・スプライト描画・複数技/コマンドの JSON 化・サウンド等。
+**現在のフェーズ**：設計書タスク 1〜27 を完了（MVP ＋ コマンド技/必殺技/簡易 AI ＋ 2 体目検証 ＋ ドキュメント整備 ＋ 複数技 JSON 化 ＋ しゃがみ ＋ 複数ラウンド制 ＋ ガード）。1対1対戦・移動/ジャンプ/しゃがみ・通常攻撃/必殺技（波動拳=飛び道具）・HP ゲージ・攻撃/食らい/押し合い判定・立ちガード（chip ダメージ）・複数ラウンド制（ベスト・オブ 3）・外部 JSON 駆動（キャラ/ステージ）・デバッグ当たり判定表示・簡易 AI までが動作。次フェーズ候補は Tools（CharacterViewer / HitboxEditor）・スプライト描画・サウンド・しゃがみガード等。
 
 ---
 
@@ -169,6 +169,8 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 - **日本語を含む `.ps1` は UTF-8 BOM 付きで保存する** — 症状：`capture-app-window.ps1` 等を `powershell.exe`（Windows PowerShell **5.1**）で実行すると `A 'using' statement must appear before any other statements` 等のパースエラーで全滅する。原因：本環境の ANSI コードページは **932（Shift-JIS）** で、PS 5.1 は **BOM 無しスクリプトを ANSI で読む**ため、BOM 無し UTF-8 の日本語コメント/文字列がモジバケしトークンが壊れる（`[System.Text.Encoding]::Default.CodePage` で確認可）。対処：`.ps1` は **UTF-8 BOM 付き**で保存する（`[IO.File]::WriteAllText($p,$txt,(New-Object System.Text.UTF8Encoding($true)))`）。検証：`[System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$null,[ref]$e); $e.Count` が 0。`.gitattributes` で `*.ps1 text eol=crlf` も固定済み（BOM は内容として保持される）。新規 `.ps1` を作る時も同様に BOM 付きにすること。
 - **`InputAction` に新アクションを追加したら `ScreenshotController.toAction()` の後方互換も確認する** — 症状：`-k p1.attack` や `script=...:p1.attack` が `IllegalArgumentException` で無視される。原因：`toAction()` が `InputAction.valueOf(name.toUpperCase())` で直接マッピングするため、旧名称（`ATTACK`）→新名称（`ATTACK_LIGHT`）のリネーム後は一致しなくなる。対処：`toAction()` 内に `if (upper.equals("ATTACK")) return InputAction.ATTACK_LIGHT;` の後方互換マッピングを追加する（Task 24 で実施済み）。新しいアクションを追加・廃止するたびに同様の対処が必要。
 - **必殺技を複数対応する場合は `Command.name()` ↔ `Move.command` の文字列照合を使う** — `findSpecialMove(def, cmd)` で `cmd.name()`（"HADOUKEN" 等）と JSON の `command` フィールドを `equalsIgnoreCase` で照合するパターン（Task 24 で確立）。新しいコマンド種別（`Command` enum 追加）と JSON `command` 値は必ず一致させること。
+- **ガード判定は `Fighter.update()` 冒頭で単一フィールドに集約する**（Task 27 確立）— `grounded && hitstunFrames <= 0 && attackPhase == NONE && moveDir != 0 && moveDir == backDir`（後退方向）の条件を `boolean guarding` に格納し、ヒット解決・飛び道具・アニメーション・描画のすべてが `isGuarding()` で参照する。ガード中は `applyGuard(damage, dir)` を呼び chip ダメージ（`Math.max(1, damage/10)`）と 30% knockback を与え、のけぞりはなし。アニメーション優先順：hitstun > attack > jump > guard > walk > idle。ガード視覚は `GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f)` の半透明オーバーレイを通常矩形の上に重ねる（`ShapeRenderer` の `rect()` を 2 回描く）。
+- **複数ラウンド制で引き分けの扱いには `decisiveRounds` カウンタを使う**（Task 26 確立）— 引き分けラウンドを maxRounds にカウントすると BO3 で DRAW→P1→DRAW→P2→... が maxRounds=3 達成前に終わらないリスクがある。`p1Wins/p2Wins/decisiveRounds`（引き分け除く）を別管理し、終了条件は `p1Wins >= roundsToWin || p2Wins >= roundsToWin || decisiveRounds >= maxRounds || (maxRounds == 1 && roundWinner == DRAW)` とすることで 1 ラウンド引き分けの即終了と BO3 全引き分けのループ防止を両立する。`AiController` には `reset()` メソッドを追加しラウンド間でクールダウンをリセットする。
 <!-- 以降、kaizen-close でビルド系の罠を発見したら「症状 / 原因 / 対処」で追記する。 -->
 
 ---
