@@ -77,6 +77,9 @@ public class Fighter {
                 advanceAttack();
                 if (attackPhase == AttackPhase.NONE) {
                     crouchAttacking = false; // 攻撃終了でフラグクリア
+                    if (!crouchHeld) {
+                        crouching = false; // DOWN を離していれば攻撃終了と同フレームに姿勢解除
+                    }
                 }
             } else if (crouchHeld && grounded) {
                 crouching = true;
