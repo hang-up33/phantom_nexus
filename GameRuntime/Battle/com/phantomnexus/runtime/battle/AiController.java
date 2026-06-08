@@ -42,6 +42,6 @@ public final class AiController {
             attack = true;
             cooldown = ATTACK_COOLDOWN;
         }
-        self.update(moveDir, false, attack);
+        self.update(moveDir, false, attack ? "light" : null);
     }
 }

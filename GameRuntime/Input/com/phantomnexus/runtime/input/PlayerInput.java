@@ -12,9 +12,9 @@ import java.util.Set;
  * 1 プレイヤー分のキーボード入力抽象（Task 5: 入力処理作成）。
  *
  * <p>物理キー（{@link Gdx#input} の {@code isKeyPressed} / {@code isKeyJustPressed}）を
- * 論理アクション（{@link InputAction}）へ射影する。ゲームロジックはキー定数を直接触らず、
+ * 論理アクション（{@link InputAction}）へ射影する。Task 24 で攻撃ボタンを弱/中/強に拡張。
+ * ゲームロジックはキー定数を直接触らず、
  * 本クラスの {@link #isDown(InputAction)} / {@link #isPressed(InputAction)} 経由で入力を参照する。
- * 後続タスク（移動 / ジャンプ / 攻撃 / AI 差し替え）はすべてこの抽象に依存する。
  */
 public class PlayerInput {
 
@@ -25,31 +25,41 @@ public class PlayerInput {
     private final EnumSet<InputAction> forcedEdgePending = EnumSet.noneOf(InputAction.class);
 
     public PlayerInput(Map<InputAction, Integer> bindings) {
-        // enum 型を明示して空 Map（設定ロード前・未割当状態）でも初期化できるようにする。
-        // new EnumMap<>(bindings) は空 Map で enum 型を推論できず IllegalArgumentException になる。
         this.bindings = new EnumMap<>(InputAction.class);
         this.bindings.putAll(bindings);
     }
 
-    /** プレイヤー 1 の既定割当（WASD で移動・W でジャンプ・S でしゃがみ・F で攻撃）。 */
+    /**
+     * プレイヤー 1 の既定割当。
+     * 移動: WASD / ジャンプ: W / しゃがみ: S
+     * 攻撃: 弱=F / 中=G / 強=H
+     */
     public static PlayerInput player1Defaults() {
         EnumMap<InputAction, Integer> b = new EnumMap<>(InputAction.class);
         b.put(InputAction.LEFT, Input.Keys.A);
         b.put(InputAction.RIGHT, Input.Keys.D);
         b.put(InputAction.UP, Input.Keys.W);
         b.put(InputAction.DOWN, Input.Keys.S);
-        b.put(InputAction.ATTACK, Input.Keys.F);
+        b.put(InputAction.ATTACK_LIGHT, Input.Keys.F);
+        b.put(InputAction.ATTACK_MEDIUM, Input.Keys.G);
+        b.put(InputAction.ATTACK_HEAVY, Input.Keys.H);
         return new PlayerInput(b);
     }
 
-    /** プレイヤー 2 の既定割当（方向キーで移動・右 Ctrl で攻撃）。2 体対戦（Task 22）で使用。 */
+    /**
+     * プレイヤー 2 の既定割当。
+     * 移動: 方向キー / ジャンプ: ↑ / しゃがみ: ↓
+     * 攻撃: 弱=Numpad1 / 中=Numpad2 / 強=Numpad3
+     */
     public static PlayerInput player2Defaults() {
         EnumMap<InputAction, Integer> b = new EnumMap<>(InputAction.class);
         b.put(InputAction.LEFT, Input.Keys.LEFT);
         b.put(InputAction.RIGHT, Input.Keys.RIGHT);
         b.put(InputAction.UP, Input.Keys.UP);
         b.put(InputAction.DOWN, Input.Keys.DOWN);
-        b.put(InputAction.ATTACK, Input.Keys.CONTROL_RIGHT);
+        b.put(InputAction.ATTACK_LIGHT, Input.Keys.NUMPAD_1);
+        b.put(InputAction.ATTACK_MEDIUM, Input.Keys.NUMPAD_2);
+        b.put(InputAction.ATTACK_HEAVY, Input.Keys.NUMPAD_3);
         return new PlayerInput(b);
     }
 
@@ -95,9 +105,11 @@ public class PlayerInput {
     /** 現在のキー割当を人間可読な 1 行で返す（操作ガイド表示用）。 */
     public String describe() {
         return "Move " + keyName(InputAction.LEFT) + "/" + keyName(InputAction.RIGHT)
-                + "   Jump " + keyName(InputAction.UP)
-                + "   Crouch " + keyName(InputAction.DOWN)
-                + "   Attack " + keyName(InputAction.ATTACK);
+                + "  Jump " + keyName(InputAction.UP)
+                + "  Crouch " + keyName(InputAction.DOWN)
+                + "  L:" + keyName(InputAction.ATTACK_LIGHT)
+                + "  M:" + keyName(InputAction.ATTACK_MEDIUM)
+                + "  H:" + keyName(InputAction.ATTACK_HEAVY);
     }
 
     private String keyName(InputAction action) {

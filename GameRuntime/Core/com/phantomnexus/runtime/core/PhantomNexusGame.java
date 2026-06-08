@@ -153,15 +153,25 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
      * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19）。
      */
+    /**
+     * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
+     * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19/24）。
+     * 弱/中/強の 3 ボタンを読み取り、コマンド技成立時はコマンド対応の必殺技を優先発動する。
+     */
     private void updateFighterInput(Fighter f, PlayerInput in, InputHistory history, int player) {
         int dir = moveDir(in);
         boolean jump = in.isPressed(InputAction.UP);
-        boolean attack = in.isPressed(InputAction.ATTACK);
-        // 向き相対のテンキー方向 + 攻撃立ち上がりを履歴に記録（攻撃値は上で 1 回読んだものを再利用）。
+        boolean lightPressed = in.isPressed(InputAction.ATTACK_LIGHT);
+        boolean mediumPressed = in.isPressed(InputAction.ATTACK_MEDIUM);
+        boolean heavyPressed = in.isPressed(InputAction.ATTACK_HEAVY);
+        boolean anyAttack = lightPressed || mediumPressed || heavyPressed;
+        // 押されたボタン（複数同時は軽い方が優先）
+        String attackButton = lightPressed ? "light" : mediumPressed ? "medium" : heavyPressed ? "heavy" : null;
+        // 向き相対のテンキー方向 + 攻撃立ち上がり（いずれかのボタン）を履歴に記録。
         int numpad = InputHistory.numpad(
                 in.isDown(InputAction.LEFT), in.isDown(InputAction.RIGHT),
                 in.isDown(InputAction.UP), in.isDown(InputAction.DOWN), f.isFacingRight());
-        history.record(numpad, attack);
+        history.record(numpad, anyAttack);
         Command cmd = CommandDetector.detect(history);
         if (cmd != Command.NONE) {
             if (player == 2) {
@@ -172,29 +182,49 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 commandTimer1 = COMMAND_DISPLAY_FRAMES;
             }
         }
-        // 必殺技（Task 20）：波動拳成立かつ行動可能なら必殺技を発動し、飛び道具を発射。通常攻撃は抑止。
-        if (cmd == Command.HADOUKEN && f.startSpecial()) {
-            spawnProjectile(f);
-            attack = false;
+        // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
+        if (cmd != Command.NONE && anyAttack) {
+            Move special = findSpecialMove(f.getDef(), cmd);
+            if (special != null && f.startSpecial(special)) {
+                if (special.isProjectile()) {
+                    spawnProjectile(f, special);
+                }
+                attackButton = null;
+            }
         }
-        f.update(dir, jump, attack);
+        f.update(dir, jump, attackButton);
     }
 
-    /** 必殺技（飛び道具）の弾を発射者の前方に生成する（Task 20）。 */
-    private void spawnProjectile(Fighter f) {
-        Move sp = f.getDef().getSpecialMove();
-        if (sp == null || !sp.isProjectile()) {
+    /** キャラの specialMoves[] からコマンドに対応する技を返す（見つからなければ null）。 */
+    private static Move findSpecialMove(Character def, Command cmd) {
+        Move[] specials = def.getSpecialMoves();
+        if (specials == null) {
+            return null;
+        }
+        String cmdName = cmd.name(); // "HADOUKEN" / "CHARGE_SHOT" / "DOWN_ATTACK"
+        for (Move m : specials) {
+            String mc = m.getCommand();
+            if (mc != null && cmdName.equalsIgnoreCase(mc.trim())) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /** 必殺技（飛び道具）の弾を発射者の前方に生成する（Task 20/24）。 */
+    private void spawnProjectile(Fighter f, Move move) {
+        if (move == null || !move.isProjectile()) {
             return;
         }
         Character d = f.getDef();
         float front = f.isFacingRight() ? f.getX() + d.getWidth() / 2f : f.getX() - d.getWidth() / 2f;
         float spawnX = f.isFacingRight()
-                ? front + sp.getHitboxOffsetX() + sp.getHitboxWidth() / 2f
-                : front - sp.getHitboxOffsetX() - sp.getHitboxWidth() / 2f;
-        float spawnY = f.getY() + sp.getHitboxOffsetY();
-        float vx = (f.isFacingRight() ? 1f : -1f) * sp.getProjectileSpeed();
-        projectiles.add(new Projectile(spawnX, spawnY, vx, sp.getHitboxWidth(), sp.getHitboxHeight(),
-                sp.getDamage(), f));
+                ? front + move.getHitboxOffsetX() + move.getHitboxWidth() / 2f
+                : front - move.getHitboxOffsetX() - move.getHitboxWidth() / 2f;
+        float spawnY = f.getY() + move.getHitboxOffsetY();
+        float vx = (f.isFacingRight() ? 1f : -1f) * move.getProjectileSpeed();
+        projectiles.add(new Projectile(spawnX, spawnY, vx, move.getHitboxWidth(), move.getHitboxHeight(),
+                move.getDamage(), f));
     }
 
     /** 飛び道具を 1 フレーム進め、相手命中で被弾適用、命中 / 画面外で消滅させる（Task 20）。 */

@@ -7,30 +7,58 @@
   "width": 84,
   "height": 216,
   "color": [0.93, 0.45, 0.30],
-  "normalAttack": {
-    "id": "quick_jab",
-    "command": "ATTACK",
-    "damage": 55,
-    "startup": 5,
-    "active": 4,
-    "recovery": 11,
-    "hitboxOffsetX": 0,
-    "hitboxOffsetY": 110,
-    "hitboxWidth": 80,
-    "hitboxHeight": 36
-  },
-  "specialMove": {
-    "id": "swift_bolt",
-    "command": "236A",
-    "damage": 95,
-    "startup": 7,
-    "active": 4,
-    "recovery": 22,
-    "hitboxOffsetX": 0,
-    "hitboxOffsetY": 100,
-    "hitboxWidth": 46,
-    "hitboxHeight": 46,
-    "projectile": true,
-    "projectileSpeed": 13.0
-  }
+  "normalMoves": [
+    {
+      "id": "quick_jab",
+      "button": "light",
+      "damage": 40,
+      "startup": 4,
+      "active": 3,
+      "recovery": 8,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 75,
+      "hitboxHeight": 32
+    },
+    {
+      "id": "spin_kick",
+      "button": "medium",
+      "damage": 65,
+      "startup": 7,
+      "active": 5,
+      "recovery": 14,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 90,
+      "hitboxWidth": 88,
+      "hitboxHeight": 38
+    },
+    {
+      "id": "power_strike",
+      "button": "heavy",
+      "damage": 110,
+      "startup": 13,
+      "active": 4,
+      "recovery": 25,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 100,
+      "hitboxHeight": 46
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "swift_bolt",
+      "command": "HADOUKEN",
+      "damage": 95,
+      "startup": 7,
+      "active": 4,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 46,
+      "hitboxHeight": 46,
+      "projectile": true,
+      "projectileSpeed": 13.0
+    }
+  ]
 }

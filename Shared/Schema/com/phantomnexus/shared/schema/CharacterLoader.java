@@ -6,16 +6,22 @@ import com.badlogic.gdx.utils.Json;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 /**
- * キャラクター JSON のローダ（Task 16）。**データ I/O の単一の真実**（`Shared/Schema`）。
+ * キャラクター JSON のローダ（Task 16 / Task 24）。**データ I/O の単一の真実**（{@code Shared/Schema}）。
  *
  * <p>{@code Assets/Characters/<id>.json} を LibGDX 組込みの {@link Json}（追加ライブラリ無し）で
- * {@link Character} POJO へデシリアライズし、必須フィールドを検証する。バリデーション失敗時は
- * どのファイル / フィールドが原因かを含む {@link SchemaException} を投げる（[docs/DataFormat.md](../../../../../../docs/DataFormat.md)）。
+ * {@link Character} POJO へデシリアライズし、必須フィールドを検証する。Task 24 で技定義を
+ * {@code normalMoves[]} / {@code specialMoves[]} の配列形式に拡張した。
  *
- * <p>JSON は {@code processResources} によりクラスパス（{@code build/resources/main/Characters/...}）へ
- * 配置されるため {@link Gdx#files} の {@code classpath} で読む（パッケージ JAR でも解決できる）。
- * 前方互換のため未知フィールドは無視する（{@link Json#setIgnoreUnknownFields(boolean)}）。
+ * <p>旧形式（Task 24 以前）の JSON（{@code normalAttack} / {@code specialMove} 単体フィールド）は
+ * {@link #migrateIfLegacy(Character)} で配列形式へ自動移行する（後方互換）。
  *
  * <p>{@code GameRuntime} / {@code Battle} は本ローダ経由でのみデータを取得し、直接 JSON を読まない
  * （CLAUDE.md「データモデルの単一の真実」）。
@@ -26,8 +32,33 @@ public final class CharacterLoader {
         // ユーティリティ（インスタンス化禁止）
     }
 
-    /** クラスパス上のキャラ JSON のベースパス（resources ルート = {@code Assets/} 配下）。 */
     private static final String BASE_PATH = "Characters/";
+
+    /** 通常技の許可ボタン種別（大文字小文字正規化後に照合）。 */
+    private static final Set<String> VALID_BUTTONS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList("light", "medium", "heavy")));
+
+    /**
+     * 有効な必殺技コマンド名（{@code Command.name()} と一致する文字列）。
+     * {@code Shared} から {@code GameRuntime/Input.Command} への依存を避け、ここに列挙する。
+     * 新コマンドを {@code Command} enum に追加したら本セットも同時に更新すること。
+     */
+    private static final Set<String> VALID_COMMANDS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
+
+    /**
+     * 旧形式モーション記法 → {@code Command.name()} の変換テーブル（後方互換マイグレーション用）。
+     * Task 20 以前の JSON が波動拳コマンドを "236A"/"236B"/"236C" などで記述していた場合に対応する。
+     * キーは大文字で格納し、照合時も {@code toUpperCase()} して使う。
+     */
+    private static final Map<String, String> LEGACY_COMMAND_NOTATION;
+    static {
+        Map<String, String> m = new HashMap<>();
+        m.put("236A", "HADOUKEN");
+        m.put("236B", "HADOUKEN");
+        m.put("236C", "HADOUKEN");
+        LEGACY_COMMAND_NOTATION = Collections.unmodifiableMap(m);
+    }
 
     /**
      * 指定 ID のキャラクターを {@code Characters/<id>.json} から読み込み、検証して返す。
@@ -45,7 +76,7 @@ public final class CharacterLoader {
         Character character;
         try {
             Json json = new Json();
-            json.setIgnoreUnknownFields(true); // 前方互換：未知フィールドは無視
+            json.setIgnoreUnknownFields(true);
             character = json.fromJson(Character.class, file);
         } catch (RuntimeException e) {
             throw new SchemaException("キャラ JSON の解析に失敗: " + path + " (" + e.getMessage() + ")", e);
@@ -53,12 +84,67 @@ public final class CharacterLoader {
         if (character == null) {
             throw new SchemaException("キャラ JSON が空です: " + path);
         }
+        // 旧形式（normalAttack / specialMove）を新形式配列へ移行してから検証する（後方互換）。
+        migrateIfLegacy(character, path);
         validate(character, path);
         Gdx.app.log("CharacterLoader", "読み込み成功: " + path + " (" + character.getName() + ")");
         return character;
     }
 
-    /** 必須フィールド・値域を検証する。原因フィールドを明示して {@link SchemaException} を投げる。 */
+    /**
+     * Task 24 以前の旧形式 JSON（{@code normalAttack} / {@code specialMove} 単体フィールド）を
+     * 新形式の配列（{@code normalMoves[]} / {@code specialMoves[]}）へ自動移行する。
+     *
+     * <ul>
+     *   <li>{@code normalMoves} が未設定かつ旧 {@code normalAttack} が存在する場合：
+     *       {@code normalAttack} の {@code button} を {@code "light"} に設定し、
+     *       {@code normalMoves[0]} として配列を生成する。</li>
+     *   <li>{@code specialMoves} が未設定かつ旧 {@code specialMove} が存在する場合：
+     *       {@code specialMoves[0]} として配列を生成する（{@code command} はそのまま維持）。</li>
+     * </ul>
+     */
+    private static void migrateIfLegacy(Character c, String src) {
+        boolean needsMigration = false;
+        // normalAttack → normalMoves[0] (button="light") への移行
+        if ((c.getNormalMoves() == null || c.getNormalMoves().length == 0) && c.legacyNormalAttack() != null) {
+            Move legacy = c.legacyNormalAttack();
+            // 旧形式は button フィールドを持たないため "light" をデフォルト値として注入する。
+            if (legacy.getButton() == null || legacy.getButton().isEmpty()) {
+                legacy.setButton("light");
+            }
+            c.setNormalMoves(new Move[]{legacy});
+            needsMigration = true;
+        }
+        // specialMove → specialMoves[0] への移行。
+        // 旧モーション記法（"236A" 等）があれば Command.name() 形式（"HADOUKEN" 等）へ正規化してから移行する。
+        // 未知コマンド（正規化後も VALID_COMMANDS 外）は移行対象外とし validate() での SchemaException を防ぐ。
+        if ((c.getSpecialMoves() == null || c.getSpecialMoves().length == 0) && c.legacySpecialMove() != null) {
+            Move legacy = c.legacySpecialMove();
+            String legacyCmd = legacy.getCommand();
+            if (legacyCmd != null) {
+                String upper = legacyCmd.trim().toUpperCase();
+                String mapped = LEGACY_COMMAND_NOTATION.get(upper);
+                if (mapped != null) {
+                    legacy.setCommand(mapped);
+                    legacyCmd = mapped;
+                    Gdx.app.log("CharacterLoader",
+                            "旧コマンド記法 '" + upper + "' を '" + mapped + "' へ変換しました: " + src);
+                }
+            }
+            if (legacyCmd != null && VALID_COMMANDS.contains(legacyCmd.trim().toUpperCase())) {
+                c.setSpecialMoves(new Move[]{legacy});
+                needsMigration = true;
+            } else {
+                Gdx.app.log("CharacterLoader",
+                        "旧形式 specialMove のコマンド '" + legacyCmd + "' は未知のため移行をスキップ: " + src);
+            }
+        }
+        if (needsMigration) {
+            Gdx.app.log("CharacterLoader", "旧形式 JSON を新形式配列へ自動移行しました: " + src);
+        }
+    }
+
+    /** 必須フィールド・値域を検証する。 */
     private static void validate(Character c, String src) {
         requireText(c.getId(), "id", src);
         requireText(c.getName(), "name", src);
@@ -68,44 +154,85 @@ public final class CharacterLoader {
         requirePositive(c.getWidth(), "width", src);
         requirePositive(c.getHeight(), "height", src);
         requireOptionalRgb(c.getColor(), "color", src);
-        Move atk = c.getNormalAttack();
-        if (atk == null) {
-            throw new SchemaException("必須フィールド欠落: normalAttack (" + src + ")");
-        }
-        requireText(atk.getId(), "normalAttack.id", src);
-        requireNonNegative(atk.getDamage(), "normalAttack.damage", src);
-        requireNonNegative(atk.getStartup(), "normalAttack.startup", src);
-        requireNonNegative(atk.getActive(), "normalAttack.active", src);
-        requireNonNegative(atk.getRecovery(), "normalAttack.recovery", src);
-        if (atk.getTotalFrames() <= 0) {
-            throw new SchemaException("normalAttack の startup+active+recovery は 1 以上が必要 (" + src + ")");
-        }
-        requirePositive(atk.getHitboxWidth(), "normalAttack.hitboxWidth", src);
-        requirePositive(atk.getHitboxHeight(), "normalAttack.hitboxHeight", src);
-        validateSpecial(c.getSpecialMove(), src);
-    }
 
-    /** 必殺技は任意（null 可）。設定されていればフレーム・hitbox・飛び道具速度を検証する。 */
-    private static void validateSpecial(Move sp, String src) {
-        if (sp == null) {
-            return;
+        Move[] normals = c.getNormalMoves();
+        if (normals == null || normals.length == 0) {
+            throw new SchemaException("normalMoves は 1 件以上が必要 (" + src + ")");
         }
-        requireText(sp.getId(), "specialMove.id", src);
-        requireNonNegative(sp.getDamage(), "specialMove.damage", src);
-        requireNonNegative(sp.getStartup(), "specialMove.startup", src);
-        requireNonNegative(sp.getActive(), "specialMove.active", src);
-        requireNonNegative(sp.getRecovery(), "specialMove.recovery", src);
-        if (sp.getTotalFrames() <= 0) {
-            throw new SchemaException("specialMove の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        for (int i = 0; i < normals.length; i++) {
+            validateNormalMove(normals[i], "normalMoves[" + i + "]", src);
         }
-        requirePositive(sp.getHitboxWidth(), "specialMove.hitboxWidth", src);
-        requirePositive(sp.getHitboxHeight(), "specialMove.hitboxHeight", src);
-        if (sp.isProjectile()) {
-            requirePositive(sp.getProjectileSpeed(), "specialMove.projectileSpeed", src);
+
+        Move[] specials = c.getSpecialMoves();
+        if (specials != null) {
+            for (int i = 0; i < specials.length; i++) {
+                validateSpecialMove(specials[i], "specialMoves[" + i + "]", src);
+            }
         }
     }
 
-    /** 色は任意（null 可）。設定されていれば RGB（長さ 3・各 0..1）であることを検証する。 */
+    /** 通常技の検証（button は "light"/"medium"/"heavy" に限定）。 */
+    private static void validateNormalMove(Move m, String field, String src) {
+        if (m == null) {
+            throw new SchemaException(field + " が null (" + src + ")");
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireValidButton(m.getButton(), field + ".button", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
+    }
+
+    /** 必殺技の検証（command は実装済みコマンド名に限定・飛び道具時は projectileSpeed 必須）。 */
+    private static void validateSpecialMove(Move m, String field, String src) {
+        if (m == null) {
+            throw new SchemaException(field + " が null (" + src + ")");
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireValidCommand(m.getCommand(), field + ".command", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
+        if (m.isProjectile()) {
+            requirePositive(m.getProjectileSpeed(), field + ".projectileSpeed", src);
+        }
+    }
+
+    /** ボタン種別が許可値（"light"/"medium"/"heavy"）であることを検証する。 */
+    private static void requireValidButton(String value, String field, String src) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new SchemaException("必須フィールド欠落 / 空: " + field + " (" + src + ")");
+        }
+        if (!VALID_BUTTONS.contains(value.trim().toLowerCase())) {
+            throw new SchemaException(
+                    field + " の値 \"" + value + "\" は不正です。許可値: light / medium / heavy (" + src + ")");
+        }
+    }
+
+    /** コマンド名が実装済みコマンド（{@link #VALID_COMMANDS}）に含まれることを検証する。 */
+    private static void requireValidCommand(String value, String field, String src) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new SchemaException("必須フィールド欠落 / 空: " + field + " (" + src + ")");
+        }
+        if (!VALID_COMMANDS.contains(value.trim().toUpperCase())) {
+            throw new SchemaException(
+                    field + " の値 \"" + value + "\" は未知のコマンドです。許可値: "
+                            + VALID_COMMANDS + " (" + src + ")");
+        }
+    }
+
     private static void requireOptionalRgb(float[] color, String field, String src) {
         if (color == null) {
             return;

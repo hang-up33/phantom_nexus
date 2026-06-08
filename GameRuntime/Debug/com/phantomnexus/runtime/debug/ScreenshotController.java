@@ -236,8 +236,13 @@ public final class ScreenshotController {
     }
 
     private static InputAction toAction(String name) {
+        String upper = name.trim().toUpperCase();
+        // 後方互換：旧 "attack" トークン（スクリプト / CLAUDE.md の例で使用）を ATTACK_LIGHT として解釈。
+        if (upper.equals("ATTACK")) {
+            return InputAction.ATTACK_LIGHT;
+        }
         try {
-            return InputAction.valueOf(name.trim().toUpperCase());
+            return InputAction.valueOf(upper);
         } catch (IllegalArgumentException ignored) {
             return null;
         }
