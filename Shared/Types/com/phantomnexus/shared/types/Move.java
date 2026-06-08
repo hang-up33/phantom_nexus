@@ -74,6 +74,11 @@ public class Move {
         return command;
     }
 
+    /** ローダが旧形式 JSON から移行する際にコマンド名を正規化する（{@code CharacterLoader} のみ使用）。 */
+    public void setCommand(String command) {
+        this.command = command;
+    }
+
     public int getDamage() {
         return damage;
     }

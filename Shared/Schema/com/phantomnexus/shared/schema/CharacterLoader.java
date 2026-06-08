@@ -8,7 +8,9 @@ import com.phantomnexus.shared.types.Move;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -43,6 +45,20 @@ public final class CharacterLoader {
      */
     private static final Set<String> VALID_COMMANDS = Collections.unmodifiableSet(
             new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
+
+    /**
+     * 旧形式モーション記法 → {@code Command.name()} の変換テーブル（後方互換マイグレーション用）。
+     * Task 20 以前の JSON が波動拳コマンドを "236A"/"236B"/"236C" などで記述していた場合に対応する。
+     * キーは大文字で格納し、照合時も {@code toUpperCase()} して使う。
+     */
+    private static final Map<String, String> LEGACY_COMMAND_NOTATION;
+    static {
+        Map<String, String> m = new HashMap<>();
+        m.put("236A", "HADOUKEN");
+        m.put("236B", "HADOUKEN");
+        m.put("236C", "HADOUKEN");
+        LEGACY_COMMAND_NOTATION = Collections.unmodifiableMap(m);
+    }
 
     /**
      * 指定 ID のキャラクターを {@code Characters/<id>.json} から読み込み、検証して返す。
@@ -100,11 +116,21 @@ public final class CharacterLoader {
             needsMigration = true;
         }
         // specialMove → specialMoves[0] への移行。
-        // 旧形式の command は Command.name() 形式（"HADOUKEN" 等）で保存されていたため変換不要。
-        // 未知コマンド（null / VALID_COMMANDS 外）は移行対象外とし validate() での SchemaException を防ぐ。
+        // 旧モーション記法（"236A" 等）があれば Command.name() 形式（"HADOUKEN" 等）へ正規化してから移行する。
+        // 未知コマンド（正規化後も VALID_COMMANDS 外）は移行対象外とし validate() での SchemaException を防ぐ。
         if ((c.getSpecialMoves() == null || c.getSpecialMoves().length == 0) && c.legacySpecialMove() != null) {
             Move legacy = c.legacySpecialMove();
             String legacyCmd = legacy.getCommand();
+            if (legacyCmd != null) {
+                String upper = legacyCmd.trim().toUpperCase();
+                String mapped = LEGACY_COMMAND_NOTATION.get(upper);
+                if (mapped != null) {
+                    legacy.setCommand(mapped);
+                    legacyCmd = mapped;
+                    Gdx.app.log("CharacterLoader",
+                            "旧コマンド記法 '" + upper + "' を '" + mapped + "' へ変換しました: " + src);
+                }
+            }
             if (legacyCmd != null && VALID_COMMANDS.contains(legacyCmd.trim().toUpperCase())) {
                 c.setSpecialMoves(new Move[]{legacy});
                 needsMigration = true;
