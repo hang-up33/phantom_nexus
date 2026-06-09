@@ -42,7 +42,9 @@ public class FighterAnimator {
         if (fighter.isCrouchAttacking()) {
             return AnimationState.CROUCH_ATTACK;
         }
-        if (fighter.isAerialAttacking()) {
+        // 空中攻撃ポーズは滞空中のみ。active/recovery 中に着地したら地上攻撃ポーズへ落とす
+        // （isAerialAttacking() は技終了まで true のままのため !isGrounded() を併せて判定する）。
+        if (fighter.isAerialAttacking() && !fighter.isGrounded()) {
             return AnimationState.JUMP_ATTACK;
         }
         if (fighter.isAttacking()) {
