@@ -5,7 +5,7 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
 /**
- * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード / Task 28: しゃがみ攻撃 / Task 29: しゃがみ移動 / Task 30: しゃがみガード）。
+ * 実行時のファイター状態（Task 7: 移動 / Task 8: ジャンプ / Task 11: 攻撃 / Task 24: 複数技 / Task 25: しゃがみ / Task 27: ガード / Task 28: しゃがみ攻撃 / Task 29: しゃがみ移動 / Task 30: しゃがみガード / Task 31: 下段判定 / Task 32: 空中攻撃）。
  *
  * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
  * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）・
@@ -30,6 +30,7 @@ public class Fighter {
     private float velocityX;
     private boolean crouching;
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
+    private boolean aerialAttacking;  // 空中で開始した攻撃（Task 32）
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
@@ -75,12 +76,14 @@ public class Fighter {
                     velocityX = 0f;
                 }
             }
-            // しゃがみ遷移フレーム（crouchHeld=true かつ crouching=false）は攻撃不可。
-            // しゃがみ中（crouching=true）は攻撃可（下段攻撃として発動）。
-            if (attackPhase == AttackPhase.NONE && attackButton != null && grounded && (!crouchHeld || crouching)) {
+            // 攻撃の発動：接地時はしゃがみ遷移フレーム（crouchHeld かつ未しゃがみ）を除いて可。
+            // 空中では空中攻撃（Task 32）として発動可（しゃがみ条件は無視）。
+            if (attackPhase == AttackPhase.NONE && attackButton != null
+                    && (grounded ? (!crouchHeld || crouching) : true)) {
                 Move move = selectNormalMove(attackButton);
                 if (move != null) {
-                    crouchAttacking = crouching; // しゃがみ中に発動 → 下段攻撃フラグ
+                    crouchAttacking = grounded && crouching; // しゃがみ中に発動 → 下段攻撃フラグ（空中は不可）
+                    aerialAttacking = !grounded;             // 空中で発動 → 空中攻撃フラグ（Task 32）
                     beginAttack(move);
                 }
             }
@@ -93,6 +96,7 @@ public class Fighter {
                 advanceAttack();
                 if (attackPhase == AttackPhase.NONE) {
                     crouchAttacking = false; // 攻撃終了でフラグクリア
+                    aerialAttacking = false; // 空中攻撃も終了でクリア
                     if (!crouchHeld) {
                         crouching = false; // DOWN を離していれば攻撃終了と同フレームに姿勢解除
                     }
@@ -142,6 +146,7 @@ public class Fighter {
         attackConnected = false;
         hitstunFrames = 0;
         crouchAttacking = false;
+        aerialAttacking = false;
         guarding = false;
     }
 
@@ -167,6 +172,7 @@ public class Fighter {
         currentMove = null;
         crouching = false;
         crouchAttacking = false;
+        aerialAttacking = false;
     }
 
     /**
@@ -298,6 +304,11 @@ public class Fighter {
     /** しゃがみ攻撃中か（攻撃中 + しゃがみ姿勢を維持）（Task 28）。 */
     public boolean isCrouchAttacking() {
         return crouchAttacking;
+    }
+
+    /** 空中攻撃中か（空中で発動した攻撃が進行中）（Task 32）。 */
+    public boolean isAerialAttacking() {
+        return aerialAttacking;
     }
 
     public int getCurrentHp() {

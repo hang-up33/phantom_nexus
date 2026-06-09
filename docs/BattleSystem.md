@@ -64,7 +64,7 @@
 
 ## 攻撃処理（Task 11）
 
-- **発生条件**：攻撃ボタンの**立ち上がりエッジ**（`InputAction.ATTACK_LIGHT` / `ATTACK_MEDIUM` / `ATTACK_HEAVY`）で発動。**接地中かつ非攻撃中**のみ受け付ける（空中攻撃・キャンセルは MVP 対象外）。技定義は `Character.normalMoves[]`（`Shared/Types.Move` 配列、Task 24 で拡張）。
+- **発生条件**：攻撃ボタンの**立ち上がりエッジ**（`InputAction.ATTACK_LIGHT` / `ATTACK_MEDIUM` / `ATTACK_HEAVY`）で発動。非攻撃中に受け付ける。接地中はしゃがみ遷移フレームを除き発動可、**空中でも発動可（空中攻撃 = Task 32）**。キャンセルは MVP 対象外。技定義は `Character.normalMoves[]`（`Shared/Types.Move` 配列、Task 24 で拡張）。
 - **区間遷移**：`Fighter` が `AttackPhase`（`NONE/STARTUP/ACTIVE/RECOVERY`）と経過フレーム `attackFrame` を持ち、`Move` の `startup → active → recovery` の累積境界で区間を進める。総フレーム終了で `NONE` に戻る。
 - **技選択**：`Fighter.update(moveDir, jumpPressed, attackButton)` の `attackButton`（"light"/"medium"/"heavy"）を受け取り、`selectNormalMove()` が `normalMoves[]` をスキャンして `Move.button` と照合（case-insensitive・trim 正規化）する。
 - **行動拘束**：攻撃中は横移動・ジャンプ・新規攻撃を受け付けない（`moveDir` を 0 に固定）。重力・着地は攻撃中も適用（地上開始のため通常は接地維持）。
@@ -279,11 +279,27 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 下段の成立条件 | `Fighter.isCrouchAttacking()` が true の攻撃（しゃがみ中に出した通常技）。立ち通常技・必殺技・飛び道具は**中段**扱い（従来どおり） |
 | hitbox 位置 | 下段は技定義の `hitboxOffsetY`（立ち用で 90px 以上）を使わず、足元基準 `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（= 0px, 脚部）に出す。`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` の両方で同じ低位に揃える |
 | 当たる相手 | 立ち hurtbox（足元〜全高）にもしゃがみ hurtbox（足元〜`height/3` ≒ 80px）にも届く。これで Task 30 で観測できなかった「しゃがみガードの chip」が下段に対して実際に発生する |
-| ガード正誤 | `resolveHit` で `low = attacker.isCrouchAttacking()`、`blocked = defender.isGuarding() && (!low || defender.isCrouchGuarding())`。**下段は立ちガード不成立 → 通常ヒット（のけぞり）**、しゃがみガードなら成立 → chip。中段は従来どおり立ち / しゃがみどちらのガードでも成立 |
+| ガード正誤 | `resolveHit` で `low = attacker.isCrouchAttacking()`、`blocked = defender.isGuarding() && (!low \|\| defender.isCrouchGuarding())`。**下段は立ちガード不成立 → 通常ヒット（のけぞり）**、しゃがみガードなら成立 → chip。中段は従来どおり立ち / しゃがみどちらのガードでも成立 |
 | 飛び道具 | 中段扱い（`updateProjectiles` は従来どおり `isGuarding()` で chip 判定。下段飛び道具は未対応） |
 | AI | `AiController` は `crouchHeld=false` のままなので下段攻撃は出さない（影響なし） |
 
 > 中段（立ち攻撃）は依然としてしゃがみ食らい判定（低い）に届かず空振りするため、「中段はしゃがみで回避／下段はしゃがみガードで防ぐ」という非対称が成立する。中段を**しゃがみガードでも食らわせる**（overhead を立ちガード必須にする等）の高さ属性の完全データ化は将来拡張。
+
+---
+
+## 空中攻撃（Task 32）
+
+滞空中（`!grounded`）に攻撃ボタンを押すと、その場で通常技を**空中攻撃**として発動できる。降り際に相手へ攻撃を重ねる「飛び込み」が可能になる。
+
+| 項目 | 仕様 |
+|---|---|
+| 発動条件 | `attackPhase == NONE` かつ攻撃ボタン押下かつ `!grounded`（接地中はしゃがみ遷移フレームを除き従来どおり）。`aerialAttacking = !grounded` を記録 |
+| hitbox | 通常技の `hitboxOffsetX/Y` をそのまま使用（しゃがみ攻撃のような低位化はしない）。原点は滞空中の足元 `getY()` なので、hitbox は空中の高さに出る。降下に伴い hitbox も下がり、地上の相手に届く |
+| 中段/下段 | 空中攻撃は**中段**扱い（`isCrouchAttacking()` ではないので `resolveHit` の `low=false`）。立ち / しゃがみどちらのガードでも chip |
+| 行動拘束 | 攻撃中は横移動・再ジャンプ不可（`moveDir=0`）。重力・着地は攻撃中も適用するため、空中攻撃中も落下して着地する。着地後も技の残りフレームは進行し、終了で `aerialAttacking=false` |
+| 必殺技 | 空中での必殺技は不可（`startSpecial` は接地必須。空中でコマンド+攻撃が成立しても通常の空中攻撃にフォールバック） |
+| アニメーション | `AnimationState.JUMP_ATTACK`（単一ポーズ）。優先順: hitstun > しゃがみ攻撃 > **空中攻撃** > 攻撃 > 空中 > しゃがみガード > … |
+| AI | `AiController` はジャンプしないので空中攻撃も出さない（影響なし） |
 
 ---
 
@@ -314,3 +330,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 29) しゃがみ移動（低速クロール）を追記。`Fighter` のしゃがみ分岐で `moveDir` を記録し `walkSpeed * 0.5f` で移動するよう変更。`isWalking()` を `!crouching` 条件付きに修正し `isCrouchWalking()` を追加。`AnimationState.CROUCH_WALK`（2 フレームループ）と `FighterAnimator.bobOffset()` の CROUCH_WALK ケースを追加。「しゃがみ移動（Task 29）」節を追加。
 - (Task 30) しゃがみガードを追記。`Fighter.guarding` のガード条件から `!crouchHeld` を撤廃し、しゃがみ中の後退方向保持でも低姿勢ガードに入れるようにした。`isCrouchGuarding()`（`guarding && crouching`）を追加。`AnimationState.CROUCH_GUARD` を追加し `FighterAnimator.resolve()` の優先順（しゃがみ攻撃/攻撃/空中 > しゃがみガード > しゃがみ移動/しゃがみ > 立ちガード）に織り込み。ガードオーバーレイは既存の `drawHeight` 流用で自動的に低姿勢になる（描画変更なし）。ガード（Task 27）節の「しゃがみガード」行・しゃがみ移動（Task 29）節のガード記述を更新し「しゃがみガード（Task 30）」節を追加。
 - (Task 31) 下段判定を追記。しゃがみ攻撃（`isCrouchAttacking()`）を下段技にし、`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` で hitbox の Y を `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（脚部）へ下げて立ち / しゃがみ両 hurtbox に届くようにした。`resolveHit` のガード分岐を `blocked = isGuarding() && (!low || isCrouchGuarding())` に拡張し、**下段は立ちガードで防げず通常ヒット・しゃがみガードでのみ chip**とした（中段は従来どおり）。これで Task 30 で観測できなかったしゃがみガードの chip が下段に対して発生する。「下段判定（Task 31）」節を追加し、ガード（Task 27）/しゃがみ攻撃（Task 28）/しゃがみガード（Task 30）節を更新。
+- (Task 32) 空中攻撃を追記。`Fighter` の攻撃発動条件を `grounded ? (!crouchHeld || crouching) : true` に拡張し、滞空中でも通常技を出せるようにした。`aerialAttacking` フィールド・`isAerialAttacking()` を追加（`reset()`/`applyHit()` でクリア）。`AnimationState.JUMP_ATTACK` を追加し `FighterAnimator.resolve()` に織り込み（しゃがみ攻撃 > 空中攻撃 > 通常攻撃の優先順）。空中攻撃は中段扱い（`resolveHit` の low=false）。攻撃処理（Task 11）節の「空中攻撃は対象外」記述を更新し「空中攻撃（Task 32）」節を追加。
