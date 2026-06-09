@@ -23,7 +23,7 @@
 `idle / walk / jump / jump_attack(空中攻撃) / attack / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
-アニメーション状態の導出優先順（`FighterAnimator.resolve()` が単一の真実。各タスク節の優先順記述もこれに揃える）：
+アニメーション状態の導出優先順（`FighterAnimator.resolve()` が単一の真実。優先順が変わるタスクでは本リストを更新する。旧タスク節の優先順は当時存在した状態のみの短縮表記を含むが、順序は本リストと矛盾しない）：
 
 > **のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**
 
