@@ -4,7 +4,8 @@ name: Claude Issue → PR
 # 既存 Issue で再依頼したいときは Issue / PR コメント本文に `@claude ...` を含めるとこのワークフローが反応する。
 #
 # 前提:
-# - リポジトリ Secrets に `ANTHROPIC_API_KEY` を登録済みであること
+# - リポジトリ Secrets に `CLAUDE_CODE_OAUTH_TOKEN` を登録済みであること
+#   （ローカルで `claude setup-token` → `gh secret set CLAUDE_CODE_OAUTH_TOKEN`）
 # - Settings → Actions → General → Workflow permissions で "Read and write permissions" を許可
 # - "Allow GitHub Actions to create and approve pull requests" にチェック
 # - ラベル `claude` を事前に作成しておく（または初回手動付与で自動作成）
@@ -40,7 +41,7 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}

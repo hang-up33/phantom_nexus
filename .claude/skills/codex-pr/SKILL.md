@@ -5,7 +5,14 @@ description: タスク完了時に Codex GitHub App によるレビューを前�
 
 # Codex 向け PR 作成ワークフロー
 
-本プロジェクトのコードレビューは **Codex GitHub App** が担当する。本スキルはタスク完了時に Codex がすぐレビューを開始できる形で PR を作り、指摘 0 件まで自走で回す標準手順。
+本プロジェクトのコードレビューは **3 系統 + push 前 self-gate** で回す：
+
+1. **push 前セルフレビュー**（[self-review](../self-review/SKILL.md) スキル）— ローカルで自分の差分を別コンテキストに点検させ、明白なミスを PR 前に潰す。
+2. **Codex GitHub App** — PR に日本語レビューをコメント（`@codex review` で明示発火）。
+3. **CodeRabbit** — PR を自動レビュー。
+4. **CI 上の Claude（fresh context）** — `.github/workflows/claude-review.yml` が `pull_request` 契機で起動し、実装の経緯を持たない別 Claude が diff だけを見てレビューを投稿する。
+
+本スキルはタスク完了時にこれらがすぐ回る形で PR を作り、Codex の指摘 0 件まで自走で回す標準手順。
 
 ## 適用タイミング（When to Use）
 
@@ -66,6 +73,12 @@ EOF
 
 - `git add .` や `git add -A` は使わない（意図しないファイル混入防止）
 
+### 3.5. push 前セルフレビュー（self-gate）
+
+push の直前に [self-review](../self-review/SKILL.md) スキルを実行する。コミット済みの差分を
+別コンテキスト（`/code-review` か Agent サブエージェント）に点検させ、確信のある小さな指摘は
+その場で直してコミットに含め、保留した論点は PR 本文の `## セルフレビュー` 節に書く。
+
 ### 4. push
 
 ```sh
@@ -99,6 +112,10 @@ cat <<'EOF' | sed "s|__SHA__|${SHA}|g" > /tmp/pr_body.md
 - [ ] `./gradlew build` 成功
 - [ ] <UI 確認手順がある場合はそれ>
 - [ ] README の進捗表が ✅ に更新されている
+
+## セルフレビュー（push 前 self-gate）
+- 修正済み: <その場で直した点／なければ「なし」>
+- 残した論点: <保留した点と理由／なければ「なし」>
 
 ## Codex 向け補足
 <重点的に見てほしい観点があれば箇条書きで。汎用的な「全体的に見てほしい」より、特定の観点を 1〜3 個提示>

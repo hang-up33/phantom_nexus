@@ -4,7 +4,7 @@
 
 - 技術スタック：**Java / LibGDX / Gradle**、データ形式 **JSON**（LibGDX 組込み）
 - 対象：**Windows PC**（将来 Linux / macOS）
-- 開発運用：実装は **Claude Code**、レビューは **ChatGPT Codex（GitHub App）**
+- 開発運用：実装は **Claude Code**、レビューは **Codex（GitHub App）＋ CodeRabbit ＋ Claude セルフレビュー（CI / fresh context）** の 3 系統
 - 開発指針・ルールは [CLAUDE.md](CLAUDE.md)、Codex 向け指示は [AGENTS.md](AGENTS.md) を参照
 
 ---
@@ -127,8 +127,11 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 「次のタスクを進めて」
   → next-task（ブランチ作成 → 実装 → ./gradlew build 緑 → 動作確認/スクショ → README 進捗更新）
   → kaizen-close（学びを CLAUDE.md / README / メモリへ反映）
+  → self-review（push 前に自分の差分を別コンテキストでセルフレビュー = self-gate）
   → codex-pr（commit → push → gh pr create → @codex review → 自走レビューループ）
-  → Codex のクリーン後にユーザーがマージ
+  → 3 系統レビュー（Codex / CodeRabbit / CI Claude）のクリーン後にユーザーがマージ
 ```
+
+レビューは 3 系統で多重化する：**Codex GitHub App**・**CodeRabbit**・**CI 上の Claude（fresh context、`.github/workflows/claude-review.yml`）**。Claude のセルフレビューは「実装の経緯を持たない別セッションの Claude が PR の diff だけを見る」ことでバイアスを避ける。
 
 詳細は [.claude/skills/](.claude/skills/) と [docs/workflow.md](docs/workflow.md)。

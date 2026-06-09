@@ -91,18 +91,21 @@ gh pr comment <PR番号> --body "@codex review"
 
 2〜5 分で Codex が PR コメントで日本語のレビューを返せば成功。返ってこない場合は [troubleshooting](#troubleshooting) を参照。
 
-### 7. （任意）Issue → PR 自動化を有効化
+### 7. （任意）Issue → PR 自動化 / PR 自動レビューを有効化
 
-`.github/workflows/claude-issue-to-pr.yml` を有効化すると、Issue 起点で Claude が実装ブランチと PR を自動生成する。提出された PR は既存の Codex レビューループに自動で乗る。
+`.github/workflows/claude-issue-to-pr.yml`（Issue → 実装 PR）と `.github/workflows/claude-review.yml`（PR 自動レビュー = fresh context の Claude）はどちらも同じ Claude 認証 Secret を使う。
 
-1. **API キー登録**：Settings → Secrets and variables → Actions → New repository secret
-   - Name: `ANTHROPIC_API_KEY`
-   - Value: Anthropic Console で発行した API キー
+1. **認証 Secret 登録**：Settings → Secrets and variables → Actions → New repository secret
+   - Name: `CLAUDE_CODE_OAUTH_TOKEN`
+   - Value: ローカルで `claude setup-token` を実行して得たトークン（Claude サブスク枠を使う）。
+     コマンドでも可：`claude setup-token` の出力を `gh secret set CLAUDE_CODE_OAUTH_TOKEN` に渡す。
+   - 代替：従量課金の API キーを使う場合は Secret 名 `ANTHROPIC_API_KEY`（Anthropic Console 発行）にし、
+     両ワークフローの `with:` を `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}` に戻す。
 2. **Actions 権限**：Settings → Actions → General
    - "Workflow permissions" を **Read and write permissions** に
    - **Allow GitHub Actions to create and approve pull requests** にチェック
 3. **ラベル作成**：Issues → Labels → New label で `claude` を追加（任意の色）
-4. **動作確認**：テスト Issue を立てて `claude` ラベルを付ける。または本文に `@claude ...` と書く。Actions タブで `Claude Issue → PR` が走り、数分で実装ブランチと PR が現れる。
+4. **動作確認**：テスト Issue を立てて `claude` ラベルを付ける。または本文に `@claude ...` と書く。Actions タブで `Claude Issue → PR` が走り、数分で実装ブランチと PR が現れる。PR を開けば `Claude PR Review` も走る。
 
 トリガーの選択肢：
 
@@ -139,5 +142,5 @@ gh pr comment <PR番号> --body "@codex review"
 ### Issue → PR ワークフローが起動しない
 
 - Actions タブで該当 run があるかまず確認。run が無い場合は `claude` ラベルの綴りが完全一致しているか確認（大文字小文字も区別）
-- run があるのに失敗している場合は、`ANTHROPIC_API_KEY` の secret 登録漏れ・残高切れ・Actions の write 権限不足のいずれかが多い
+- run があるのに失敗している場合は、`CLAUDE_CODE_OAUTH_TOKEN`（または `ANTHROPIC_API_KEY`）の secret 登録漏れ・期限切れ・Actions の write 権限不足のいずれかが多い。症状例：ログに `Either ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, ... is required` と出て即失敗する場合は Secret 未登録（`with:` のキー名と Secret 名の対応も確認）
 - PR 作成だけ失敗する場合は Settings → Actions → General の "Allow GitHub Actions to create and approve pull requests" を再確認

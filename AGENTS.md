@@ -7,6 +7,8 @@
 
 ## Review guidelines
 
+> 本リポジトリのレビューは **Codex ＋ CodeRabbit ＋ Claude（CI / fresh context）** の 3 系統で多重化しています。Codex は下記の「重点的に見てほしい観点」（プロジェクト固有の不変条件）を優先し、汎用的な lint/スタイル指摘は控えめで構いません（重複は許容）。
+
 Codex が PR レビューを行う際は、以下のルールに従ってください。
 
 ### 言語

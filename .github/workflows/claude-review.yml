@@ -1,0 +1,112 @@
+name: Claude PR Review
+
+# PR が開かれた / 更新された / draft 解除された瞬間に、まっさらな（fresh context の）
+# Claude が PR の diff だけを見てレビューし、結果を PR コメントとして投稿する。
+#
+# 「自分が書いたコードを自身でレビューする」を実用化するための肝は、レビュー役を
+# **実装の経緯を一切持たない別セッションの Claude** にすること。CI 上で新規起動する
+# この Claude は PR の diff しか知らないため、実質的に外部レビュアーとして機能し、
+# 同一セッションの自己レビューに付きまとう「自分の判断を正当化するバイアス」を避けられる。
+#
+# レビュー体制（3 系統）：本ワークフロー（Claude / fresh context）＋ Codex GitHub App
+# ＋ CodeRabbit。Claude はプロジェクト固有の不変条件（単一の真実 / フォルダ Must Never /
+# フレーム正しさ / docs 同期 / スクショ）を重点的に見て、汎用レビュアーの取りこぼしを補う。
+#
+# 発火の住み分け：実装ワークフロー（claude-issue-to-pr.yml）は issues / `@claude` コメントで
+# 発火する。本レビューワークフローは `pull_request` イベント専用にすることで二重発火しない。
+#
+# 前提:
+# - リポジトリ Secrets に `CLAUDE_CODE_OAUTH_TOKEN` を登録すること（実装ワークフローと共用）。
+#   ローカルで `claude setup-token` を実行して得たトークンを
+#   `gh secret set CLAUDE_CODE_OAUTH_TOKEN` で登録する（Claude サブスク枠を使う）。
+#   未登録の間はジョブ先頭の「認証トークンの有無を確認」で**緑のままスキップ**するので、
+#   Secret が無くても PR チェックが赤くならない（登録した時点で自動的にレビューが走り出す）。
+# - Settings → Actions → General で Workflow permissions が "Read and write" であること
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+jobs:
+  review:
+    # fork からの PR は GITHUB_TOKEN が読み取り専用で Secrets も渡らないためスキップ。
+    # draft の間はレビューせず、ready-for-review になってから走らせる。
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      # CLAUDE_CODE_OAUTH_TOKEN が未登録の間はレビューをスキップする（チェックを赤にせず緑で終える）。
+      # Secret を登録すれば以降のステップが自動で走るようになる。
+      - name: 認証トークンの有無を確認
+        id: secret
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN が未登録のため Claude PR レビューをスキップしました（Secret を登録すると自動で有効化されます）。"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secret.outputs.present == 'true'
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        if: steps.secret.outputs.present == 'true'
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR TITLE: ${{ github.event.pull_request.title }}
+            BASE: ${{ github.event.pull_request.base.ref }}
+            HEAD SHA: ${{ github.event.pull_request.head.sha }}
+
+            あなたはこのリポジトリの「セルフレビュー担当 Claude」です。実装は別の Claude が
+            行っており、あなたはこの PR の差分しか知りません。外部レビュアーとして客観的に
+            レビューしてください。
+
+            手順:
+            1. `CLAUDE.md` / `AGENTS.md` を読み、現フェーズと Must Always / Must Never、
+               「ビルド / 環境の罠」を把握する。
+            2. `gh pr diff ${{ github.event.pull_request.number }}` で差分を取得し、必要に応じて
+               周辺ファイルを Read して文脈を補う。
+            3. 以下の重点観点でレビューする（汎用レビュアー = Codex / CodeRabbit と重複する
+               一般論は控えめにし、プロジェクト固有の不変条件を優先する）:
+               - データモデルの単一の真実: データ型 / JSON I/O が `Shared/` に集約されているか。
+                 `GameRuntime` / `Battle` が直接 JSON を読んでいたり、型が二重定義されていないか。
+               - 当たり判定のフレーム正しさ: startup / active / recovery、hitbox×hurtbox の AABB、
+                 pushbox の押し合いが 1 フレーム単位で正しいか（多段ヒット / 判定出っぱなし / すり抜け）。
+               - データ駆動の後方互換: JSON スキーマ変更が既存キャラ JSON を壊さないか。
+               - Must Never の再導入: フォルダ構成変更 / 既存コード削除 / 無断ライブラリ追加 /
+                 MUGEN 素材・名称の流用が混入していないか。
+               - docs 同期: データ仕様変更で `docs/DataFormat.md`、戦闘仕様変更で
+                 `docs/BattleSystem.md` が同 PR 内で更新されているか。
+               - GUI 変化のある PR にスクショ（`docs/screenshots/`）が添付されているか。
+               - 「ビルド / 環境の罠」の再導入がないか。
+            4. レビュー結果を **日本語** で PR に投稿する:
+               - 指摘は可能な限り inline review コメントで（`gh api` の
+                 `repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews`
+                 に `event=COMMENT` と `comments[]`（path / line / body）を渡す）。
+                 inline が難しい場合は会話コメント（`gh pr comment`）に箇条書きでまとめる。
+               - 各指摘は「何が / なぜ問題か / どう直すか」の 3 点を簡潔に書き、重要度を
+                 `[Blocker]` / `[Major]` / `[Minor]` / `[Nit]` でラベル付けする。
+               - 指摘がゼロなら `gh pr comment ${{ github.event.pull_request.number }}`
+                 で「🤖 Claude セルフレビュー：指摘なし」とだけ短く投稿する。
+            5. コードの修正・コミット・push は **行わない**（あなたの責務はレビューのみ）。
+
+            重要:
+            - 設計書の優先順序を逸脱する大規模リファクタは提案しない（必要なら `[Future]` で分離）。
+            - 推測でファイルを決め打ちせず、差分と実ファイルに基づいて指摘する。
+
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(./gradlew:*),Bash(gradle:*)"
