@@ -282,10 +282,24 @@ public class PhantomNexusGame extends ApplicationAdapter {
             attacker.markAttackConnected();
             Hitbox hb = CollisionSystem.activeHitbox(attacker);
             int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
-            // 下段（しゃがみ攻撃）は立ちガードでは防げない。しゃがみガードのみ成立（Task 31）。
-            // 中段（通常攻撃）は立ち / しゃがみどちらのガードでも成立（Task 27/30）。
-            boolean low = attacker.isCrouchAttacking();
-            boolean blocked = defender.isGuarding() && (!low || defender.isCrouchGuarding());
+            // ガード高さ属性（Task 33）で成立可否を決める：
+            //   low（下段／しゃがみ通常技。Task 31）   → しゃがみガードのみ成立（立ちガード貫通）
+            //   overhead（上段）                        → 立ちガードのみ成立（しゃがみガード貫通）
+            //   mid（中段／既定。Task 27/30）           → 立ち / しゃがみどちらでも成立
+            boolean blocked = false;
+            if (defender.isGuarding()) {
+                switch (effectiveAttackHeight(attacker)) {
+                    case "low":
+                        blocked = defender.isCrouchGuarding();
+                        break;
+                    case "overhead":
+                        blocked = !defender.isCrouchGuarding();
+                        break;
+                    default: // "mid"
+                        blocked = true;
+                        break;
+                }
+            }
             if (blocked) {
                 // ガード成立：chip ダメージのみ（のけぞりなし）。
                 defender.applyGuard(hb.getDamage(), knockbackDir);
@@ -293,6 +307,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
             }
         }
+    }
+
+    /**
+     * 攻撃の実効ガード高さ（Task 33）。しゃがみ中に出した通常技は脚部 hitbox の下段（low）として扱い（Task 31）、
+     * それ以外は技定義の {@code guardHeight}（overhead / mid / low）に従う。技未定義時は中段（mid）。
+     */
+    private static String effectiveAttackHeight(Fighter attacker) {
+        if (attacker.isCrouchAttacking()) {
+            return "low";
+        }
+        Move m = attacker.getCurrentMove();
+        return m != null ? m.getGuardHeight() : "mid";
     }
 
     /** 左右入力を移動方向（-1 / 0 / +1）に変換する。 */

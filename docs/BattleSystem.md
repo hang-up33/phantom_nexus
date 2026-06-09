@@ -279,11 +279,11 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 下段の成立条件 | `Fighter.isCrouchAttacking()` が true の攻撃（しゃがみ中に出した通常技）。立ち通常技・必殺技・飛び道具は**中段**扱い（従来どおり） |
 | hitbox 位置 | 下段は技定義の `hitboxOffsetY`（立ち用で 90px 以上）を使わず、足元基準 `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（= 0px, 脚部）に出す。`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` の両方で同じ低位に揃える |
 | 当たる相手 | 立ち hurtbox（足元〜全高）にもしゃがみ hurtbox（足元〜`height/3` ≒ 80px）にも届く。これで Task 30 で観測できなかった「しゃがみガードの chip」が下段に対して実際に発生する |
-| ガード正誤 | `resolveHit` で `low = attacker.isCrouchAttacking()`、`blocked = defender.isGuarding() && (!low \|\| defender.isCrouchGuarding())`。**下段は立ちガード不成立 → 通常ヒット（のけぞり）**、しゃがみガードなら成立 → chip。中段は従来どおり立ち / しゃがみどちらのガードでも成立 |
+| ガード正誤 | Task 33 で高さ属性に統合。`resolveHit` は `effectiveAttackHeight(attacker)` が `low`（しゃがみ通常技）のとき **`blocked = defender.isCrouchGuarding()`**＝立ちガード不成立 → 通常ヒット（のけぞり）、しゃがみガードなら chip。中段（mid）は従来どおり立ち / しゃがみどちらでも成立。詳細は「ガード高さ属性（Task 33）」を参照 |
 | 飛び道具 | 中段扱い（`updateProjectiles` は従来どおり `isGuarding()` で chip 判定。下段飛び道具は未対応） |
 | AI | `AiController` は `crouchHeld=false` のままなので下段攻撃は出さない（影響なし） |
 
-> 中段（立ち攻撃）は依然としてしゃがみ食らい判定（低い）に届かず空振りするため、「中段はしゃがみで回避／下段はしゃがみガードで防ぐ」という非対称が成立する。中段を**しゃがみガードでも食らわせる**（overhead を立ちガード必須にする等）の高さ属性の完全データ化は将来拡張。
+> 中段（立ち攻撃）は依然としてしゃがみ食らい判定（低い）に届かず空振りするため、「中段はしゃがみで回避／下段はしゃがみガードで防ぐ」という非対称が成立する。**その対となる「上段（overhead）＝立ちガード必須・しゃがみガード貫通」は Task 33 で高さ属性としてデータ化した**（下記参照）。
 
 ---
 
@@ -300,6 +300,29 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 必殺技 | 空中での必殺技は不可（`startSpecial` は接地必須。空中でコマンド+攻撃が成立しても通常の空中攻撃にフォールバック） |
 | アニメーション | `AnimationState.JUMP_ATTACK`（単一ポーズ）。優先順: hitstun > しゃがみ攻撃 > **空中攻撃** > 攻撃 > 空中 > しゃがみガード > … |
 | AI | `AiController` はジャンプしないので空中攻撃も出さない（影響なし） |
+
+---
+
+## ガード高さ属性（Task 33）
+
+技ごとに「どのガードで防げるか」を **JSON の `guardHeight` でデータ化**し、ガード判定を属性駆動に一元化する。Task 31 の下段（しゃがみガード必須）と対になる**上段（overhead＝立ちガード必須・しゃがみガード貫通）**を新規に導入する。
+
+| 値 | 意味 | 立ちガード | しゃがみガード |
+|---|---|---|---|
+| `overhead` | 上段 | ✅ 成立（chip） | ❌ 貫通 → 通常ヒット |
+| `mid`（既定） | 中段 | ✅ 成立 | ✅ 成立 |
+| `low` | 下段 | ❌ 貫通 → 通常ヒット | ✅ 成立（chip） |
+
+| 項目 | 仕様 |
+|---|---|
+| データ | `Shared/Types.Move.guardHeight`（string, 既定 `"mid"`）。`Shared/Schema.CharacterLoader` が `overhead`/`mid`/`low` を検証。未指定の旧 JSON は `mid` に正規化（後方互換） |
+| 実効高さ | `PhantomNexusGame.effectiveAttackHeight(attacker)`：しゃがみ通常技は状態優先で `low`（Task 31）、それ以外は技定義の `guardHeight` |
+| ガード解決 | `resolveHit` で `defender.isGuarding()` 時に `low`→`isCrouchGuarding()`、`overhead`→`!isCrouchGuarding()`（＝立ちガード）、`mid`→常に成立。成立で chip、不成立で通常ヒット |
+| 例（Aoi=fighter001） | `heavy_slam` を `guardHeight:"overhead"` 化。hitbox を `offsetY 60 / height 90`（Y60–150 を占有）に下げ、立ち hurtbox（0–全高）にもしゃがみ hurtbox（0–`height/3`≒80px）にも届かせて、しゃがみガード貫通を実観測できるようにした |
+| 飛び道具 | 既定 `mid` 運用（`updateProjectiles` は `isGuarding()` で chip）。`guardHeight` 自体は specialMoves でも検証する |
+| AI | `AiController` は `crouchHeld=false` のままなのでしゃがみガードをせず、overhead の不成立分岐には入らない（影響なし） |
+
+> overhead が**しゃがみガードを貫通する**には、hitbox がしゃがみ hurtbox（上端≒80px）に届く必要がある（Task 30/31 で観測した「高い hitbox はしゃがみ相手に空振り」の裏返し）。そのため例示の `heavy_slam` は hitbox を下方向へ広げてある。属性（読み合いのルール）と hitbox 形状（届くか）は独立した設定で、両方を満たして初めて貫通が成立する。
 
 ---
 

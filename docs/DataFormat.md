@@ -136,6 +136,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `hitboxOffsetY` | float | ✅ | hitbox の足元からの高さ（px） |
 | `hitboxWidth` | float | ✅ | hitbox の横幅（px） |
 | `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
+| `guardHeight` | string | 任意 | ガード高さ属性：`"overhead"`（上段・立ちガードのみ可）/ `"mid"`（中段・両ガード可, **既定**）/ `"low"`（下段・しゃがみガードのみ可）。省略時 `"mid"`（Task 33） |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -153,6 +154,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `hitboxHeight` | float | ✅ | hitbox 高さ（px） |
 | `projectile` | bool | 任意 | 飛び道具として発射するか（既定 false） |
 | `projectileSpeed` | float | 任意* | 飛び道具の速度（px/frame）。`projectile=true` なら必須 |
+| `guardHeight` | string | 任意 | ガード高さ属性（`overhead` / `mid` / `low`、既定 `mid`）。飛び道具は既定の `mid` 運用（Task 33） |
 
 > hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。飛び道具技は hitbox 寸法を弾サイズとして使い、body 付随判定は持たない（ダメージは弾が運ぶ）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
 

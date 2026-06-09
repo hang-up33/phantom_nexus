@@ -47,6 +47,13 @@ public final class CharacterLoader {
             new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
 
     /**
+     * 技のガード高さ属性の許可値（Task 33）。"overhead"（上段）/ "mid"（中段・既定）/ "low"（下段）。
+     * {@link Move#getGuardHeight()} が未指定を "mid" へ正規化するため、JSON 省略時も検証を通る。
+     */
+    private static final Set<String> VALID_GUARD_HEIGHTS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList("overhead", "mid", "low")));
+
+    /**
      * 旧形式モーション記法 → {@code Command.name()} の変換テーブル（後方互換マイグレーション用）。
      * Task 20 以前の JSON が波動拳コマンドを "236A"/"236B"/"236C" などで記述していた場合に対応する。
      * キーは大文字で格納し、照合時も {@code toUpperCase()} して使う。
@@ -187,6 +194,7 @@ public final class CharacterLoader {
         }
         requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
         requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
+        requireValidGuardHeight(m.getGuardHeight(), field + ".guardHeight", src);
     }
 
     /** 必殺技の検証（command は実装済みコマンド名に限定・飛び道具時は projectileSpeed 必須）。 */
@@ -208,6 +216,7 @@ public final class CharacterLoader {
         if (m.isProjectile()) {
             requirePositive(m.getProjectileSpeed(), field + ".projectileSpeed", src);
         }
+        requireValidGuardHeight(m.getGuardHeight(), field + ".guardHeight", src);
     }
 
     /** ボタン種別が許可値（"light"/"medium"/"heavy"）であることを検証する。 */
@@ -218,6 +227,18 @@ public final class CharacterLoader {
         if (!VALID_BUTTONS.contains(value.trim().toLowerCase())) {
             throw new SchemaException(
                     field + " の値 \"" + value + "\" は不正です。許可値: light / medium / heavy (" + src + ")");
+        }
+    }
+
+    /**
+     * ガード高さ属性が許可値（{@link #VALID_GUARD_HEIGHTS}）であることを検証する（Task 33）。
+     * 値は {@link Move#getGuardHeight()} 経由で正規化済み（未指定は "mid"）のため、
+     * ここに来る時点で null は来ない想定だが、未知値（例 "high"）は弾く。
+     */
+    private static void requireValidGuardHeight(String value, String field, String src) {
+        if (value == null || !VALID_GUARD_HEIGHTS.contains(value)) {
+            throw new SchemaException(
+                    field + " の値 \"" + value + "\" は不正です。許可値: overhead / mid / low (" + src + ")");
         }
     }
 
