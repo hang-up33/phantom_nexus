@@ -35,14 +35,15 @@
     {
       "id": "heavy_slam",
       "button": "heavy",
+      "guardHeight": "overhead",
       "damage": 130,
       "startup": 14,
       "active": 5,
       "recovery": 28,
       "hitboxOffsetX": 0,
-      "hitboxOffsetY": 110,
+      "hitboxOffsetY": 60,
       "hitboxWidth": 110,
-      "hitboxHeight": 50
+      "hitboxHeight": 90
     }
   ],
   "specialMoves": [

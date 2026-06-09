@@ -1,5 +1,7 @@
 package com.phantomnexus.shared.types;
 
+import java.util.Locale;
+
 /**
  * 技（攻撃）の静的定義（データの単一の真実）。
  *
@@ -37,6 +39,18 @@ public class Move {
     // 必殺技（Task 20）：飛び道具として発射するか・その速度（px/frame, 前方）。通常技は false/0。
     private boolean projectile;
     private float projectileSpeed;
+    /**
+     * ガード高さ属性（Task 33）：技をどのガードで防げるかをデータ化する。
+     * <ul>
+     *   <li>{@code "overhead"}（上段）：立ちガードのみ成立・しゃがみガードでは防げない。</li>
+     *   <li>{@code "mid"}（中段・既定）：立ち / しゃがみどちらのガードでも成立。</li>
+     *   <li>{@code "low"}（下段）：しゃがみガードのみ成立・立ちガードでは防げない。</li>
+     * </ul>
+     * 未指定（旧 JSON）は {@code "mid"} として扱う（後方互換）。なお、しゃがみ中に出した通常技は
+     * 状態により下段（low）として解決される（{@code Fighter.isCrouchAttacking()} / Task 31）ため、
+     * 本属性は主に立ち技の overhead / mid を区別する用途に使う。
+     */
+    private String guardHeight = "mid";
 
     /** JSON デシリアライズ（Task 16）用の無引数コンストラクタ。 */
     public Move() {
@@ -124,5 +138,15 @@ public class Move {
     /** 飛び道具の進行速度（px/frame, 前方）。{@link #isProjectile()} が true のとき有効。 */
     public float getProjectileSpeed() {
         return projectileSpeed;
+    }
+
+    /**
+     * ガード高さ属性（Task 33）。"overhead" / "mid" / "low" のいずれかを正規化（小文字）して返す。
+     * 未指定・空文字は "mid"（中段）として扱う（後方互換）。
+     */
+    public String getGuardHeight() {
+        return (guardHeight == null || guardHeight.trim().isEmpty())
+                ? "mid"
+                : guardHeight.trim().toLowerCase(Locale.ROOT);
     }
 }
