@@ -76,14 +76,15 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
     {
       "id": "heavy_slam",
       "button": "heavy",
+      "guardHeight": "overhead",
       "damage": 130,
       "startup": 14,
       "active": 5,
       "recovery": 28,
       "hitboxOffsetX": 0,
-      "hitboxOffsetY": 110,
+      "hitboxOffsetY": 60,
       "hitboxWidth": 110,
-      "hitboxHeight": 50
+      "hitboxHeight": 90
     }
   ],
   "specialMoves": [
@@ -214,3 +215,4 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 20) `Move` に `projectile`/`projectileSpeed`、`Character` に `specialMove` を追加。fighter JSON に必殺技（fireball, 飛び道具）を追加。`CharacterLoader` は specialMove を任意検証。
 - (Task 22) `Character` に表示色 `color`（RGB float[3], 任意）を追加。2 体目（fighter002 Akane）を別ステータス（HP 850・高速・小柄）・別色・別技に再定義し、**コード変更なし・JSON のみでキャラが変わる**ことを検証。
 - (Task 24) 技定義を **配列** に拡張。`normalAttack`（単技）→ `normalMoves[]`（弱/中/強 3 種）、`specialMove`（単技）→ `specialMoves[]`（複数必殺技対応）。`Move` に `button` フィールドを追加（通常技のボタン種別）。`command` フィールドを必殺技のコマンド名（`Command.name()`）として正式化。`InputAction` に `ATTACK_LIGHT`/`ATTACK_MEDIUM`/`ATTACK_HEAVY` を追加し旧 `ATTACK` を廃止。
+- (Task 33) `Move` に **ガード高さ属性 `guardHeight`**（string, 任意, 既定 `"mid"`）を追加。許可値は `overhead`/`mid`/`low` で、`CharacterLoader` が正規化済み getter 値を検証する。未指定の旧 JSON はフィールド初期化子により `"mid"` 扱い（後方互換）。例示として fighter001 の `heavy_slam` を `overhead` 化し、hitbox を `offsetY 60 / height 90` に下げてしゃがみ hurtbox に届くようにした。

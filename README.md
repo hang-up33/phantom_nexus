@@ -104,7 +104,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 
 - **基盤**：LibGDX/LWJGL3 ウィンドウ・固定仮想解像度（1280×720）・60fps 固定ステップ
 - **操作/移動**：キーボード入力抽象・左右移動・ジャンプ（重力/接地）・向き自動追従・しゃがみ（DOWN 押しで低姿勢）・しゃがみ移動（DOWN+左右で通常速度の半分でクロール）
-- **アニメーション**：idle / walk / jump / attack / hitstun / guard / crouch / crouch_attack / crouch_walk / crouch_guard の状態機械（tick ベース、プレースホルダ可視化）
+- **アニメーション**：idle / walk / jump / jump_attack / attack / hitstun / guard / crouch / crouch_attack / crouch_walk / crouch_guard の状態機械（tick ベース、プレースホルダ可視化）
 - **戦闘**：HP ゲージ・通常攻撃（startup/active/recovery）・しゃがみ攻撃（低姿勢を維持したまま攻撃・DOWN 離しで攻撃終了と同フレームに立ち上がり）・当たり判定（hit/hurt/push）・ダメージ/のけぞり/knockback・ラウンド勝敗（KO/タイムアップ）
 - **下段判定（Task 31）**：しゃがみ攻撃は脚部の低位 hitbox を出す**下段技**。立っている相手の脚に当たり、**立ちガードでは防げず通常ヒット**・しゃがみガードでのみ chip。中段（立ち攻撃）との読み合いが生まれる
 - **空中攻撃（Task 32）**：ジャンプ（滞空）中に攻撃ボタンで通常技を発動（飛び込み）。降下に伴い hitbox も下がり地上の相手に届く。中段扱い・着地後も技の残りフレームは進行

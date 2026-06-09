@@ -36,7 +36,7 @@ import java.util.List;
  * <p>Core はライフサイクルと毎フレームの更新順序（入力 → 更新 → 描画）の制御に専念する。
  * 2 体の {@link Fighter} を保持し、{@link PlayerInput} の左右入力で移動・ジャンプ入力で跳躍させる
  * （P1=WASD / P2=方向キー、ジャンプは Task 8）。更新後に互いへ向き直し、{@link GameRenderer} へ描画委譲する。
- * サンプルキャラ定義はコード生成の暫定で、Task 16 で JSON 読込供給に差し替える。
+ * キャラ / ステージ定義は外部 JSON から供給する（{@link CharacterLoader} / {@link StageLoader}、Task 16/17）。
  */
 public class PhantomNexusGame extends ApplicationAdapter {
 
@@ -176,10 +176,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
         p2Ai.reset();
     }
 
-    /**
-     * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
-     * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19）。
-     */
     /**
      * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
      * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19/24）。
