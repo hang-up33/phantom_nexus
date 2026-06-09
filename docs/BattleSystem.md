@@ -279,7 +279,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 下段の成立条件 | `Fighter.isCrouchAttacking()` が true の攻撃（しゃがみ中に出した通常技）。立ち通常技・必殺技・飛び道具は**中段**扱い（従来どおり） |
 | hitbox 位置 | 下段は技定義の `hitboxOffsetY`（立ち用で 90px 以上）を使わず、足元基準 `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（= 0px, 脚部）に出す。`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` の両方で同じ低位に揃える |
 | 当たる相手 | 立ち hurtbox（足元〜全高）にもしゃがみ hurtbox（足元〜`height/3` ≒ 80px）にも届く。これで Task 30 で観測できなかった「しゃがみガードの chip」が下段に対して実際に発生する |
-| ガード正誤 | `resolveHit` で `low = attacker.isCrouchAttacking()`、`blocked = defender.isGuarding() && (!low || defender.isCrouchGuarding())`。**下段は立ちガード不成立 → 通常ヒット（のけぞり）**、しゃがみガードなら成立 → chip。中段は従来どおり立ち / しゃがみどちらのガードでも成立 |
+| ガード正誤 | `resolveHit` で `low = attacker.isCrouchAttacking()`、`blocked = defender.isGuarding() && (!low \|\| defender.isCrouchGuarding())`。**下段は立ちガード不成立 → 通常ヒット（のけぞり）**、しゃがみガードなら成立 → chip。中段は従来どおり立ち / しゃがみどちらのガードでも成立 |
 | 飛び道具 | 中段扱い（`updateProjectiles` は従来どおり `isGuarding()` で chip 判定。下段飛び道具は未対応） |
 | AI | `AiController` は `crouchHeld=false` のままなので下段攻撃は出さない（影響なし） |
 
