@@ -116,6 +116,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 - **コマンド技/必殺技**：入力履歴＋コマンド検出（波動拳 236+A 等）・飛び道具の必殺技
 - **AI**：接近して間合いで攻撃する簡易 AI（P2 既定）
 - **デバッグ**：当たり判定オーバーレイ（F1）・ヘッドレス自動スクショ
+- **入力リプレイ（dev ツール・設計書タスク順の外）**：毎フレームの入力を記録（`-Dphantom.replay.record`）し、決定的シミュ（1 render=1 固定ステップ・dt 非依存・AI 乱数なし）で同じ試合を完全再現（`-Dphantom.replay.play`）。ゲーム状態の保存は不要＝入力列のみで成立。撮影モードと併用すれば再生中の任意フレームを PNG 化でき、連番化でリプレイ GIF も作れる。詳細は [docs/BattleSystem.md](docs/BattleSystem.md) の「入力リプレイ（記録 / 再生）」
 
 動作証跡は [docs/screenshots/](docs/screenshots/) を参照（各タスクの静止画を収録）。
 

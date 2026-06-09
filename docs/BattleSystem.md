@@ -326,6 +326,19 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ---
 
+## 入力リプレイ（記録 / 再生）
+
+本エンジンのシミュレーションは **「1 render = 1 固定ステップ」で dt 非依存**（[基本ループ](#基本ループ)）、AI（`AiController`）も乱数を持たない決定的処理。したがって **毎フレームの入力さえ記録すれば、同じ試合を完全に再現できる**（ゲーム状態を丸ごと保存する必要がない）。これを `GameRuntime/Debug/ReplayController` が担う（`ScreenshotController` と同じくシステムプロパティ駆動で、未指定なら通常起動と完全に同一）。
+
+| 用途 | プロパティ | 動作 |
+|---|---|---|
+| 記録 | `-Dphantom.replay.record=<path>` | 毎フレームの P1/P2 押下状態と P2 AI 状態を 1 行追記（強制終了でもログを失わないよう毎フレーム flush） |
+| 再生 | `-Dphantom.replay.play=<path>` | 記録した押下集合を `PlayerInput.setForcedHold` で注入し直し、AI 状態も復元（再生中は F2 トグルを無視） |
+| 記録時 AI OFF | `-Dphantom.replay.ai=false` | 記録開始時から P2 を静止（人間）に。開始後の F2 トグルもフレーム単位で記録・再生される |
+
+- **記録形式**（テキスト）：ヘッダ `PHANTOM_REPLAY v1` ＋ 1 行 `p1mask,p2mask,ai`。mask は各プレイヤーの押下アクションを `InputAction.ordinal()` のビット位置で畳んだ整数（**列挙順を変えると旧ログの解釈がずれる**）。`ai` は当該フレームで P2 が AI 制御だったか（AI フレームの `p2mask` は再生側で使わないため 0）。
+- 撮影モード（`phantom.screenshot.*`）と併用でき、**再生中の任意フレームを PNG 化**できる（決定的に同一フレームを再現するため、連番化すればリプレイ GIF も作れる）。
+
 ## やらないこと（MVP）
 
 ガード／コンボ補正／高度な物理／オンライン対戦／高度な AI（第一設計書「MVP でやらないこと」）。
@@ -354,3 +367,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 30) しゃがみガードを追記。`Fighter.guarding` のガード条件から `!crouchHeld` を撤廃し、しゃがみ中の後退方向保持でも低姿勢ガードに入れるようにした。`isCrouchGuarding()`（`guarding && crouching`）を追加。`AnimationState.CROUCH_GUARD` を追加し `FighterAnimator.resolve()` の優先順（しゃがみ攻撃/攻撃/空中 > しゃがみガード > しゃがみ移動/しゃがみ > 立ちガード）に織り込み。ガードオーバーレイは既存の `drawHeight` 流用で自動的に低姿勢になる（描画変更なし）。ガード（Task 27）節の「しゃがみガード」行・しゃがみ移動（Task 29）節のガード記述を更新し「しゃがみガード（Task 30）」節を追加。
 - (Task 31) 下段判定を追記。しゃがみ攻撃（`isCrouchAttacking()`）を下段技にし、`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` で hitbox の Y を `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（脚部）へ下げて立ち / しゃがみ両 hurtbox に届くようにした。`resolveHit` のガード分岐を `blocked = isGuarding() && (!low || isCrouchGuarding())` に拡張し、**下段は立ちガードで防げず通常ヒット・しゃがみガードでのみ chip**とした（中段は従来どおり）。これで Task 30 で観測できなかったしゃがみガードの chip が下段に対して発生する。「下段判定（Task 31）」節を追加し、ガード（Task 27）/しゃがみ攻撃（Task 28）/しゃがみガード（Task 30）節を更新。
 - (Task 32) 空中攻撃を追記。`Fighter` の攻撃発動条件を `grounded ? (!crouchHeld || crouching) : true` に拡張し、滞空中でも通常技を出せるようにした。`aerialAttacking` フィールド・`isAerialAttacking()` を追加（`reset()`/`applyHit()` でクリア）。`AnimationState.JUMP_ATTACK` を追加し `FighterAnimator.resolve()` に織り込み（しゃがみ攻撃 > 空中攻撃 > 通常攻撃の優先順）。空中攻撃は中段扱い（`resolveHit` の low=false）。攻撃処理（Task 11）節の「空中攻撃は対象外」記述を更新し「空中攻撃（Task 32）」節を追加。
+- (feature/replay) 入力リプレイ（記録 / 再生）を追記。`GameRuntime/Debug/ReplayController` を新設し、毎フレームの押下マスク＋P2 AI 状態を記録 → `PlayerInput.setForcedHold` で再生。決定性（1 render = 1 固定ステップ・dt 非依存・AI 乱数なし）に依拠し、入力列のみで試合を完全再現する。`build.gradle` の run プロパティ転送に `phantom.replay.record`/`play`/`ai` を追加。**戦闘ロジックは不変**（記録/再生フックを Core の render に足しただけ）。設計書タスク順の外の開発ツール追加。「入力リプレイ（記録 / 再生）」節を追加。

@@ -9,6 +9,7 @@ import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
 import com.phantomnexus.runtime.debug.DebugOverlay;
+import com.phantomnexus.runtime.debug.ReplayController;
 import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.Command;
 import com.phantomnexus.runtime.input.CommandDetector;
@@ -60,6 +61,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
     private ScreenshotController screenshot;
+    private ReplayController replay;
     private float spawnX1;
     private float spawnX2;
 
@@ -101,18 +103,37 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // P2 の AI（Task 21）。既定 ON・F2 でトグル。撮影時は ai=false で人間（静止）に切替可能。
         p2AiEnabled = screenshot.aiEnabled(true);
         controlsHint = "P1 " + p1Input.describe() + "   [F1] hitboxes  [F2] P2 AI";
+        // 入力リプレイ（記録 / 再生）。phantom.replay.* 指定時のみ有効。通常起動には無影響。
+        replay = new ReplayController();
+        if (replay.isRecording()) {
+            // 記録モードは開始 AI 状態を上書き可能（phantom.replay.ai=false で静止相手に記録）。
+            p2AiEnabled = replay.startAiEnabled(p2AiEnabled);
+            controlsHint = "[REC]  " + controlsHint;
+        } else if (replay.isReplaying()) {
+            controlsHint = "[REPLAY] " + replay.frameCount() + "f   [F1] hitboxes";
+        }
     }
 
     @Override
     public void render() {
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
+        // 再生モード：記録済み入力をこのフレームの押下として注入し、P2 AI 状態も復元する。
+        if (replay.isReplaying()) {
+            replay.applyReplayFrame(p1Input, p2Input);
+            p2AiEnabled = replay.replayAi(p2AiEnabled);
+        }
         // デバッグ表示 / AI のトグル（グローバルキー。プレイヤー入力とは別系統のため Gdx を直接参照）。
         if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
             debugOverlay.toggle();
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F2)) {
+        // 再生中は F2 を無視（記録した AI 状態を尊重し、視聴者のキーで試合が変わらないようにする）。
+        if (!replay.isReplaying() && Gdx.input.isKeyJustPressed(Input.Keys.F2)) {
             p2AiEnabled = !p2AiEnabled;
+        }
+        // 記録モード：update が消費する前にこのフレームの入力スナップショットを残す。
+        if (replay.isRecording()) {
+            replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, round, debugOverlay,
@@ -366,6 +387,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     @Override
     public void dispose() {
+        if (replay != null) {
+            replay.close();
+        }
         renderer.dispose();
     }
 }
