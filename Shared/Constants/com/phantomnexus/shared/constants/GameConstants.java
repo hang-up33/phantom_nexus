@@ -62,4 +62,13 @@ public final class GameConstants {
 
     /** knockback 速度の毎フレーム減衰率（0〜1）。小さいほど早く止まる（Task 13）。 */
     public static final float KNOCKBACK_FRICTION = 0.6f;
+
+    /**
+     * 下段（しゃがみ）攻撃の hitbox を置く Y オフセット（足元基準, px）。Task 31。
+     *
+     * <p>しゃがみ攻撃は技定義の {@code hitboxOffsetY}（立ち姿勢用で 90px 以上）を使わず、脚部のこの低位に
+     * hitbox を出す。これによりしゃがみ食らい判定（{@code height/3} ≒ 80px, 足元〜80px）にも届く下段技になり、
+     * 立っている相手の脚にも当たる。0 = 足元（地面ライン）。
+     */
+    public static final float LOW_ATTACK_HITBOX_OFFSET_Y = 0f;
 }

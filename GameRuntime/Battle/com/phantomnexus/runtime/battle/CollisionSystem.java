@@ -1,5 +1,6 @@
 package com.phantomnexus.runtime.battle;
 
+import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Hurtbox;
@@ -65,7 +66,9 @@ public final class CollisionSystem {
         float x = f.isFacingRight()
                 ? front + m.getHitboxOffsetX()
                 : front - m.getHitboxOffsetX() - m.getHitboxWidth();
-        float y = f.getY() + m.getHitboxOffsetY();
+        // 下段（しゃがみ）攻撃は技定義の高い hitboxOffsetY を使わず脚部の低位に出す（Task 31）。
+        float offsetY = f.isCrouchAttacking() ? GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y : m.getHitboxOffsetY();
+        float y = f.getY() + offsetY;
         return new Hitbox(x, y, m.getHitboxWidth(), m.getHitboxHeight(), m.getDamage());
     }
 

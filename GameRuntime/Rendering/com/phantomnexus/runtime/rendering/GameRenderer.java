@@ -359,7 +359,9 @@ public class GameRenderer {
         float boxX = f.isFacingRight()
                 ? frontX + m.getHitboxOffsetX()
                 : frontX - m.getHitboxOffsetX() - m.getHitboxWidth();
-        float boxY = f.getY() + m.getHitboxOffsetY();
+        // 下段（しゃがみ）攻撃は脚部の低位に描く（CollisionSystem の判定位置と一致させる。Task 31）。
+        float offsetY = f.isCrouchAttacking() ? GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y : m.getHitboxOffsetY();
+        float boxY = f.getY() + offsetY;
         shapes.setColor(attackPhaseColor(f.getAttackPhase()));
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
     }
