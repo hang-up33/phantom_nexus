@@ -276,13 +276,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
     }
 
-    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27）。 */
+    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31）。 */
     private static void resolveHit(Fighter attacker, Fighter defender) {
         if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
             attacker.markAttackConnected();
             Hitbox hb = CollisionSystem.activeHitbox(attacker);
             int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
-            if (defender.isGuarding()) {
+            // 下段（しゃがみ攻撃）は立ちガードでは防げない。しゃがみガードのみ成立（Task 31）。
+            // 中段（通常攻撃）は立ち / しゃがみどちらのガードでも成立（Task 27/30）。
+            boolean low = attacker.isCrouchAttacking();
+            boolean blocked = defender.isGuarding() && (!low || defender.isCrouchGuarding());
+            if (blocked) {
                 // ガード成立：chip ダメージのみ（のけぞりなし）。
                 defender.applyGuard(hb.getDamage(), knockbackDir);
             } else {
