@@ -1,5 +1,7 @@
 package com.phantomnexus.shared.types;
 
+import java.util.Locale;
+
 /**
  * 技（攻撃）の静的定義（データの単一の真実）。
  *
@@ -145,6 +147,6 @@ public class Move {
     public String getGuardHeight() {
         return (guardHeight == null || guardHeight.trim().isEmpty())
                 ? "mid"
-                : guardHeight.trim().toLowerCase();
+                : guardHeight.trim().toLowerCase(Locale.ROOT);
     }
 }
