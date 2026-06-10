@@ -10,11 +10,15 @@ name: Claude Issue → PR
 # - "Allow GitHub Actions to create and approve pull requests" にチェック
 # - ラベル `claude` を事前に作成しておく（または初回手動付与で自動作成）
 
+# コスト削減のため自動発火を一旦停止し、手動実行（workflow_dispatch）のみに変更している。
+# 元の自動トリガ（再有効化する場合は下の workflow_dispatch を消してこちらを戻す）:
+# on:
+#   issues:
+#     types: [labeled, opened]
+#   issue_comment:
+#     types: [created]
 on:
-  issues:
-    types: [labeled, opened]
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
 
 jobs:
   implement:
