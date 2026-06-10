@@ -19,9 +19,11 @@ public class Move {
 
     private String id;
     /**
-     * 通常技：ボタン種別（"light" / "medium" / "heavy"）。
-     * 必殺技：コマンド名（{@link com.phantomnexus.runtime.input.Command} の name。例 "HADOUKEN"）。
-     * 歴史的互換フィールド {@code command} を必殺技向けに転用し、{@code button} を新設（Task 24）。
+     * 通常技：ボタン種別の JSON 生トークン（{@code "light"} / {@code "medium"} / {@code "heavy"}）。
+     * 正準値と意味は {@link AttackButton} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
+     * 必殺技：コマンド名（{@link com.phantomnexus.runtime.input.Command} の name。例 "HADOUKEN"）は
+     * {@code command} フィールドを使う。歴史的互換フィールド {@code command} を必殺技向けに転用し、
+     * {@code button} を新設（Task 24）。値の解釈・検証は {@link AttackButton#fromToken(String)}。
      */
     private String button;
     private String command;   // 必殺技のコマンド名（Command.name() と照合）
@@ -68,8 +70,19 @@ public class Move {
         return id;
     }
 
-    /** 通常技のボタン種別（"light" / "medium" / "heavy"）。必殺技では {@link #getCommand()} を使う。 */
-    public String getButton() {
+    /**
+     * 通常技のボタン種別を {@link AttackButton} で返す。未指定・未知トークンは {@code null}
+     * （検証済み JSON では通常技は非 null が保証される）。必殺技では {@link #getCommand()} を使う。
+     */
+    public AttackButton getButton() {
+        return AttackButton.fromToken(button);
+    }
+
+    /**
+     * JSON に書かれた生のボタントークン（未正規化・{@code null} あり得る）。
+     * 必須・許可値の検証に用いる（{@code CharacterLoader} のみ使用）。実行時の照合には {@link #getButton()} を使う。
+     */
+    public String getButtonToken() {
         return button;
     }
 

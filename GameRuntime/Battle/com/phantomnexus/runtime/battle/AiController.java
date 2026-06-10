@@ -1,10 +1,12 @@
 package com.phantomnexus.runtime.battle;
 
+import com.phantomnexus.shared.types.AttackButton;
+
 /**
  * 簡易 AI（Task 21）。1 体のファイターを状態ベースで操作する。
  *
  * <p>人間の {@code PlayerInput} の代わりに、相手との距離から行動（接近 / 通常攻撃）を決めて
- * {@link Fighter#update(int, boolean, String, boolean)} を呼ぶ（入力源の差し替え）。MVP の方針は素朴な
+ * {@link Fighter#update(int, boolean, AttackButton, boolean)} を呼ぶ（入力源の差し替え）。MVP の方針は素朴な
  * 「近づいて、間合いに入ったら攻撃」。攻撃後はクールダウンを置いて連打を防ぐ。ジャンプ・必殺技・
  * ガードは将来拡張（第一設計書「MVP は高度な AI をやらない」）。
  *
@@ -47,6 +49,6 @@ public final class AiController {
             attack = true;
             cooldown = ATTACK_COOLDOWN;
         }
-        self.update(moveDir, false, attack ? "light" : null, false);
+        self.update(moveDir, false, attack ? AttackButton.LIGHT : null, false);
     }
 }

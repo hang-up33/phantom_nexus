@@ -21,6 +21,7 @@ import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.schema.CharacterLoader;
 import com.phantomnexus.shared.schema.StageLoader;
 import com.phantomnexus.shared.types.BattleRules;
+import com.phantomnexus.shared.types.AttackButton;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Hitbox;
@@ -190,7 +191,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         boolean heavyPressed = in.isPressed(InputAction.ATTACK_HEAVY);
         boolean anyAttack = lightPressed || mediumPressed || heavyPressed;
         // 押されたボタン（複数同時は軽い方が優先）
-        String attackButton = lightPressed ? "light" : mediumPressed ? "medium" : heavyPressed ? "heavy" : null;
+        AttackButton attackButton = lightPressed ? AttackButton.LIGHT
+                : mediumPressed ? AttackButton.MEDIUM
+                : heavyPressed ? AttackButton.HEAVY
+                : null;
         // 向き相対のテンキー方向 + 攻撃立ち上がり（いずれかのボタン）を履歴に記録。
         int numpad = InputHistory.numpad(
                 in.isDown(InputAction.LEFT), in.isDown(InputAction.RIGHT),

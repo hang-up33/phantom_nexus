@@ -3,6 +3,7 @@ package com.phantomnexus.shared.schema;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.Json;
+import com.phantomnexus.shared.types.AttackButton;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Move;
@@ -34,10 +35,6 @@ public final class CharacterLoader {
     }
 
     private static final String BASE_PATH = "Characters/";
-
-    /** 通常技の許可ボタン種別（大文字小文字正規化後に照合）。 */
-    private static final Set<String> VALID_BUTTONS = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList("light", "medium", "heavy")));
 
     /**
      * 有効な必殺技コマンド名（{@code Command.name()} と一致する文字列）。
@@ -110,7 +107,7 @@ public final class CharacterLoader {
         if ((c.getNormalMoves() == null || c.getNormalMoves().length == 0) && c.legacyNormalAttack() != null) {
             Move legacy = c.legacyNormalAttack();
             // 旧形式は button フィールドを持たないため "light" をデフォルト値として注入する。
-            if (legacy.getButton() == null || legacy.getButton().isEmpty()) {
+            if (legacy.getButtonToken() == null || legacy.getButtonToken().isEmpty()) {
                 legacy.setButton("light");
             }
             c.setNormalMoves(new Move[]{legacy});
@@ -172,13 +169,13 @@ public final class CharacterLoader {
         }
     }
 
-    /** 通常技の検証（button は "light"/"medium"/"heavy" に限定）。 */
+    /** 通常技の検証（button は {@link AttackButton} の許可トークンに限定）。 */
     private static void validateNormalMove(Move m, String field, String src) {
         if (m == null) {
             throw new SchemaException(field + " が null (" + src + ")");
         }
         requireText(m.getId(), field + ".id", src);
-        requireValidButton(m.getButton(), field + ".button", src);
+        requireValidButton(m.getButtonToken(), field + ".button", src);
         requireNonNegative(m.getDamage(), field + ".damage", src);
         requireNonNegative(m.getStartup(), field + ".startup", src);
         requireNonNegative(m.getActive(), field + ".active", src);
@@ -213,14 +210,18 @@ public final class CharacterLoader {
         requireValidGuardHeight(m.getGuardHeightToken(), field + ".guardHeight", src);
     }
 
-    /** ボタン種別が許可値（"light"/"medium"/"heavy"）であることを検証する。 */
-    private static void requireValidButton(String value, String field, String src) {
-        if (value == null || value.trim().isEmpty()) {
+    /**
+     * ボタン種別が許可値（{@link AttackButton}）であることを検証する。
+     * 生トークン（{@link Move#getButtonToken()}）を {@link AttackButton#fromToken(String)} で解釈し、
+     * 必須フィールドのため null / 空（未指定）と未知値（例 "punch"）をそれぞれ弾く。
+     */
+    private static void requireValidButton(String token, String field, String src) {
+        if (token == null || token.trim().isEmpty()) {
             throw new SchemaException("必須フィールド欠落 / 空: " + field + " (" + src + ")");
         }
-        if (!VALID_BUTTONS.contains(value.trim().toLowerCase())) {
+        if (AttackButton.fromToken(token) == null) {
             throw new SchemaException(
-                    field + " の値 \"" + value + "\" は不正です。許可値: light / medium / heavy (" + src + ")");
+                    field + " の値 \"" + token + "\" は不正です。許可値: light / medium / heavy (" + src + ")");
         }
     }
 
