@@ -23,9 +23,13 @@ name: Claude PR Review
 #   Secret が無くても PR チェックが赤くならない（登録した時点で自動的にレビューが走り出す）。
 # - Settings → Actions → General で Workflow permissions が "Read and write" であること
 
+# コスト削減のため自動発火を一旦停止し、手動実行（workflow_dispatch）のみに変更している。
+# 元の自動トリガ（再有効化する場合は下の workflow_dispatch を消してこちらを戻す）:
+# on:
+#   pull_request:
+#     types: [opened, synchronize, ready_for_review]
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review]
+  workflow_dispatch:
 
 jobs:
   review:
