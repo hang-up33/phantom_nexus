@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.Json;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Move;
 
 import java.util.Arrays;
@@ -45,13 +46,6 @@ public final class CharacterLoader {
      */
     private static final Set<String> VALID_COMMANDS = Collections.unmodifiableSet(
             new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
-
-    /**
-     * 技のガード高さ属性の許可値（Task 33）。"overhead"（上段）/ "mid"（中段・既定）/ "low"（下段）。
-     * {@link Move#getGuardHeight()} が未指定を "mid" へ正規化するため、JSON 省略時も検証を通る。
-     */
-    private static final Set<String> VALID_GUARD_HEIGHTS = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList("overhead", "mid", "low")));
 
     /**
      * 旧形式モーション記法 → {@code Command.name()} の変換テーブル（後方互換マイグレーション用）。
@@ -194,7 +188,7 @@ public final class CharacterLoader {
         }
         requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
         requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
-        requireValidGuardHeight(m.getGuardHeight(), field + ".guardHeight", src);
+        requireValidGuardHeight(m.getGuardHeightToken(), field + ".guardHeight", src);
     }
 
     /** 必殺技の検証（command は実装済みコマンド名に限定・飛び道具時は projectileSpeed 必須）。 */
@@ -216,7 +210,7 @@ public final class CharacterLoader {
         if (m.isProjectile()) {
             requirePositive(m.getProjectileSpeed(), field + ".projectileSpeed", src);
         }
-        requireValidGuardHeight(m.getGuardHeight(), field + ".guardHeight", src);
+        requireValidGuardHeight(m.getGuardHeightToken(), field + ".guardHeight", src);
     }
 
     /** ボタン種別が許可値（"light"/"medium"/"heavy"）であることを検証する。 */
@@ -231,14 +225,15 @@ public final class CharacterLoader {
     }
 
     /**
-     * ガード高さ属性が許可値（{@link #VALID_GUARD_HEIGHTS}）であることを検証する（Task 33）。
-     * 値は {@link Move#getGuardHeight()} 経由で正規化済み（未指定は "mid"）のため、
-     * ここに来る時点で null は来ない想定だが、未知値（例 "high"）は弾く。
+     * ガード高さ属性が許可値（{@link GuardHeight}）であることを検証する（Task 33）。
+     * 生トークン（{@link Move#getGuardHeightToken()}）を {@link GuardHeight#fromToken(String)} で解釈し、
+     * {@code null} / 空（未指定 → 既定の中段）は許可、未知値（例 "high"）のみ弾く。
      */
-    private static void requireValidGuardHeight(String value, String field, String src) {
-        if (value == null || !VALID_GUARD_HEIGHTS.contains(value)) {
+    private static void requireValidGuardHeight(String token, String field, String src) {
+        boolean unknown = token != null && !token.trim().isEmpty() && GuardHeight.fromToken(token) == null;
+        if (unknown) {
             throw new SchemaException(
-                    field + " の値 \"" + value + "\" は不正です。許可値: overhead / mid / low (" + src + ")");
+                    field + " の値 \"" + token + "\" は不正です。許可値: overhead / mid / low (" + src + ")");
         }
     }
 
