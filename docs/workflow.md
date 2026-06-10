@@ -68,7 +68,7 @@ main
 
 | スキル | 開始条件 | 終了条件 |
 |---|---|---|
-| [next-task](../.claude/skills/next-task/SKILL.md) | ユーザーが「次のタスク」を指示 | `codex-pr` への引き継ぎ完了 |
+| [next-task](../.claude/skills/next-task/SKILL.md) | ユーザーが「次のタスク」を指示 | `self-review` への引き継ぎ完了 |
 | [self-review](../.claude/skills/self-review/SKILL.md) | push 直前（kaizen-close 完了後） | 差分の別コンテキスト点検と明白なミスの修正完了 |
 | [codex-pr](../.claude/skills/codex-pr/SKILL.md) | タスク実装・ビルド検証・kaizen-close・self-review 完了後 | Codex レビュー指摘 0 件 + PR URL 提示 |
 | [kaizen-close](../.claude/skills/kaizen-close/SKILL.md) | 任意のタスク完了直前 | 反映先の選定と追記、または「追加学習なし」明示 |
