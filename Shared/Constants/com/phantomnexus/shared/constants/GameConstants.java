@@ -71,4 +71,12 @@ public final class GameConstants {
      * 立っている相手の脚にも当たる。0 = 足元（地面ライン）。
      */
     public static final float LOW_ATTACK_HITBOX_OFFSET_Y = 0f;
+
+    /**
+     * ダメージ数値ポップアップの表示フレーム数（被弾 / ガード時に与ダメージ量を命中位置から浮かび上がらせる演出）。
+     *
+     * <p>命中位置からこのフレーム数だけ上昇しながら表示し、終盤でフェードアウトして消える。60fps 基準で
+     * 約 0.67 秒。純粋な視覚演出のため戦闘結果には影響しない（HP 計算とは独立）。
+     */
+    public static final int DAMAGE_POPUP_FRAMES = 40;
 }

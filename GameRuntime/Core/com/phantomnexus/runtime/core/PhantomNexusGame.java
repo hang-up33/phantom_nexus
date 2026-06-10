@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.phantomnexus.runtime.battle.AiController;
 import com.phantomnexus.runtime.battle.CollisionSystem;
+import com.phantomnexus.runtime.battle.DamagePopup;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -57,6 +58,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private int commandTimer1;
     private int commandTimer2;
     private final List<Projectile> projectiles = new ArrayList<>();
+    // ダメージ数値ポップアップ（被弾 / ガード時の与ダメージ量を命中位置に浮かび上がらせる演出）。
+    private final List<DamagePopup> damagePopups = new ArrayList<>();
     private final AiController p2Ai = new AiController();
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
@@ -116,7 +119,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             p2AiEnabled = !p2AiEnabled;
         }
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, round, debugOverlay,
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, round, debugOverlay,
                 controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
@@ -124,6 +127,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** 入力 → コマンド検出 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 勝敗 → 向き直し → アニメ進行。 */
     private void update() {
+        // ダメージ数値ポップアップは決着 / ラウンド間でも上昇・フェードを続けるため、凍結ガードより前に進める
+        // （KO を決めた一撃の数字が止まらず最後まで浮かぶ）。純粋な演出で戦闘結果には影響しない。
+        updateDamagePopups();
         // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
         if (round.isFinished()) {
             return;
@@ -174,7 +180,32 @@ public class PhantomNexusGame extends ApplicationAdapter {
         commandTimer1 = 0;
         commandTimer2 = 0;
         projectiles.clear();
+        damagePopups.clear();
         p2Ai.reset();
+    }
+
+    /** ダメージ数値ポップアップを 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出）。 */
+    private void updateDamagePopups() {
+        for (Iterator<DamagePopup> it = damagePopups.iterator(); it.hasNext(); ) {
+            DamagePopup p = it.next();
+            p.update();
+            if (p.isExpired()) {
+                it.remove();
+            }
+        }
+    }
+
+    /**
+     * 実際に減った HP 量（{@code dealt}）が正なら、命中位置にダメージ数値ポップアップを生成する。
+     * 量は HP 計算式を複製せず「適用前後の HP 差」で求めるため、0 クランプ（残 HP より大きいダメージ）も
+     * 正確に表示できる。ガード成立時は {@link DamagePopup.Kind#CHIP} で色分けする。
+     */
+    private void spawnDamagePopup(int dealt, boolean blocked, float centerX, float centerY) {
+        if (dealt <= 0) {
+            return;
+        }
+        damagePopups.add(new DamagePopup(dealt, blocked ? DamagePopup.Kind.CHIP : DamagePopup.Kind.HIT,
+                centerX, centerY, GameConstants.DAMAGE_POPUP_FRAMES));
     }
 
     /**
@@ -260,11 +291,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
             Fighter target = p.getOwner() == fighter1 ? fighter2 : fighter1;
             if (p.isAlive() && CollisionSystem.hits(p, target)) {
                 int knockbackDir = target.getX() >= p.getX() ? 1 : -1;
-                if (target.isGuarding()) {
+                boolean blocked = target.isGuarding();
+                int before = target.getCurrentHp();
+                if (blocked) {
                     target.applyGuard(p.getDamage(), knockbackDir);
                 } else {
                     target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
                 }
+                spawnDamagePopup(before - target.getCurrentHp(), blocked,
+                        p.getX(), target.getY() + target.getDef().getHeight() / 2f);
                 p.kill();
             }
             if (!p.isAlive()) {
@@ -274,7 +309,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     }
 
     /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31）。 */
-    private static void resolveHit(Fighter attacker, Fighter defender) {
+    private void resolveHit(Fighter attacker, Fighter defender) {
         if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
             attacker.markAttackConnected();
             Hitbox hb = CollisionSystem.activeHitbox(attacker);
@@ -297,12 +332,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
                         break;
                 }
             }
+            int before = defender.getCurrentHp();
             if (blocked) {
                 // ガード成立：chip ダメージのみ（のけぞりなし）。
                 defender.applyGuard(hb.getDamage(), knockbackDir);
             } else {
                 defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
             }
+            // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべる。
+            spawnDamagePopup(before - defender.getCurrentHp(), blocked,
+                    hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
         }
     }
 
