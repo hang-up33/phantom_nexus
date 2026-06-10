@@ -155,6 +155,7 @@ public final class CharacterLoader {
         requirePositive(c.getWidth(), "width", src);
         requirePositive(c.getHeight(), "height", src);
         requireOptionalRgb(c.getColor(), "color", src);
+        requireOptionalSprite(c.getSprite(), "sprite", src);
 
         Move[] normals = c.getNormalMoves();
         if (normals == null || normals.length == 0) {
@@ -246,6 +247,42 @@ public final class CharacterLoader {
             throw new SchemaException(
                     field + " の値 \"" + value + "\" は未知のコマンドです。許可値: "
                             + VALID_COMMANDS + " (" + src + ")");
+        }
+    }
+
+    /**
+     * スプライト定義を検証する（Task 34・任意フィールド）。{@code null}（未指定）は許可。
+     * 指定時は path 非空・frameWidth/frameHeight が正・stateRows[].state 非空・row 非負を要求する。
+     * 実在チェック（PNG が存在するか）は描画側（{@code SpriteLibrary}）に委ね、欠落時は矩形へフォールバックする。
+     */
+    private static void requireOptionalSprite(com.phantomnexus.shared.types.Sprite sprite, String field, String src) {
+        if (sprite == null) {
+            return;
+        }
+        requireText(sprite.getPath(), field + ".path", src);
+        requirePositive(sprite.getFrameWidth(), field + ".frameWidth", src);
+        requirePositive(sprite.getFrameHeight(), field + ".frameHeight", src);
+        com.phantomnexus.shared.types.SpriteStateRow[] rows = sprite.getStateRows();
+        if (rows != null) {
+            // 正規化（trim + toLowerCase）後の state 重複を検出する。SpriteLibrary は state を
+            // 正規化して Map へ入れるため、重複があると静かに上書きされ意図しない行マッピングになる。
+            Set<String> seenStates = new HashSet<>();
+            for (int i = 0; i < rows.length; i++) {
+                com.phantomnexus.shared.types.SpriteStateRow r = rows[i];
+                if (r == null) {
+                    throw new SchemaException(field + ".stateRows[" + i + "] が null (" + src + ")");
+                }
+                requireText(r.getState(), field + ".stateRows[" + i + "].state", src);
+                if (!seenStates.add(r.getState().trim().toLowerCase())) {
+                    throw new SchemaException(
+                            field + ".stateRows[" + i + "].state が重複しています: \""
+                                    + r.getState() + "\" (" + src + ")");
+                }
+                if (r.getRow() < 0) {
+                    throw new SchemaException(
+                            field + ".stateRows[" + i + "].row は 0 以上が必要 = " + r.getRow() + " (" + src + ")");
+                }
+            }
         }
     }
 
