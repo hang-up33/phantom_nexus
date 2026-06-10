@@ -23,8 +23,10 @@ public class Character {
     private float jumpPower;
     private float width;
     private float height;
-    /** 表示色 RGB（0..1, 任意）。スプライト導入までのプレースホルダ矩形色。未設定なら描画側の既定色。 */
+    /** 表示色 RGB（0..1, 任意）。スプライト未指定時のプレースホルダ矩形色。未設定なら描画側の既定色。 */
     private float[] color;
+    /** スプライト（描画用画像）定義（任意）。未設定なら従来どおりプレースホルダ矩形で描画する（Task 34）。 */
+    private Sprite sprite;
     /** 通常技の技定義配列（弱 / 中 / 強ボタン対応）。1 件以上必須。 */
     private Move[] normalMoves;
     /** 必殺技の技定義配列（コマンド対応）。省略可（null / 空）。 */
@@ -85,6 +87,11 @@ public class Character {
     /** 表示色 RGB（0..1, 長さ 3）。未設定なら {@code null}（描画側の既定色を使う）。 */
     public float[] getColor() {
         return color;
+    }
+
+    /** スプライト定義（描画用画像）。未設定なら {@code null}（描画側はプレースホルダ矩形を使う。Task 34）。 */
+    public Sprite getSprite() {
+        return sprite;
     }
 
     /** 通常技の技定義配列（null 非許容、length ≥ 1）。 */
