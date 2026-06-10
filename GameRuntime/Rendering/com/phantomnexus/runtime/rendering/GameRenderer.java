@@ -14,6 +14,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
+import com.phantomnexus.runtime.battle.DamagePopup;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -62,6 +63,13 @@ public class GameRenderer {
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
     private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
+    // ダメージ数値ポップアップ：通常ヒット=暖色（黄）/ ガード chip=寒色（青、GUARD_COLOR と同系）。
+    private static final Color POPUP_HIT_COLOR = new Color(1f, 0.92f, 0.40f, 1f);
+    private static final Color POPUP_CHIP_COLOR = new Color(0.55f, 0.80f, 1f, 1f);
+    private static final float POPUP_RISE_PER_FRAME = 1.3f; // 1 フレームあたりの上昇量（px）
+    private static final float POPUP_BASE_OFFSET_Y = 36f;    // 命中位置からの初期持ち上げ（px）
+    private static final float POPUP_SCALE = 1.7f;           // 数字フォント倍率
+    private static final float POPUP_FADE_START = 0.6f;      // この進捗以降フェード開始（0..1）
     private static final Color WIN_DOT_ON = new Color(1f, 0.85f, 0.20f, 1f);
     private static final Color WIN_DOT_OFF = new Color(0.28f, 0.30f, 0.36f, 1f);
     private static final float WIN_DOT_SIZE = 14f;
@@ -84,6 +92,8 @@ public class GameRenderer {
     private final Viewport viewport;
     private final BitmapFont font;
     private final GlyphLayout layout = new GlyphLayout();
+    // ダメージ数値ポップアップ描画用のフェード色（毎フレームの再確保を避ける作業用バッファ）。
+    private final Color popupColor = new Color();
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -121,14 +131,15 @@ public class GameRenderer {
      * @param anim1        プレイヤー 1 のアニメーション状態
      * @param anim2        プレイヤー 2 のアニメーション状態
      * @param projectiles  飛び道具（必殺技の弾）一覧
+     * @param popups       ダメージ数値ポップアップ一覧（被弾 / ガード時の与ダメージ表示）
      * @param round        ラウンド進行 / 勝敗（タイマー・結果表示）
      * @param debug        デバッグ当たり判定オーバーレイ（有効時に判定枠を重ね描き）
      * @param controlsHint 操作ガイド（HUD）
      * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
-                            List<Projectile> projectiles, RoundManager round, DebugOverlay debug,
-                            String controlsHint, String statusLine) {
+                            List<Projectile> projectiles, List<DamagePopup> popups, RoundManager round,
+                            DebugOverlay debug, String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
@@ -188,6 +199,8 @@ public class GameRenderer {
         drawHpLabels(p2, false);
         drawNameLabel(p1, anim1);
         drawNameLabel(p2, anim2);
+        // ダメージ数値ポップアップ（命中位置から上昇＋終盤フェード。HIT=黄 / CHIP=青）。
+        drawDamagePopups(popups);
         if (!stageName.isEmpty()) {
             drawCentered("Stage: " + stageName, GameConstants.WORLD_WIDTH / 2f, 100f);
         }
@@ -490,6 +503,32 @@ public class GameRenderer {
             shapes.setColor(i == active ? PIP_ON_COLOR : PIP_OFF_COLOR);
             shapes.rect(startX + i * (PIP_SIZE + PIP_GAP), y, PIP_SIZE, PIP_SIZE);
         }
+    }
+
+    /**
+     * ダメージ数値ポップアップを描く。各ポップアップは命中位置から経過フレームに比例して上昇し、終盤
+     * （{@link #POPUP_FADE_START} 以降）でフェードアウトする。通常ヒットは黄、ガード chip は青で色分けする。
+     * テキストパス（{@link SpriteBatch}）内で呼び、フォントの倍率・色は最後に既定（白・等倍）へ戻す。
+     */
+    private void drawDamagePopups(List<DamagePopup> popups) {
+        if (popups.isEmpty()) {
+            return;
+        }
+        font.getData().setScale(POPUP_SCALE);
+        for (DamagePopup p : popups) {
+            float progress = p.getLifespan() > 0 ? (float) p.getAge() / p.getLifespan() : 1f;
+            // フェード：前半は不透明、POPUP_FADE_START 以降で 1→0 へ線形に消す。
+            float alpha = progress < POPUP_FADE_START
+                    ? 1f
+                    : Math.max(0f, 1f - (progress - POPUP_FADE_START) / (1f - POPUP_FADE_START));
+            Color base = p.getKind() == DamagePopup.Kind.CHIP ? POPUP_CHIP_COLOR : POPUP_HIT_COLOR;
+            popupColor.set(base.r, base.g, base.b, alpha);
+            font.setColor(popupColor);
+            float y = p.getOriginY() + POPUP_BASE_OFFSET_Y + p.getAge() * POPUP_RISE_PER_FRAME;
+            drawCentered(String.valueOf(p.getAmount()), p.getOriginX(), y);
+        }
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
     }
 
     /** ファイターの名前と現在の状態（攻撃中は区間、それ以外はアニメ状態 / フレーム）を矩形の上に表示する。 */

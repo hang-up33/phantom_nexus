@@ -115,6 +115,17 @@
 - 被弾側は `hitstun`（のけぞり）ステートへ遷移し、一定フレーム行動不能。
 - MVP ではガード・コンボ補正は対象外とした（ガードは Task 27 以降で実装済み。コンボ補正は将来拡張）。
 
+---
+
+## ダメージ数値ポップアップ（追加機能）
+
+被弾 / ガード時に「実際に減った HP 量」を命中位置から数字で浮かび上がらせる演出（手応えの可視化 + chip 量の可読性向上）。**純粋な視覚演出で戦闘結果には影響しない**（HP 計算とは独立）。
+
+- **生成**：`PhantomNexusGame.resolveHit` / 飛び道具命中時に、`applyHit` / `applyGuard` の適用前後の `getCurrentHp()` 差を量として `DamagePopup`（`GameRuntime/Battle`）を生成する。ダメージ式（chip = `max(1, damage/10)` 等）を複製せず HP 差で求めるため、残 HP より大きい一撃の 0 クランプも正確に表示できる。位置は通常技＝当たった hitbox 中心、飛び道具＝弾の X × 相手の胴中央。
+- **種別 / 色**：通常ヒット（`HIT`）は黄、ガード成立時の chip（`CHIP`）は青で色分け（`GameRenderer`）。
+- **アニメーション**：命中位置から `GameConstants.DAMAGE_POPUP_FRAMES`（既定 40f ≒ 0.67 秒）かけて上昇し、終盤（進捗 60% 以降）でフェードアウト。決着 / ラウンド間でも上昇・フェードを継続する（KO を決めた一撃の数字が止まらず最後まで浮かぶ）ため、`update()` 冒頭の凍結ガードより前で進める。
+- **状態管理**：`PhantomNexusGame` が一覧を保持し（`Projectile` と同じパターン）、毎フレーム寿命を進めて期限切れを除去・ラウンドリセットでクリア。描画はテキストパス（`SpriteBatch`）で行う。
+
 ### 実装（Task 13）
 
 - 確定ヒット（Task 12）で `Fighter.applyHit(damage, hitstun, knockbackDir)` を呼ぶ。HP 減算（`applyDamage`）＋ `hitstunFrames` 設定＋後方 knockback（`velocityX = knockbackDir * KNOCKBACK_SPEED`）を行い、**進行中の攻撃は中断**する（のけぞり優先）。
@@ -360,3 +371,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 31) 下段判定を追記。しゃがみ攻撃（`isCrouchAttacking()`）を下段技にし、`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` で hitbox の Y を `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（脚部）へ下げて立ち / しゃがみ両 hurtbox に届くようにした。`resolveHit` のガード分岐を `blocked = isGuarding() && (!low || isCrouchGuarding())` に拡張し、**下段は立ちガードで防げず通常ヒット・しゃがみガードでのみ chip**とした（中段は従来どおり）。これで Task 30 で観測できなかったしゃがみガードの chip が下段に対して発生する。「下段判定（Task 31）」節を追加し、ガード（Task 27）/しゃがみ攻撃（Task 28）/しゃがみガード（Task 30）節を更新。
 - (Task 32) 空中攻撃を追記。`Fighter` の攻撃発動条件を `grounded ? (!crouchHeld || crouching) : true` に拡張し、滞空中でも通常技を出せるようにした。`aerialAttacking` フィールド・`isAerialAttacking()` を追加（`reset()`/`applyHit()` でクリア）。`AnimationState.JUMP_ATTACK` を追加し `FighterAnimator.resolve()` に織り込み（しゃがみ攻撃 > 空中攻撃 > 通常攻撃の優先順）。空中攻撃は中段扱い（`resolveHit` の low=false）。攻撃処理（Task 11）節の「空中攻撃は対象外」記述を更新し「空中攻撃（Task 32）」節を追加。
 - (Task 33) ガード高さ属性を追記。`Move.guardHeight`（overhead/mid/low, 既定 mid）をデータ化し、`PhantomNexusGame.effectiveAttackHeight()`（しゃがみ通常技は状態優先で low）と `resolveHit` のガード成立分岐（low→しゃがみガードのみ / overhead→立ちガードのみ / mid→両成立）に一元化。`CharacterLoader` に `VALID_GUARD_HEIGHTS` 検証を追加し、fighter001 `heavy_slam` を overhead 化（hitbox を `offsetY 60 / height 90` に下げてしゃがみ hurtbox へ届かせる）。「ガード高さ属性（Task 33）」節を追加し、下段判定（Task 31）節のガード正誤を属性駆動の記述へ更新。
+- (追加機能) ダメージ数値ポップアップを追記。`GameRuntime/Battle/DamagePopup` を新設し、`resolveHit`/`updateProjectiles` で適用前後の `getCurrentHp()` 差を量として命中位置に生成（通常ヒット=黄 / ガード chip=青）。`GameConstants.DAMAGE_POPUP_FRAMES`（40f）を追加。`GameRenderer.renderScene` に `popups` 引数を追加しテキストパスで上昇＋フェード描画。`PhantomNexusGame` が一覧を保持・毎フレーム更新（凍結ガード前）・ラウンドリセットでクリア。純粋な演出で戦闘結果には影響しない。「ダメージ数値ポップアップ（追加機能）」節を追加。
