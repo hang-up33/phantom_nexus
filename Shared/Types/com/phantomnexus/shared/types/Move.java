@@ -11,9 +11,9 @@ import java.util.Locale;
  * キャラの「前方・足元」を原点とする相対座標で持ち、向きに応じて左右反転して使う（当たり判定は Task 12）。
  *
  * <p>Task 11（攻撃処理）で startup/active/recovery を、Task 12（当たり判定）で hitbox 矩形を、
- * Task 13（ダメージ処理）で {@code damage} を用いる。供給元は MVP ではコード生成（Task 11）だが、
- * Task 15/16 で {@code Shared/Schema} の JSON ローダへ差し替える（LibGDX {@code Json} がリフレクションで
- * 設定できるよう全フィールド非 final・無引数コンストラクタを備える）。
+ * Task 13（ダメージ処理）で {@code damage} を用いる。供給元は Task 16 以降 {@code Shared/Schema} の
+ * JSON ローダ（{@code CharacterLoader}）で、LibGDX {@code Json} がリフレクションで設定できるよう
+ * 全フィールド非 final・無引数コンストラクタを備える。
  *
  * @see <a href="../../../../../../docs/DataFormat.md">docs/DataFormat.md</a>
  */

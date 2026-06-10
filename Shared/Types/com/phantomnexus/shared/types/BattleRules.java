@@ -3,10 +3,11 @@ package com.phantomnexus.shared.types;
 /**
  * 対戦ルールの静的定義（データの単一の真実）。Task 14: ラウンド勝敗判定。
  *
- * <p>ラウンド数・制限時間など対戦全体のルールを表す POJO。MVP は 1 ラウンド制で、制限時間内に
- * 相手を KO すれば勝ち、時間切れなら HP 残量が多い側を勝ちとする（[docs/BattleSystem.md](../../../../../../docs/BattleSystem.md)）。
- * HP 上限はキャラ定義（{@link Character#getHp()}）側に持つ。供給元は MVP ではコード生成、Task 16 以降で
- * JSON ローダへ差し替える（LibGDX {@code Json} がリフレクションで設定できるよう非 final・無引数コンストラクタ）。
+ * <p>ラウンド数・制限時間など対戦全体のルールを表す POJO。既定は先取 2 ラウンド（ベスト・オブ 3, Task 26）で、
+ * 制限時間内に相手を KO すれば当該ラウンドの勝ち、時間切れなら HP 残量が多い側の勝ちとする
+ * （[docs/BattleSystem.md](../../../../../../docs/BattleSystem.md)）。
+ * HP 上限はキャラ定義（{@link Character#getHp()}）側に持つ。供給元は現状コード生成（{@link #defaults()}）で、
+ * 将来 JSON 化する（LibGDX {@code Json} がリフレクションで設定できるよう非 final・無引数コンストラクタ）。
  */
 public class BattleRules {
 
