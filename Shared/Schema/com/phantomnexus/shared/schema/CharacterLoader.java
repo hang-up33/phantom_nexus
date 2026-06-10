@@ -264,12 +264,20 @@ public final class CharacterLoader {
         requirePositive(sprite.getFrameHeight(), field + ".frameHeight", src);
         com.phantomnexus.shared.types.SpriteStateRow[] rows = sprite.getStateRows();
         if (rows != null) {
+            // 正規化（trim + toLowerCase）後の state 重複を検出する。SpriteLibrary は state を
+            // 正規化して Map へ入れるため、重複があると静かに上書きされ意図しない行マッピングになる。
+            Set<String> seenStates = new HashSet<>();
             for (int i = 0; i < rows.length; i++) {
                 com.phantomnexus.shared.types.SpriteStateRow r = rows[i];
                 if (r == null) {
                     throw new SchemaException(field + ".stateRows[" + i + "] が null (" + src + ")");
                 }
                 requireText(r.getState(), field + ".stateRows[" + i + "].state", src);
+                if (!seenStates.add(r.getState().trim().toLowerCase())) {
+                    throw new SchemaException(
+                            field + ".stateRows[" + i + "].state が重複しています: \""
+                                    + r.getState() + "\" (" + src + ")");
+                }
                 if (r.getRow() < 0) {
                     throw new SchemaException(
                             field + ".stateRows[" + i + "].row は 0 以上が必要 = " + r.getRow() + " (" + src + ")");
