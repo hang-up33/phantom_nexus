@@ -1,7 +1,5 @@
 package com.phantomnexus.shared.types;
 
-import java.util.Locale;
-
 /**
  * 技（攻撃）の静的定義（データの単一の真実）。
  *
@@ -40,15 +38,11 @@ public class Move {
     private boolean projectile;
     private float projectileSpeed;
     /**
-     * ガード高さ属性（Task 33）：技をどのガードで防げるかをデータ化する。
-     * <ul>
-     *   <li>{@code "overhead"}（上段）：立ちガードのみ成立・しゃがみガードでは防げない。</li>
-     *   <li>{@code "mid"}（中段・既定）：立ち / しゃがみどちらのガードでも成立。</li>
-     *   <li>{@code "low"}（下段）：しゃがみガードのみ成立・立ちガードでは防げない。</li>
-     * </ul>
-     * 未指定（旧 JSON）は {@code "mid"} として扱う（後方互換）。なお、しゃがみ中に出した通常技は
-     * 状態により下段（low）として解決される（{@code Fighter.isCrouchAttacking()} / Task 31）ため、
-     * 本属性は主に立ち技の overhead / mid を区別する用途に使う。
+     * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
+     * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
+     * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
+     * 出した通常技は状態により下段（low）として解決される（{@code Fighter.isCrouchAttacking()} / Task 31）ため、
+     * 本属性は主に立ち技の overhead / mid を区別する用途に使う。値の解釈・検証は {@link GuardHeight#fromToken(String)}。
      */
     private String guardHeight = "mid";
 
@@ -141,12 +135,19 @@ public class Move {
     }
 
     /**
-     * ガード高さ属性（Task 33）。"overhead" / "mid" / "low" のいずれかを正規化（小文字）して返す。
-     * 未指定・空文字は "mid"（中段）として扱う（後方互換）。
+     * ガード高さ属性（Task 33）を {@link GuardHeight} で返す。未指定・空文字は {@link GuardHeight#DEFAULT}
+     * （中段）に正規化する（後方互換）。検証済み JSON では未知値は来ないが、防御的に未知値も既定へ丸める。
      */
-    public String getGuardHeight() {
-        return (guardHeight == null || guardHeight.trim().isEmpty())
-                ? "mid"
-                : guardHeight.trim().toLowerCase(Locale.ROOT);
+    public GuardHeight getGuardHeight() {
+        GuardHeight g = GuardHeight.fromToken(guardHeight);
+        return g != null ? g : GuardHeight.DEFAULT;
+    }
+
+    /**
+     * JSON に書かれた生のガード高さトークン（未正規化・{@code null} あり得る）。
+     * 許可値か否かの検証に用いる（{@code CharacterLoader} のみ使用）。実行時の解釈には {@link #getGuardHeight()} を使う。
+     */
+    public String getGuardHeightToken() {
+        return guardHeight;
     }
 }

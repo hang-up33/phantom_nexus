@@ -22,6 +22,7 @@ import com.phantomnexus.shared.schema.CharacterLoader;
 import com.phantomnexus.shared.schema.StageLoader;
 import com.phantomnexus.shared.types.BattleRules;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
@@ -285,13 +286,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             boolean blocked = false;
             if (defender.isGuarding()) {
                 switch (effectiveAttackHeight(attacker)) {
-                    case "low":
+                    case LOW:
                         blocked = defender.isCrouchGuarding();
                         break;
-                    case "overhead":
+                    case OVERHEAD:
                         blocked = !defender.isCrouchGuarding();
                         break;
-                    default: // "mid"
+                    default: // MID
                         blocked = true;
                         break;
                 }
@@ -306,15 +307,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
     }
 
     /**
-     * 攻撃の実効ガード高さ（Task 33）。しゃがみ中に出した通常技は脚部 hitbox の下段（low）として扱い（Task 31）、
-     * それ以外は技定義の {@code guardHeight}（overhead / mid / low）に従う。技未定義時は中段（mid）。
+     * 攻撃の実効ガード高さ（Task 33）。しゃがみ中に出した通常技は脚部 hitbox の下段（{@link GuardHeight#LOW}）
+     * として扱い（Task 31）、それ以外は技定義の {@link Move#getGuardHeight()} に従う。技未定義時は中段（既定）。
      */
-    private static String effectiveAttackHeight(Fighter attacker) {
+    private static GuardHeight effectiveAttackHeight(Fighter attacker) {
         if (attacker.isCrouchAttacking()) {
-            return "low";
+            return GuardHeight.LOW;
         }
         Move m = attacker.getCurrentMove();
-        return m != null ? m.getGuardHeight() : "mid";
+        return m != null ? m.getGuardHeight() : GuardHeight.DEFAULT;
     }
 
     /** 左右入力を移動方向（-1 / 0 / +1）に変換する。 */
