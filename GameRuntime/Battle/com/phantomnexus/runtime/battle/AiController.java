@@ -49,6 +49,7 @@ public final class AiController {
             attack = true;
             cooldown = ATTACK_COOLDOWN;
         }
-        self.update(moveDir, false, attack ? AttackButton.LIGHT : null, false);
+        // AI は投げを使わない（throwReq=false）。
+        self.update(moveDir, false, attack ? AttackButton.LIGHT : null, false, false);
     }
 }

@@ -23,12 +23,20 @@ public class Character {
     private float jumpPower;
     private float width;
     private float height;
-    /** 表示色 RGB（0..1, 任意）。スプライト導入までのプレースホルダ矩形色。未設定なら描画側の既定色。 */
+    /** 表示色 RGB（0..1, 任意）。スプライト未指定時のプレースホルダ矩形色。未設定なら描画側の既定色。 */
     private float[] color;
+    /** スプライト（描画用画像）定義（任意）。未設定なら従来どおりプレースホルダ矩形で描画する（Task 34）。 */
+    private Sprite sprite;
     /** 通常技の技定義配列（弱 / 中 / 強ボタン対応）。1 件以上必須。 */
     private Move[] normalMoves;
     /** 必殺技の技定義配列（コマンド対応）。省略可（null / 空）。 */
     private Move[] specialMoves;
+    /**
+     * 投げ技の技定義（任意）。ガード不能の近接掴み（Task 35）。未設定（{@code null}）ならそのキャラは投げを持たない
+     * （後方互換）。ボタン / コマンド / ガード高さは不要（投げ専用の発動経路 = 投げボタンで起動し、ガードを無視する）。
+     * 再利用する {@link Move} の damage / startup / active / recovery / hitbox 矩形が「掴み判定（grab box）」を表す。
+     */
+    private Move throwMove;
     /**
      * 旧形式互換フィールド（Task 24 以前）。LibGDX Json がデシリアライズ後に
      * {@code CharacterLoader.migrateIfLegacy()} が {@code normalMoves} へ移行し、ゲームロジックは参照しない。
@@ -87,6 +95,11 @@ public class Character {
         return color;
     }
 
+    /** スプライト定義（描画用画像）。未設定なら {@code null}（描画側はプレースホルダ矩形を使う。Task 34）。 */
+    public Sprite getSprite() {
+        return sprite;
+    }
+
     /** 通常技の技定義配列（null 非許容、length ≥ 1）。 */
     public Move[] getNormalMoves() {
         return normalMoves;
@@ -105,6 +118,11 @@ public class Character {
     /** {@code CharacterLoader} が旧形式から移行後に配列を注入する。 */
     public void setSpecialMoves(Move[] specialMoves) {
         this.specialMoves = specialMoves;
+    }
+
+    /** 投げ技の定義（ガード不能の近接掴み）。未設定なら {@code null}（そのキャラは投げを持たない。Task 35）。 */
+    public Move getThrowMove() {
+        return throwMove;
     }
 
     /** 旧形式互換：{@code CharacterLoader.migrateIfLegacy()} が使用する。ゲームロジックから呼ばない。 */

@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -20,12 +20,12 @@
 
 ## ステート（MVP）
 
-`idle / walk / jump / jump_attack(空中攻撃) / attack / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
+`idle / walk / jump / jump_attack(空中攻撃) / attack / throw(投げ) / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
 アニメーション状態の導出優先順（`FighterAnimator.resolve()` が単一の真実。優先順が変わるタスクでは本リストを更新する。旧タスク節の優先順は当時存在した状態のみの短縮表記を含むが、順序は本リストと矛盾しない）：
 
-> **のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**
+> **のけぞり > 投げ > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**
 
 | 区間 | 内容 |
 |---|---|
@@ -114,6 +114,17 @@
 - 被弾で `damage` 分 HP を減算。
 - 被弾側は `hitstun`（のけぞり）ステートへ遷移し、一定フレーム行動不能。
 - MVP ではガード・コンボ補正は対象外とした（ガードは Task 27 以降で実装済み。コンボ補正は将来拡張）。
+
+---
+
+## ダメージ数値ポップアップ（追加機能）
+
+被弾 / ガード時に「実際に減った HP 量」を命中位置から数字で浮かび上がらせる演出（手応えの可視化 + chip 量の可読性向上）。**純粋な視覚演出で戦闘結果には影響しない**（HP 計算とは独立）。
+
+- **生成**：`PhantomNexusGame.resolveHit` / 飛び道具命中時に、`applyHit` / `applyGuard` の適用前後の `getCurrentHp()` 差を量として `DamagePopup`（`GameRuntime/Battle`）を生成する。ダメージ式（chip = `max(1, damage/10)` 等）を複製せず HP 差で求めるため、残 HP より大きい一撃の 0 クランプも正確に表示できる。位置は通常技＝当たった hitbox 中心、飛び道具＝弾の X × 相手の胴中央。
+- **種別 / 色**：通常ヒット（`HIT`）は黄、ガード成立時の chip（`CHIP`）は青で色分け（`GameRenderer`）。
+- **アニメーション**：命中位置から `GameConstants.DAMAGE_POPUP_FRAMES`（既定 40f ≒ 0.67 秒）かけて上昇し、終盤（進捗 60% 以降）でフェードアウト。決着 / ラウンド間でも上昇・フェードを継続する（KO を決めた一撃の数字が止まらず最後まで浮かぶ）ため、`update()` 冒頭の凍結ガードより前で進める。
+- **状態管理**：`PhantomNexusGame` が一覧を保持し（`Projectile` と同じパターン）、毎フレーム寿命を進めて期限切れを除去・ラウンドリセットでクリア。描画はテキストパス（`SpriteBatch`）で行う。
 
 ### 実装（Task 13）
 
@@ -330,9 +341,46 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ---
 
+## 投げ技（Task 35）
+
+地上・立ちで**投げボタン**（P1: T / P2: Numpad0）を押すと、近接の相手を掴む**ガード不能の投げ**を発動する。立ち・しゃがみどちらのガードでも防げず、ガード偏重の相手を崩す択になる（打撃＝ガードで凌げる／投げ＝ガード貫通、の二択を作る）。
+
+| 項目 | 仕様 |
+|---|---|
+| データ | `Shared/Types.Character.throwMove`（任意の `Move`）。未指定なら投げを持たない（後方互換）。button / command / guardHeight は不要（専用の投げボタンで起動し、ガードを無視するため）。再利用する `Move` の damage / フレーム / hitbox 矩形が「掴み判定（grab box）」を表す |
+| 発動条件 | 接地中 + 立ち（非しゃがみ）+ 非攻撃中 + 投げボタンの立ち上がり + キャラに `throwMove` あり。空中・しゃがみ中は発動しない。Core が `Fighter.update` の専用引数 `throwReq=true`（打撃の `attackButton` とは別チャネル）を渡し、`Fighter` が `throwing=true` で専用経路を起動する（通常技 / 必殺技より最優先） |
+| 成立範囲 | active 区間中に grab box が相手 hurtbox と重なれば成立（通常打撃と同じ `CollisionSystem.isHitting`）。短い range（狭い hitbox 幅）で近接限定にする |
+| ガード不能 | `resolveHit` で `attacker.isThrowing()` のとき `blocked` 判定をスキップし、ガード中でも常にフルダメージを適用する |
+| 空中の相手 | 掴めない（`defender` が `!grounded`）。grab box が空中の相手に重なった時点で whiff として消費（`markAttackConnected`）し、同じ active 区間内に着地しても掴み直さない＝**ジャンプで確実に回避できる**。「ジャンプで投げを避ける」読み合いが成立する |
+| 被弾 | `Fighter.applyThrow(damage, dir)`：フルダメージ ＋ 長い hitstun（`THROW_HITSTUN_FRAMES`=30）＋ 強い knockback（`KNOCKBACK_SPEED × THROW_KNOCKBACK_SCALE`=1.6 倍）。のけぞり扱いなので進行中の攻撃を中断する |
+| 空振り | range 外・空中の相手には grab box が当たらず、startup→active→recovery を消化して空振り（隙）になる |
+| アニメーション | `AnimationState.THROW`（攻撃ステート中だが strike とは別の単一ポーズ）。優先順: のけぞり > **投げ** > しゃがみ攻撃 > 空中攻撃 > 攻撃 > …。被弾側は通常どおり `HITSTUN` |
+| 視覚 | grab box を通常打撃の区間色ではなく**紫**（`GameRenderer.THROW_COLOR`）で描き、掴みであることを区別。状態ラベルは `throw:<区間>`。被弾側はフルダメージのため黄色のダメージ数値ポップアップ（`HIT`）が出る（ガード chip の青ではない） |
+| 投げ抜け | MVP 非対応（掴まれたら確定。将来拡張） |
+| AI | `AiController` は投げボタンを送らないため投げを出さない（影響なし） |
+
+> 投げと打撃の対比：**同じガード状態の相手**に対し、中段打撃は `guard`（chip のみ）で凌がれるが、投げは `hitstun`（フルダメージ）でガードを貫通する。両者の差は「使った技が打撃か投げか」だけで、ガード貫通の因果が一意になる（Task 31/33 の対比手法を踏襲）。
+
+---
+
+## 入力リプレイ（記録 / 再生）
+
+本エンジンのシミュレーションは **「1 render = 1 固定ステップ」で dt 非依存**（[基本ループ](#基本ループ)）、AI（`AiController`）も乱数を持たない決定的処理。したがって **毎フレームの入力さえ記録すれば、同じ試合を完全に再現できる**（ゲーム状態を丸ごと保存する必要がない）。これを `GameRuntime/Debug/ReplayController` が担う（`ScreenshotController` と同じくシステムプロパティ駆動で、未指定なら通常起動と完全に同一）。
+
+| 用途 | プロパティ | 動作 |
+|---|---|---|
+| 記録 | `-Dphantom.replay.record=<path>` | 毎フレームの P1/P2 押下状態と P2 AI 状態を 1 行追記（強制終了でもログを失わないよう毎フレーム flush） |
+| 再生 | `-Dphantom.replay.play=<path>` | 記録した押下集合を `PlayerInput.setForcedHold` で注入し直し、AI 状態も復元（再生中は F2 トグルを無視） |
+| 記録時 AI OFF | `-Dphantom.replay.ai=false` | 記録開始時から P2 を静止（人間）に。開始後の F2 トグルもフレーム単位で記録・再生される |
+
+- **記録形式**（テキスト）：ヘッダ `PHANTOM_REPLAY v1` ＋ 1 行 `p1mask,p2mask,ai`。mask は各プレイヤーの押下アクションを `InputAction.ordinal()` のビット位置で畳んだ整数（**列挙順を変えると旧ログの解釈がずれる**）。`ai` は当該フレームで P2 が AI 制御だったか（AI フレームの `p2mask` は再生側で使わないため 0）。
+- 撮影モード（`phantom.screenshot.*`）と併用でき、**再生中の任意フレームを PNG 化**できる（決定的に同一フレームを再現するため、連番化すればリプレイ GIF も作れる）。
+
+---
+
 ## やらないこと（MVP）
 
-コンボ補正／高度な物理／オンライン対戦／高度な AI（第一設計書「MVP でやらないこと」）。
+コンボ補正／高度な物理／オンライン対戦／高度な AI（第一設計書「MVP でやらないこと」）。投げ抜け（throw tech）も将来拡張。
 ※ガードも MVP では対象外だったが、Task 27（立ちガード）・Task 30（しゃがみガード）・Task 31/33（下段・ガード高さ属性）で実装済み。
 
 ## 変更履歴
@@ -360,4 +408,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 31) 下段判定を追記。しゃがみ攻撃（`isCrouchAttacking()`）を下段技にし、`CollisionSystem.activeHitbox` と `GameRenderer.drawAttackStrike` で hitbox の Y を `GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y`（脚部）へ下げて立ち / しゃがみ両 hurtbox に届くようにした。`resolveHit` のガード分岐を `blocked = isGuarding() && (!low || isCrouchGuarding())` に拡張し、**下段は立ちガードで防げず通常ヒット・しゃがみガードでのみ chip**とした（中段は従来どおり）。これで Task 30 で観測できなかったしゃがみガードの chip が下段に対して発生する。「下段判定（Task 31）」節を追加し、ガード（Task 27）/しゃがみ攻撃（Task 28）/しゃがみガード（Task 30）節を更新。
 - (Task 32) 空中攻撃を追記。`Fighter` の攻撃発動条件を `grounded ? (!crouchHeld || crouching) : true` に拡張し、滞空中でも通常技を出せるようにした。`aerialAttacking` フィールド・`isAerialAttacking()` を追加（`reset()`/`applyHit()` でクリア）。`AnimationState.JUMP_ATTACK` を追加し `FighterAnimator.resolve()` に織り込み（しゃがみ攻撃 > 空中攻撃 > 通常攻撃の優先順）。空中攻撃は中段扱い（`resolveHit` の low=false）。攻撃処理（Task 11）節の「空中攻撃は対象外」記述を更新し「空中攻撃（Task 32）」節を追加。
 - (Task 33) ガード高さ属性を追記。`Move.guardHeight`（overhead/mid/low, 既定 mid）をデータ化し、`PhantomNexusGame.effectiveAttackHeight()`（しゃがみ通常技は状態優先で low）と `resolveHit` のガード成立分岐（low→しゃがみガードのみ / overhead→立ちガードのみ / mid→両成立）に一元化。`CharacterLoader` に `VALID_GUARD_HEIGHTS` 検証を追加し、fighter001 `heavy_slam` を overhead 化（hitbox を `offsetY 60 / height 90` に下げてしゃがみ hurtbox へ届かせる）。「ガード高さ属性（Task 33）」節を追加し、下段判定（Task 31）節のガード正誤を属性駆動の記述へ更新。
-- (refactor) 通常技のボタン種別を `Shared/Types/AttackButton` enum（`LIGHT`/`MEDIUM`/`HEAVY`）に集約（`GuardHeight` と同パターン・戦闘仕様の変更なし）。`Fighter.update` の `attackButton` 引数を String → `AttackButton` に変更し、`selectNormalMove()` の照合を equalsIgnoreCase から enum 同一性に置換（トークン正規化は `AttackButton.fromToken` に一元化）。攻撃処理（Task 11）/複数技対応（Task 24）節の技選択記述を更新。
+- (追加機能) ダメージ数値ポップアップを追記。`GameRuntime/Battle/DamagePopup` を新設し、`resolveHit`/`updateProjectiles` で適用前後の `getCurrentHp()` 差を量として命中位置に生成（通常ヒット=黄 / ガード chip=青）。`GameConstants.DAMAGE_POPUP_FRAMES`（40f）を追加。`GameRenderer.renderScene` に `popups` 引数を追加しテキストパスで上昇＋フェード描画。`PhantomNexusGame` が一覧を保持・毎フレーム更新（凍結ガード前）・ラウンドリセットでクリア。純粋な演出で戦闘結果には影響しない。「ダメージ数値ポップアップ（追加機能）」節を追加。
+- (Task 35) 投げ技（ガード不能の近接掴み）を追記。`Character.throwMove`（任意の `Move`）・`InputAction.THROW`（P1=T / P2=Numpad0）を追加。`Fighter` に `throwing` フィールド・`applyThrow()`（フル damage ＋ 長 hitstun ＋ 強 knockback）・`isThrowing()` を追加し、地上・立ちで専用経路で発動（通常技 / 必殺技より最優先）。`PhantomNexusGame.resolveHit` で `isThrowing()` 時はガード判定をスキップ（ガード不能）＋空中の相手は掴めない（不成立）分岐を追加。`AnimationState.THROW` を追加し `FighterAnimator.resolve()` の優先順（のけぞり > 投げ > しゃがみ攻撃 > …）に織り込み。`GameRenderer` は grab box を紫（`THROW_COLOR`）で描き状態ラベルを `throw:<区間>` に。`GameConstants.THROW_HITSTUN_FRAMES`（30）/`THROW_KNOCKBACK_SCALE`（1.6）を追加。`CharacterLoader.validateThrowMove()`（button/command/guardHeight 不要）を追加。fighter001/002 に `throwMove` と sprite `throw` 行を追加。「投げ技（Task 35）」節を追加し、ステート一覧・アニメ優先順・やらないこと節を更新。
+- (feature/replay) 入力リプレイ（記録 / 再生）を追記。`GameRuntime/Debug/ReplayController` を新設し、毎フレームの押下マスク＋P2 AI 状態を記録 → `PlayerInput.setForcedHold` で再生。決定性（1 render = 1 固定ステップ・dt 非依存・AI 乱数なし）に依拠し、入力列のみで試合を完全再現する。`build.gradle` の run プロパティ転送に `phantom.replay.record`/`play`/`ai` を追加。**戦闘ロジックは不変**（記録/再生フックを Core の render に足しただけ）。設計書タスク順の外の開発ツール追加。「入力リプレイ（記録 / 再生）」節を追加。
+- (refactor) 通常技のボタン種別を `Shared/Types/AttackButton` enum（`LIGHT`/`MEDIUM`/`HEAVY`）に集約（`GuardHeight` と同パターン・戦闘仕様の変更なし）。`Fighter.update` の `attackButton` 引数を String → `AttackButton` に変更し、`selectNormalMove()` の照合を equalsIgnoreCase から enum 同一性に置換（トークン正規化は `AttackButton.fromToken` に一元化）。**Task 35 の投げ起動は予約語 `attackButton="throw"`（String）に依存していたため、本 enum 化に合わせて `Fighter.update` へ専用の `throwReq`（boolean）引数を新設して分離**（`AttackButton` は打撃 3 種に限定し、投げは別チャネルで通す）。攻撃処理（Task 11）/複数技対応（Task 24）/投げ技（Task 35）節の起動記述を更新。

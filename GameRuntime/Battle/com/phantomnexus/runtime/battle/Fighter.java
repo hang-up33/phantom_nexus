@@ -32,6 +32,7 @@ public class Fighter {
     private boolean crouching;
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
     private boolean aerialAttacking;  // 空中で開始した攻撃（Task 32）
+    private boolean throwing;          // 投げ（ガード不能の掴み）を発動中か（Task 35）
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
@@ -47,10 +48,12 @@ public class Fighter {
      *
      * @param moveDir      左右移動方向（-1 = 左 / 0 = 静止 / +1 = 右）
      * @param jumpPressed  このフレームでジャンプ入力の立ち上がりがあったか
-     * @param attackButton 押されたボタン種別（{@link AttackButton}）。null なら攻撃なし
+     * @param attackButton 押されたボタン種別（{@link AttackButton}）。null なら通常攻撃なし
      * @param crouchHeld   DOWN ボタンを押し続けているか（接地中のみしゃがみ遷移）
+     * @param throwReq     投げ（ガード不能の掴み）の発動要求があるか（Task 35。地上・立ちでのみ成立）
      */
-    public void update(int moveDir, boolean jumpPressed, AttackButton attackButton, boolean crouchHeld) {
+    public void update(int moveDir, boolean jumpPressed, AttackButton attackButton, boolean crouchHeld,
+                       boolean throwReq) {
         // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30）。低姿勢判定は crouching を併用。
@@ -79,12 +82,15 @@ public class Fighter {
             }
             // 攻撃の発動：接地時はしゃがみ遷移フレーム（crouchHeld かつ未しゃがみ）を除いて可。
             // 空中では空中攻撃（Task 32）として発動可（しゃがみ条件は無視）。
-            if (attackPhase == AttackPhase.NONE && attackButton != null
+            if (attackPhase == AttackPhase.NONE && (attackButton != null || throwReq)
                     && (grounded ? (!crouchHeld || crouching) : true)) {
-                Move move = selectNormalMove(attackButton);
+                // 投げ（Task 35）は throwReq で起動する地上・立ち専用のガード不能掴み。
+                // 通常技 / 空中攻撃 / しゃがみ攻撃のいずれにも分類せず、専用フラグ throwing を立てる。
+                Move move = throwReq ? (grounded ? def.getThrowMove() : null) : selectNormalMove(attackButton);
                 if (move != null) {
-                    crouchAttacking = grounded && crouching; // しゃがみ中に発動 → 下段攻撃フラグ（空中は不可）
-                    aerialAttacking = !grounded;             // 空中で発動 → 空中攻撃フラグ（Task 32）
+                    throwing = throwReq;
+                    crouchAttacking = !throwReq && grounded && crouching; // しゃがみ中に発動 → 下段攻撃フラグ（投げ / 空中は不可）
+                    aerialAttacking = !throwReq && !grounded;             // 空中で発動 → 空中攻撃フラグ（Task 32）
                     beginAttack(move);
                 }
             }
@@ -98,6 +104,7 @@ public class Fighter {
                 if (attackPhase == AttackPhase.NONE) {
                     crouchAttacking = false; // 攻撃終了でフラグクリア
                     aerialAttacking = false; // 空中攻撃も終了でクリア
+                    throwing = false;        // 投げも終了でクリア（Task 35）
                     if (!crouchHeld) {
                         crouching = false; // DOWN を離していれば攻撃終了と同フレームに姿勢解除
                     }
@@ -148,6 +155,7 @@ public class Fighter {
         hitstunFrames = 0;
         crouchAttacking = false;
         aerialAttacking = false;
+        throwing = false;
         guarding = false;
     }
 
@@ -174,6 +182,25 @@ public class Fighter {
         crouching = false;
         crouchAttacking = false;
         aerialAttacking = false;
+        throwing = false;
+    }
+
+    /**
+     * 投げ（ガード不能の近接掴み）の被弾を適用する（Task 35）。通常被弾（{@link #applyHit}）より長い hitstun
+     * （{@link GameConstants#THROW_HITSTUN_FRAMES}）と強い knockback（{@link GameConstants#THROW_KNOCKBACK_SCALE} 倍）を与える。
+     * ガードは無視される（成立判定は呼び出し側で済ませ、本メソッドは常にフルダメージを適用する）。進行中の攻撃は中断する。
+     */
+    public void applyThrow(int damage, int knockbackDir) {
+        applyDamage(damage);
+        hitstunFrames = GameConstants.THROW_HITSTUN_FRAMES;
+        velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * GameConstants.THROW_KNOCKBACK_SCALE;
+        attackPhase = AttackPhase.NONE;
+        attackFrame = 0;
+        currentMove = null;
+        crouching = false;
+        crouchAttacking = false;
+        aerialAttacking = false;
+        throwing = false;
     }
 
     /**
@@ -308,6 +335,11 @@ public class Fighter {
     /** 空中攻撃中か（空中で発動した攻撃が進行中）（Task 32）。 */
     public boolean isAerialAttacking() {
         return aerialAttacking;
+    }
+
+    /** 投げ（ガード不能の掴み）を発動中か（Task 35）。攻撃ステート中かつ投げ技として開始したもの。 */
+    public boolean isThrowing() {
+        return throwing;
     }
 
     public int getCurrentHp() {
