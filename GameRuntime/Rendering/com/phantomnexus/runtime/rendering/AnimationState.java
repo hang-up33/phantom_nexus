@@ -36,7 +36,9 @@ public enum AnimationState {
     /** しゃがみガード（Task 30）。低姿勢を維持したまま後退方向を保持する単一ポーズ。 */
     CROUCH_GUARD(1, 1, false),
     /** 空中攻撃（Task 32）。滞空中に出した攻撃の単一ポーズ。 */
-    JUMP_ATTACK(1, 1, false);
+    JUMP_ATTACK(1, 1, false),
+    /** 投げ（Task 35）。相手を掴む単一ポーズ（攻撃ステート中だが strike ではなく grab 扱い）。 */
+    THROW(1, 1, false);
 
     private final int frameCount;
     private final int ticksPerFrame;

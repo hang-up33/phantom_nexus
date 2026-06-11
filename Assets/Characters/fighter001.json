@@ -17,6 +17,7 @@
       { "state": "jump", "row": 2 },
       { "state": "attack", "row": 3 },
       { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
       { "state": "hitstun", "row": 4 },
       { "state": "guard", "row": 5 },
       { "state": "crouch", "row": 6 },
@@ -79,5 +80,16 @@
       "projectile": true,
       "projectileSpeed": 9.0
     }
-  ]
+  ],
+  "throwMove": {
+    "id": "shoulder_throw",
+    "damage": 150,
+    "startup": 3,
+    "active": 2,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 150
+  }
 }

@@ -171,6 +171,30 @@ public final class CharacterLoader {
                 validateSpecialMove(specials[i], "specialMoves[" + i + "]", src);
             }
         }
+
+        // 投げ技（Task 35・任意）。未設定なら検証しない（投げを持たないキャラ）。
+        validateThrowMove(c.getThrowMove(), "throwMove", src);
+    }
+
+    /**
+     * 投げ技の検証（Task 35・任意フィールド）。{@code null}（未指定）は許可。
+     * 投げは <b>ガード不能の近接掴み</b>であり button / command / guardHeight を持たない（発動は専用の投げボタン）ため、
+     * 通常技 / 必殺技と異なりそれらは検証しない。{@link Move} のフレーム値と hitbox 矩形（grab box）のみを検証する。
+     */
+    private static void validateThrowMove(Move m, String field, String src) {
+        if (m == null) {
+            return;
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
     }
 
     /** 通常技の検証（button は "light"/"medium"/"heavy" に限定）。 */
