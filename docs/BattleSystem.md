@@ -351,7 +351,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 発動条件 | 接地中 + 立ち（非しゃがみ）+ 非攻撃中 + 投げボタンの立ち上がり + キャラに `throwMove` あり。空中・しゃがみ中は発動しない。Core が予約語 `attackButton="throw"` を `Fighter.update` に渡し、`Fighter` が `throwing=true` で専用経路を起動する（通常技 / 必殺技より最優先） |
 | 成立範囲 | active 区間中に grab box が相手 hurtbox と重なれば成立（通常打撃と同じ `CollisionSystem.isHitting`）。短い range（狭い hitbox 幅）で近接限定にする |
 | ガード不能 | `resolveHit` で `attacker.isThrowing()` のとき `blocked` 判定をスキップし、ガード中でも常にフルダメージを適用する |
-| 空中の相手 | 掴めない（`defender` が `!grounded` なら不成立。`markAttackConnected` せず後続フレームで再判定）。「ジャンプで投げを避ける」読み合いが成立する |
+| 空中の相手 | 掴めない（`defender` が `!grounded`）。grab box が空中の相手に重なった時点で whiff として消費（`markAttackConnected`）し、同じ active 区間内に着地しても掴み直さない＝**ジャンプで確実に回避できる**。「ジャンプで投げを避ける」読み合いが成立する |
 | 被弾 | `Fighter.applyThrow(damage, dir)`：フルダメージ ＋ 長い hitstun（`THROW_HITSTUN_FRAMES`=30）＋ 強い knockback（`KNOCKBACK_SPEED × THROW_KNOCKBACK_SCALE`=1.6 倍）。のけぞり扱いなので進行中の攻撃を中断する |
 | 空振り | range 外・空中の相手には grab box が当たらず、startup→active→recovery を消化して空振り（隙）になる |
 | アニメーション | `AnimationState.THROW`（攻撃ステート中だが strike とは別の単一ポーズ）。優先順: のけぞり > **投げ** > しゃがみ攻撃 > 空中攻撃 > 攻撃 > …。被弾側は通常どおり `HITSTUN` |

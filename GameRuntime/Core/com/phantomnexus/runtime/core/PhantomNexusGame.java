@@ -319,8 +319,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (attacker.hasAttackConnected() || !CollisionSystem.isHitting(attacker, defender)) {
             return;
         }
-        // 投げ（Task 35）は地上の相手のみ掴める。空中の相手には不成立とし、未命中のまま（mark しない）後続フレームで再判定する。
+        // 投げ（Task 35）は地上の相手のみ掴める。空中の相手に grab box が重なった時点で whiff として消費し
+        // （markAttackConnected）、同じ active 区間内に相手が着地しても掴み直さない＝ジャンプで確実に回避できる
+        // （PR 目標「ジャンプで回避可」を保証する）。
         if (attacker.isThrowing() && !defender.isGrounded()) {
+            attacker.markAttackConnected();
             return;
         }
         attacker.markAttackConnected();
