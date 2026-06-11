@@ -196,6 +196,7 @@ public class Fighter {
         throwing = false;
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に被弾したらラベルをのけぞりへ戻す（表示 desync 防止・Task 36）
+        guarding = false;    // 被弾で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
     }
 
     /**
@@ -216,6 +217,7 @@ public class Fighter {
         throwing = false;
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に投げで上書きされたらラベルをのけぞりへ戻す（Task 36）
+        guarding = false;    // 投げ（ガード不能）で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
     }
 
     /**
@@ -247,6 +249,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        guarding = false; // 投げ抜けで neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
     }
 
     /** 投げ抜けの硬直中か（表示ラベルを "tech" にするための判定）（Task 36）。 */
