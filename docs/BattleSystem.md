@@ -363,6 +363,21 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ---
 
+## 入力リプレイ（記録 / 再生）
+
+本エンジンのシミュレーションは **「1 render = 1 固定ステップ」で dt 非依存**（[基本ループ](#基本ループ)）、AI（`AiController`）も乱数を持たない決定的処理。したがって **毎フレームの入力さえ記録すれば、同じ試合を完全に再現できる**（ゲーム状態を丸ごと保存する必要がない）。これを `GameRuntime/Debug/ReplayController` が担う（`ScreenshotController` と同じくシステムプロパティ駆動で、未指定なら通常起動と完全に同一）。
+
+| 用途 | プロパティ | 動作 |
+|---|---|---|
+| 記録 | `-Dphantom.replay.record=<path>` | 毎フレームの P1/P2 押下状態と P2 AI 状態を 1 行追記（強制終了でもログを失わないよう毎フレーム flush） |
+| 再生 | `-Dphantom.replay.play=<path>` | 記録した押下集合を `PlayerInput.setForcedHold` で注入し直し、AI 状態も復元（再生中は F2 トグルを無視） |
+| 記録時 AI OFF | `-Dphantom.replay.ai=false` | 記録開始時から P2 を静止（人間）に。開始後の F2 トグルもフレーム単位で記録・再生される |
+
+- **記録形式**（テキスト）：ヘッダ `PHANTOM_REPLAY v1` ＋ 1 行 `p1mask,p2mask,ai`。mask は各プレイヤーの押下アクションを `InputAction.ordinal()` のビット位置で畳んだ整数（**列挙順を変えると旧ログの解釈がずれる**）。`ai` は当該フレームで P2 が AI 制御だったか（AI フレームの `p2mask` は再生側で使わないため 0）。
+- 撮影モード（`phantom.screenshot.*`）と併用でき、**再生中の任意フレームを PNG 化**できる（決定的に同一フレームを再現するため、連番化すればリプレイ GIF も作れる）。
+
+---
+
 ## やらないこと（MVP）
 
 コンボ補正／高度な物理／オンライン対戦／高度な AI（第一設計書「MVP でやらないこと」）。投げ抜け（throw tech）も将来拡張。
@@ -395,3 +410,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 33) ガード高さ属性を追記。`Move.guardHeight`（overhead/mid/low, 既定 mid）をデータ化し、`PhantomNexusGame.effectiveAttackHeight()`（しゃがみ通常技は状態優先で low）と `resolveHit` のガード成立分岐（low→しゃがみガードのみ / overhead→立ちガードのみ / mid→両成立）に一元化。`CharacterLoader` に `VALID_GUARD_HEIGHTS` 検証を追加し、fighter001 `heavy_slam` を overhead 化（hitbox を `offsetY 60 / height 90` に下げてしゃがみ hurtbox へ届かせる）。「ガード高さ属性（Task 33）」節を追加し、下段判定（Task 31）節のガード正誤を属性駆動の記述へ更新。
 - (追加機能) ダメージ数値ポップアップを追記。`GameRuntime/Battle/DamagePopup` を新設し、`resolveHit`/`updateProjectiles` で適用前後の `getCurrentHp()` 差を量として命中位置に生成（通常ヒット=黄 / ガード chip=青）。`GameConstants.DAMAGE_POPUP_FRAMES`（40f）を追加。`GameRenderer.renderScene` に `popups` 引数を追加しテキストパスで上昇＋フェード描画。`PhantomNexusGame` が一覧を保持・毎フレーム更新（凍結ガード前）・ラウンドリセットでクリア。純粋な演出で戦闘結果には影響しない。「ダメージ数値ポップアップ（追加機能）」節を追加。
 - (Task 35) 投げ技（ガード不能の近接掴み）を追記。`Character.throwMove`（任意の `Move`）・`InputAction.THROW`（P1=T / P2=Numpad0）を追加。`Fighter` に `throwing` フィールド・`applyThrow()`（フル damage ＋ 長 hitstun ＋ 強 knockback）・`isThrowing()` を追加し、地上・立ちで予約語 `attackButton="throw"` を受けて専用経路で発動（通常技 / 必殺技より最優先）。`PhantomNexusGame.resolveHit` で `isThrowing()` 時はガード判定をスキップ（ガード不能）＋空中の相手は掴めない（不成立）分岐を追加。`AnimationState.THROW` を追加し `FighterAnimator.resolve()` の優先順（のけぞり > 投げ > しゃがみ攻撃 > …）に織り込み。`GameRenderer` は grab box を紫（`THROW_COLOR`）で描き状態ラベルを `throw:<区間>` に。`GameConstants.THROW_HITSTUN_FRAMES`（30）/`THROW_KNOCKBACK_SCALE`（1.6）を追加。`CharacterLoader.validateThrowMove()`（button/command/guardHeight 不要）を追加。fighter001/002 に `throwMove` と sprite `throw` 行を追加。「投げ技（Task 35）」節を追加し、ステート一覧・アニメ優先順・やらないこと節を更新。
+- (feature/replay) 入力リプレイ（記録 / 再生）を追記。`GameRuntime/Debug/ReplayController` を新設し、毎フレームの押下マスク＋P2 AI 状態を記録 → `PlayerInput.setForcedHold` で再生。決定性（1 render = 1 固定ステップ・dt 非依存・AI 乱数なし）に依拠し、入力列のみで試合を完全再現する。`build.gradle` の run プロパティ転送に `phantom.replay.record`/`play`/`ai` を追加。**戦闘ロジックは不変**（記録/再生フックを Core の render に足しただけ）。設計書タスク順の外の開発ツール追加。「入力リプレイ（記録 / 再生）」節を追加。

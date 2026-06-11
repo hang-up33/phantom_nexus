@@ -72,14 +72,16 @@ application {
     mainClass = 'com.phantomnexus.runtime.core.DesktopLauncher'
 }
 
-// ヘッドレス自動スクショ用のシステムプロパティをアプリ JVM へ伝播する。
+// ヘッドレス自動スクショ / 入力リプレイ用のシステムプロパティをアプリ JVM へ伝播する。
 // application プラグインの run タスクは既定では Gradle 起動 JVM の -D を引き継がないため、
 // `./gradlew run -Dphantom.screenshot.path=...` で渡した値を明示的に転送する。
 // 指定が無ければ何もしない（通常の `./gradlew run` には一切影響しない）。
+// 新しい phantom.* プロパティを足したら、このリストにも追記すること。
 tasks.named('run', JavaExec) {
     ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold',
      'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit',
-     'phantom.screenshot.debug', 'phantom.screenshot.script', 'phantom.screenshot.ai'].each { key ->
+     'phantom.screenshot.debug', 'phantom.screenshot.script', 'phantom.screenshot.ai',
+     'phantom.replay.record', 'phantom.replay.play', 'phantom.replay.ai'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {
             systemProperty key, value
