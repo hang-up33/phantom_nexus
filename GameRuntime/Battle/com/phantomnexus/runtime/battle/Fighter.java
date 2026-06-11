@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.battle;
 
 import com.phantomnexus.shared.constants.GameConstants;
+import com.phantomnexus.shared.types.AttackButton;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Move;
 
@@ -9,7 +10,7 @@ import com.phantomnexus.shared.types.Move;
  *
  * <p>静的定義 {@link Character} を参照し、位置（中心 X / 足元 Y）・垂直速度・接地状態・向き・HP・攻撃区間
  * といった実行時状態を保持する。入力の読み取りは行わず、左右移動量・ジャンプ・攻撃ボタン（弱/中/強 or null）・
- * しゃがみ押下は {@link #update(int, boolean, String, boolean)} に外部から渡す。
+ * しゃがみ押下は {@link #update(int, boolean, AttackButton, boolean)} に外部から渡す。
  * しゃがみ中は低姿勢を維持し通常速度の半分でクロール移動できる（ジャンプは受け付けない）。しゃがみ攻撃は低姿勢を維持したまま発動する。
  */
 public class Fighter {
@@ -34,9 +35,6 @@ public class Fighter {
     private boolean throwing;          // 投げ（ガード不能の掴み）を発動中か（Task 35）
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
 
-    /** 投げ発動を指示する {@code attackButton} の予約語（通常技のボタン種別と衝突しない）（Task 35）。 */
-    private static final String THROW_BUTTON = "throw";
-
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
         this.x = spawnX;
@@ -50,10 +48,12 @@ public class Fighter {
      *
      * @param moveDir      左右移動方向（-1 = 左 / 0 = 静止 / +1 = 右）
      * @param jumpPressed  このフレームでジャンプ入力の立ち上がりがあったか
-     * @param attackButton 押されたボタン種別（"light" / "medium" / "heavy"）。null なら攻撃なし
+     * @param attackButton 押されたボタン種別（{@link AttackButton}）。null なら通常攻撃なし
      * @param crouchHeld   DOWN ボタンを押し続けているか（接地中のみしゃがみ遷移）
+     * @param throwReq     投げ（ガード不能の掴み）の発動要求があるか（Task 35。地上・立ちでのみ成立）
      */
-    public void update(int moveDir, boolean jumpPressed, String attackButton, boolean crouchHeld) {
+    public void update(int moveDir, boolean jumpPressed, AttackButton attackButton, boolean crouchHeld,
+                       boolean throwReq) {
         // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30）。低姿勢判定は crouching を併用。
@@ -82,11 +82,10 @@ public class Fighter {
             }
             // 攻撃の発動：接地時はしゃがみ遷移フレーム（crouchHeld かつ未しゃがみ）を除いて可。
             // 空中では空中攻撃（Task 32）として発動可（しゃがみ条件は無視）。
-            if (attackPhase == AttackPhase.NONE && attackButton != null
+            if (attackPhase == AttackPhase.NONE && (attackButton != null || throwReq)
                     && (grounded ? (!crouchHeld || crouching) : true)) {
-                // 投げ（Task 35）は予約語 "throw" で起動する地上・立ち専用のガード不能掴み。
+                // 投げ（Task 35）は throwReq で起動する地上・立ち専用のガード不能掴み。
                 // 通常技 / 空中攻撃 / しゃがみ攻撃のいずれにも分類せず、専用フラグ throwing を立てる。
-                boolean throwReq = THROW_BUTTON.equals(attackButton);
                 Move move = throwReq ? (grounded ? def.getThrowMove() : null) : selectNormalMove(attackButton);
                 if (move != null) {
                     throwing = throwReq;
@@ -224,15 +223,13 @@ public class Fighter {
     }
 
     /** ボタン種別に対応する通常技を返す（見つからなければ null）。 */
-    private Move selectNormalMove(String button) {
+    private Move selectNormalMove(AttackButton button) {
         Move[] moves = def.getNormalMoves();
         if (moves == null) {
             return null;
         }
-        String trimmed = button.trim();
         for (Move m : moves) {
-            String mb = m.getButton();
-            if (mb != null && trimmed.equalsIgnoreCase(mb.trim())) {
+            if (m.getButton() == button) {
                 return m;
             }
         }

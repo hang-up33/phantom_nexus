@@ -23,6 +23,7 @@ import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.schema.CharacterLoader;
 import com.phantomnexus.shared.schema.StageLoader;
 import com.phantomnexus.shared.types.BattleRules;
+import com.phantomnexus.shared.types.AttackButton;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Hitbox;
@@ -242,7 +243,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         boolean heavyPressed = in.isPressed(InputAction.ATTACK_HEAVY);
         boolean anyAttack = lightPressed || mediumPressed || heavyPressed;
         // 押されたボタン（複数同時は軽い方が優先）
-        String attackButton = lightPressed ? "light" : mediumPressed ? "medium" : heavyPressed ? "heavy" : null;
+        AttackButton attackButton = lightPressed ? AttackButton.LIGHT
+                : mediumPressed ? AttackButton.MEDIUM
+                : heavyPressed ? AttackButton.HEAVY
+                : null;
         // 向き相対のテンキー方向 + 攻撃立ち上がり（いずれかのボタン）を履歴に記録。
         int numpad = InputHistory.numpad(
                 in.isDown(InputAction.LEFT), in.isDown(InputAction.RIGHT),
@@ -264,7 +268,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         boolean throwReq = in.isPressed(InputAction.THROW) && f.isGrounded() && !crouchHeld
                 && f.getDef().getThrowMove() != null;
         if (throwReq) {
-            attackButton = "throw";
+            // 投げ要求時は通常攻撃を抑止（発動は throwReq として Fighter.update へ渡す）。
+            attackButton = null;
         } else if (cmd != Command.NONE && anyAttack) {
             // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
             Move special = findSpecialMove(f.getDef(), cmd);
@@ -275,7 +280,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 attackButton = null;
             }
         }
-        f.update(dir, jump, attackButton, crouchHeld);
+        f.update(dir, jump, attackButton, crouchHeld, throwReq);
     }
 
     /** キャラの specialMoves[] からコマンドに対応する技を返す（見つからなければ null）。 */
