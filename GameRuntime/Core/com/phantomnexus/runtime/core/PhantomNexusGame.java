@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.phantomnexus.runtime.battle.AiController;
 import com.phantomnexus.runtime.battle.CollisionSystem;
+import com.phantomnexus.runtime.battle.DamagePopup;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -23,6 +24,7 @@ import com.phantomnexus.shared.schema.CharacterLoader;
 import com.phantomnexus.shared.schema.StageLoader;
 import com.phantomnexus.shared.types.BattleRules;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
@@ -37,7 +39,7 @@ import java.util.List;
  * <p>Core はライフサイクルと毎フレームの更新順序（入力 → 更新 → 描画）の制御に専念する。
  * 2 体の {@link Fighter} を保持し、{@link PlayerInput} の左右入力で移動・ジャンプ入力で跳躍させる
  * （P1=WASD / P2=方向キー、ジャンプは Task 8）。更新後に互いへ向き直し、{@link GameRenderer} へ描画委譲する。
- * サンプルキャラ定義はコード生成の暫定で、Task 16 で JSON 読込供給に差し替える。
+ * キャラ / ステージ定義は外部 JSON から供給する（{@link CharacterLoader} / {@link StageLoader}、Task 16/17）。
  */
 public class PhantomNexusGame extends ApplicationAdapter {
 
@@ -57,6 +59,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private int commandTimer1;
     private int commandTimer2;
     private final List<Projectile> projectiles = new ArrayList<>();
+    // ダメージ数値ポップアップ（被弾 / ガード時の与ダメージ量を命中位置に浮かび上がらせる演出）。
+    private final List<DamagePopup> damagePopups = new ArrayList<>();
     private final AiController p2Ai = new AiController();
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
@@ -136,7 +140,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, round, debugOverlay,
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, round, debugOverlay,
                 controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
@@ -144,6 +148,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** 入力 → コマンド検出 → 攻撃・移動・ジャンプ → 押し合い解消 → ヒット判定 → 勝敗 → 向き直し → アニメ進行。 */
     private void update() {
+        // ダメージ数値ポップアップは決着 / ラウンド間でも上昇・フェードを続けるため、凍結ガードより前に進める
+        // （KO を決めた一撃の数字が止まらず最後まで浮かぶ）。純粋な演出で戦闘結果には影響しない。
+        updateDamagePopups();
         // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
         if (round.isFinished()) {
             return;
@@ -194,13 +201,34 @@ public class PhantomNexusGame extends ApplicationAdapter {
         commandTimer1 = 0;
         commandTimer2 = 0;
         projectiles.clear();
+        damagePopups.clear();
         p2Ai.reset();
     }
 
+    /** ダメージ数値ポップアップを 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出）。 */
+    private void updateDamagePopups() {
+        for (Iterator<DamagePopup> it = damagePopups.iterator(); it.hasNext(); ) {
+            DamagePopup p = it.next();
+            p.update();
+            if (p.isExpired()) {
+                it.remove();
+            }
+        }
+    }
+
     /**
-     * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
-     * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19）。
+     * 実際に減った HP 量（{@code dealt}）が正なら、命中位置にダメージ数値ポップアップを生成する。
+     * 量は HP 計算式を複製せず「適用前後の HP 差」で求めるため、0 クランプ（残 HP より大きいダメージ）も
+     * 正確に表示できる。ガード成立時は {@link DamagePopup.Kind#CHIP} で色分けする。
      */
+    private void spawnDamagePopup(int dealt, boolean blocked, float centerX, float centerY) {
+        if (dealt <= 0) {
+            return;
+        }
+        damagePopups.add(new DamagePopup(dealt, blocked ? DamagePopup.Kind.CHIP : DamagePopup.Kind.HIT,
+                centerX, centerY, GameConstants.DAMAGE_POPUP_FRAMES));
+    }
+
     /**
      * 1 プレイヤー分の入力を 1 回だけ読み取り（強制エッジの二重消費を避ける）、入力履歴へ記録し、
      * コマンド検出を行ってから {@link Fighter#update} へ渡す（Task 19/24）。
@@ -230,8 +258,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 commandTimer1 = COMMAND_DISPLAY_FRAMES;
             }
         }
-        // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
-        if (cmd != Command.NONE && anyAttack) {
+        boolean crouchHeld = in.isDown(InputAction.DOWN);
+        // 投げ（Task 35）：地上・立ち（非しゃがみ）で投げボタンが押され、キャラに投げ技があれば最優先で発動する。
+        // ガード不能の近接掴み。Fighter 側が予約語 "throw" を受けて専用経路で起動する（通常攻撃 / 必殺技は抑止）。
+        boolean throwReq = in.isPressed(InputAction.THROW) && f.isGrounded() && !crouchHeld
+                && f.getDef().getThrowMove() != null;
+        if (throwReq) {
+            attackButton = "throw";
+        } else if (cmd != Command.NONE && anyAttack) {
+            // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
             Move special = findSpecialMove(f.getDef(), cmd);
             if (special != null && f.startSpecial(special)) {
                 if (special.isProjectile()) {
@@ -240,7 +275,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 attackButton = null;
             }
         }
-        boolean crouchHeld = in.isDown(InputAction.DOWN);
         f.update(dir, jump, attackButton, crouchHeld);
     }
 
@@ -284,11 +318,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
             Fighter target = p.getOwner() == fighter1 ? fighter2 : fighter1;
             if (p.isAlive() && CollisionSystem.hits(p, target)) {
                 int knockbackDir = target.getX() >= p.getX() ? 1 : -1;
-                if (target.isGuarding()) {
+                boolean blocked = target.isGuarding();
+                int before = target.getCurrentHp();
+                if (blocked) {
                     target.applyGuard(p.getDamage(), knockbackDir);
                 } else {
                     target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
                 }
+                spawnDamagePopup(before - target.getCurrentHp(), blocked,
+                        p.getX(), target.getY() + target.getDef().getHeight() / 2f);
                 p.kill();
             }
             if (!p.isAlive()) {
@@ -297,49 +335,68 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
     }
 
-    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31）。 */
-    private static void resolveHit(Fighter attacker, Fighter defender) {
-        if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
+    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31 / Task 35）。 */
+    private void resolveHit(Fighter attacker, Fighter defender) {
+        if (attacker.hasAttackConnected() || !CollisionSystem.isHitting(attacker, defender)) {
+            return;
+        }
+        // 投げ（Task 35）は地上の相手のみ掴める。空中の相手に grab box が重なった時点で whiff として消費し
+        // （markAttackConnected）、同じ active 区間内に相手が着地しても掴み直さない＝ジャンプで確実に回避できる
+        // （PR 目標「ジャンプで回避可」を保証する）。
+        if (attacker.isThrowing() && !defender.isGrounded()) {
             attacker.markAttackConnected();
-            Hitbox hb = CollisionSystem.activeHitbox(attacker);
-            int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
-            // ガード高さ属性（Task 33）で成立可否を決める：
-            //   low（下段／しゃがみ通常技。Task 31）   → しゃがみガードのみ成立（立ちガード貫通）
-            //   overhead（上段）                        → 立ちガードのみ成立（しゃがみガード貫通）
-            //   mid（中段／既定。Task 27/30）           → 立ち / しゃがみどちらでも成立
-            boolean blocked = false;
-            if (defender.isGuarding()) {
-                switch (effectiveAttackHeight(attacker)) {
-                    case "low":
-                        blocked = defender.isCrouchGuarding();
-                        break;
-                    case "overhead":
-                        blocked = !defender.isCrouchGuarding();
-                        break;
-                    default: // "mid"
-                        blocked = true;
-                        break;
-                }
-            }
-            if (blocked) {
-                // ガード成立：chip ダメージのみ（のけぞりなし）。
-                defender.applyGuard(hb.getDamage(), knockbackDir);
-            } else {
-                defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+            return;
+        }
+        attacker.markAttackConnected();
+        Hitbox hb = CollisionSystem.activeHitbox(attacker);
+        int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
+        int before = defender.getCurrentHp();
+        // 投げはガード不能：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
+        if (attacker.isThrowing()) {
+            defender.applyThrow(hb.getDamage(), knockbackDir);
+            spawnDamagePopup(before - defender.getCurrentHp(), false,
+                    hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+            return;
+        }
+        // ガード高さ属性（Task 33）で成立可否を決める：
+        //   low（下段／しゃがみ通常技。Task 31）   → しゃがみガードのみ成立（立ちガード貫通）
+        //   overhead（上段）                        → 立ちガードのみ成立（しゃがみガード貫通）
+        //   mid（中段／既定。Task 27/30）           → 立ち / しゃがみどちらでも成立
+        boolean blocked = false;
+        if (defender.isGuarding()) {
+            switch (effectiveAttackHeight(attacker)) {
+                case LOW:
+                    blocked = defender.isCrouchGuarding();
+                    break;
+                case OVERHEAD:
+                    blocked = !defender.isCrouchGuarding();
+                    break;
+                default: // MID
+                    blocked = true;
+                    break;
             }
         }
+        if (blocked) {
+            // ガード成立：chip ダメージのみ（のけぞりなし）。
+            defender.applyGuard(hb.getDamage(), knockbackDir);
+        } else {
+            defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+        }
+        // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべる。
+        spawnDamagePopup(before - defender.getCurrentHp(), blocked,
+                hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
     }
 
     /**
-     * 攻撃の実効ガード高さ（Task 33）。しゃがみ中に出した通常技は脚部 hitbox の下段（low）として扱い（Task 31）、
-     * それ以外は技定義の {@code guardHeight}（overhead / mid / low）に従う。技未定義時は中段（mid）。
+     * 攻撃の実効ガード高さ（Task 33）。しゃがみ中に出した通常技は脚部 hitbox の下段（{@link GuardHeight#LOW}）
+     * として扱い（Task 31）、それ以外は技定義の {@link Move#getGuardHeight()} に従う。技未定義時は中段（既定）。
      */
-    private static String effectiveAttackHeight(Fighter attacker) {
+    private static GuardHeight effectiveAttackHeight(Fighter attacker) {
         if (attacker.isCrouchAttacking()) {
-            return "low";
+            return GuardHeight.LOW;
         }
         Move m = attacker.getCurrentMove();
-        return m != null ? m.getGuardHeight() : "mid";
+        return m != null ? m.getGuardHeight() : GuardHeight.DEFAULT;
     }
 
     /** 左右入力を移動方向（-1 / 0 / +1）に変換する。 */

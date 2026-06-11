@@ -48,6 +48,25 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
   "width": 100,
   "height": 240,
   "color": [0.30, 0.55, 0.92],
+  "sprite": {
+    "path": "Characters/fighter001.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
   "normalMoves": [
     {
       "id": "light_punch",
@@ -76,14 +95,15 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
     {
       "id": "heavy_slam",
       "button": "heavy",
+      "guardHeight": "overhead",
       "damage": 130,
       "startup": 14,
       "active": 5,
       "recovery": 28,
       "hitboxOffsetX": 0,
-      "hitboxOffsetY": 110,
+      "hitboxOffsetY": 60,
       "hitboxWidth": 110,
-      "hitboxHeight": 50
+      "hitboxHeight": 90
     }
   ],
   "specialMoves": [
@@ -101,7 +121,18 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
       "projectile": true,
       "projectileSpeed": 9.0
     }
-  ]
+  ],
+  "throwMove": {
+    "id": "shoulder_throw",
+    "damage": 150,
+    "startup": 3,
+    "active": 2,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 150
+  }
 }
 ```
 
@@ -116,11 +147,33 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `jumpPower` | float | ✅ | ジャンプ初速（px/frame, 上向き正） |
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
-| `color` | float[3] | 任意 | 表示色 RGB（0..1）。スプライト導入までのプレースホルダ矩形色（未設定なら描画側の既定色） |
+| `color` | float[3] | 任意 | 表示色 RGB（0..1）。`sprite` 未指定時のプレースホルダ矩形色（未設定なら描画側の既定色） |
+| `sprite` | Sprite | 任意 | スプライト（描画用画像）定義（Task 34）。省略時は従来どおりプレースホルダ矩形で描画（後方互換） |
 | `normalMoves` | Move[] | ✅ | 通常技配列（1 件以上）。各技の `button` で弱/中/強を区別 |
 | `specialMoves` | Move[] | 任意 | 必殺技配列（省略可）。各技の `command` でコマンド種別を指定 |
+| `throwMove` | Move | 任意 | 投げ技（ガード不能の近接掴み, Task 35）。省略時はそのキャラは投げを持たない（後方互換）。`button` / `command` / `guardHeight` は不要 |
 
-> `animations`（スプライト）は将来拡張。前方互換のため未知フィールドはロード時に無視する。
+### Sprite（`sprite` オブジェクト・Task 34）
+
+キャラの描画用スプライトシート（格子状に並んだフレーム画像 1 枚の PNG）を指定する。`Texture` の読み込み・フレーム
+切り出しは描画側（`GameRuntime/Rendering/SpriteLibrary`）が担い、本定義は**画像パスとレイアウトの単一の真実**のみを持つ。
+シートは `frameWidth`×`frameHeight` の等間隔グリッドとして解釈し、各アニメーション状態を `stateRows` で行に、フレーム
+（列）番号を実行時のアニメーション進行（`FighterAnimator`）に対応づける。PNG 欠落・読み込み失敗時はプレースホルダ
+矩形へフォールバックする（バリデーションは形状のみ検証し、実在チェックは描画側に委ねる）。
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `path` | string | ✅ | スプライトシート PNG のパス（`Assets/` ルート＝クラスパス相対。例 `"Characters/fighter001.png"`） |
+| `frameWidth` | int | ✅ | 1 フレーム（セル）の横幅（px, 正） |
+| `frameHeight` | int | ✅ | 1 フレーム（セル）の高さ（px, 正） |
+| `stateRows` | SpriteStateRow[] | 任意 | アニメーション状態 → シート行番号の対応。未マップ状態は行 0（待機）へフォールバック |
+
+SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字ラベル）/ `row`（int・0 以上・シート上の行番号）。
+状態ラベルは `idle` / `walk` / `jump` / `attack` / `jump_attack` / `throw` / `hitstun` / `guard` / `crouch` / `crouch_walk` /
+`crouch_attack` / `crouch_guard`（実装の真実は `GameRuntime/Rendering/AnimationState`）。向きは右向きを基準とし、
+左向きは描画側が水平反転する（シートには右向きフレームのみ用意する）。
+
+> 前方互換のため未知フィールドはロード時に無視する（`setIgnoreUnknownFields(true)`）。
 
 ### Move（`normalMoves[]` 要素）
 
@@ -158,13 +211,35 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 > hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。飛び道具技は hitbox 寸法を弾サイズとして使い、body 付随判定は持たない（ダメージは弾が運ぶ）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
 
-### キー割当（Task 24）
+### Move（`throwMove` オブジェクト・Task 35）
+
+投げ技（**ガード不能の近接掴み**）の定義。`Move` を再利用するが、投げは専用の投げボタンで起動しガードを無視するため
+**`button` / `command` / `guardHeight` は不要**（あっても無視される）。`hitboxWidth`/`hitboxHeight`/`hitboxOffsetX/Y` は
+「掴み判定（grab box）」を表す。狭い `hitboxWidth` で近接限定にする。投げは中段/下段の区別を持たず、立ち・しゃがみどちらの
+ガードでも貫通する（成立は active 区間中に grab box が相手 hurtbox に重なるか・かつ相手が地上にいるか）。
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `id` | string | ✅ | 技 ID |
+| `damage` | int | ✅ | ダメージ（ガード不能のためフルダメージが通る） |
+| `startup` | int | ✅ | 発生フレーム（掴みが出るまで） |
+| `active` | int | ✅ | 掴み判定の持続フレーム |
+| `recovery` | int | ✅ | 硬直フレーム（空振り時の隙） |
+| `hitboxOffsetX` | float | ✅ | grab box の前方オフセット（px） |
+| `hitboxOffsetY` | float | ✅ | grab box の足元からの高さ（px） |
+| `hitboxWidth` | float | ✅ | grab box 横幅（px。狭くして近接限定に） |
+| `hitboxHeight` | float | ✅ | grab box 高さ（px） |
+
+> 投げは空中の相手を掴めない（相手がジャンプ中なら不成立 = 隙）。`button`/`command`/`guardHeight` を持たない点が `normalMoves`/`specialMoves` との違い。
+
+### キー割当（Task 24 / Task 35）
 
 | ボタン | P1 | P2 |
 |---|---|---|
 | 弱（light） | F | Numpad 1 |
 | 中（medium） | G | Numpad 2 |
 | 強（heavy） | H | Numpad 3 |
+| 投げ（throw） | T | Numpad 0 |
 
 ---
 
@@ -214,3 +289,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 - (Task 20) `Move` に `projectile`/`projectileSpeed`、`Character` に `specialMove` を追加。fighter JSON に必殺技（fireball, 飛び道具）を追加。`CharacterLoader` は specialMove を任意検証。
 - (Task 22) `Character` に表示色 `color`（RGB float[3], 任意）を追加。2 体目（fighter002 Akane）を別ステータス（HP 850・高速・小柄）・別色・別技に再定義し、**コード変更なし・JSON のみでキャラが変わる**ことを検証。
 - (Task 24) 技定義を **配列** に拡張。`normalAttack`（単技）→ `normalMoves[]`（弱/中/強 3 種）、`specialMove`（単技）→ `specialMoves[]`（複数必殺技対応）。`Move` に `button` フィールドを追加（通常技のボタン種別）。`command` フィールドを必殺技のコマンド名（`Command.name()`）として正式化。`InputAction` に `ATTACK_LIGHT`/`ATTACK_MEDIUM`/`ATTACK_HEAVY` を追加し旧 `ATTACK` を廃止。
+- (Task 33) `Move` に **ガード高さ属性 `guardHeight`**（string, 任意, 既定 `"mid"`）を追加。許可値は `overhead`/`mid`/`low` で、`CharacterLoader` が正規化済み getter 値を検証する。未指定の旧 JSON はフィールド初期化子により `"mid"` 扱い（後方互換）。例示として fighter001 の `heavy_slam` を `overhead` 化し、hitbox を `offsetY 60 / height 90` に下げてしゃがみ hurtbox に届くようにした。
+- (Task 34) `Character` に **スプライト定義 `sprite`**（任意・`Sprite` 型）を追加。`path`（PNG・クラスパス相対）/ `frameWidth` / `frameHeight` / `stateRows[]`（アニメ状態→行）を持ち、描画側 `SpriteLibrary` がシートを切り出して `FighterAnimator` の状態・フレームに同期描画する。未指定の旧 JSON はフィールド初期化子（`null`）により従来のプレースホルダ矩形へフォールバック（後方互換）。`Shared/Types` に `Sprite` / `SpriteStateRow` を新設し、`CharacterLoader` で形状（path 非空・寸法正・row 非負）を検証。検証用にプレースホルダ・スプライトシート（`Assets/Characters/fighter001.png` / `fighter002.png`・64×128 セル × 4 列 × 7 行）を同梱し fighter001/002 から参照。
+- (refactor) `guardHeight` の正準値を `Shared/Types/GuardHeight` enum（`OVERHEAD`/`MID`/`LOW`）に集約。散在していた文字列リテラルと `CharacterLoader.VALID_GUARD_HEIGHTS` セットを廃し、解釈・既定・検証を `GuardHeight.fromToken(String)` に一元化した。**JSON 形式（小文字トークン `overhead`/`mid`/`low`・未指定は `mid`）は不変・後方互換**で、本書のフィールド仕様に変更はない（内部実装のみのリファクタ）。
+- (Task 35) `Character` に **投げ技 `throwMove`**（任意・`Move` 型）を追加。ガード不能の近接掴みで、`button`/`command`/`guardHeight` を持たない（専用の投げボタンで起動しガードを無視する）。`CharacterLoader.validateThrowMove()` が id / フレーム / hitbox 寸法のみ検証（button/command/guardHeight は検証しない）。未指定の旧 JSON はフィールド初期化子（`null`）により投げを持たない（後方互換）。`AnimationState` に `throw` ラベルを追加。`InputAction.THROW`（P1=T / P2=Numpad0）を追加。fighter001（`shoulder_throw`・dmg150）/ fighter002（`arm_toss`・dmg130）に `throwMove` と sprite `throw` 行を追加。

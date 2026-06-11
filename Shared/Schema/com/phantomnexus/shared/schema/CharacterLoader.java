@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.Json;
 import com.phantomnexus.shared.types.Character;
+import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Move;
 
 import java.util.Arrays;
@@ -45,13 +46,6 @@ public final class CharacterLoader {
      */
     private static final Set<String> VALID_COMMANDS = Collections.unmodifiableSet(
             new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
-
-    /**
-     * 技のガード高さ属性の許可値（Task 33）。"overhead"（上段）/ "mid"（中段・既定）/ "low"（下段）。
-     * {@link Move#getGuardHeight()} が未指定を "mid" へ正規化するため、JSON 省略時も検証を通る。
-     */
-    private static final Set<String> VALID_GUARD_HEIGHTS = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList("overhead", "mid", "low")));
 
     /**
      * 旧形式モーション記法 → {@code Command.name()} の変換テーブル（後方互換マイグレーション用）。
@@ -161,6 +155,7 @@ public final class CharacterLoader {
         requirePositive(c.getWidth(), "width", src);
         requirePositive(c.getHeight(), "height", src);
         requireOptionalRgb(c.getColor(), "color", src);
+        requireOptionalSprite(c.getSprite(), "sprite", src);
 
         Move[] normals = c.getNormalMoves();
         if (normals == null || normals.length == 0) {
@@ -176,6 +171,30 @@ public final class CharacterLoader {
                 validateSpecialMove(specials[i], "specialMoves[" + i + "]", src);
             }
         }
+
+        // 投げ技（Task 35・任意）。未設定なら検証しない（投げを持たないキャラ）。
+        validateThrowMove(c.getThrowMove(), "throwMove", src);
+    }
+
+    /**
+     * 投げ技の検証（Task 35・任意フィールド）。{@code null}（未指定）は許可。
+     * 投げは <b>ガード不能の近接掴み</b>であり button / command / guardHeight を持たない（発動は専用の投げボタン）ため、
+     * 通常技 / 必殺技と異なりそれらは検証しない。{@link Move} のフレーム値と hitbox 矩形（grab box）のみを検証する。
+     */
+    private static void validateThrowMove(Move m, String field, String src) {
+        if (m == null) {
+            return;
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
     }
 
     /** 通常技の検証（button は "light"/"medium"/"heavy" に限定）。 */
@@ -194,7 +213,7 @@ public final class CharacterLoader {
         }
         requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
         requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
-        requireValidGuardHeight(m.getGuardHeight(), field + ".guardHeight", src);
+        requireValidGuardHeight(m.getGuardHeightToken(), field + ".guardHeight", src);
     }
 
     /** 必殺技の検証（command は実装済みコマンド名に限定・飛び道具時は projectileSpeed 必須）。 */
@@ -216,7 +235,7 @@ public final class CharacterLoader {
         if (m.isProjectile()) {
             requirePositive(m.getProjectileSpeed(), field + ".projectileSpeed", src);
         }
-        requireValidGuardHeight(m.getGuardHeight(), field + ".guardHeight", src);
+        requireValidGuardHeight(m.getGuardHeightToken(), field + ".guardHeight", src);
     }
 
     /** ボタン種別が許可値（"light"/"medium"/"heavy"）であることを検証する。 */
@@ -231,14 +250,15 @@ public final class CharacterLoader {
     }
 
     /**
-     * ガード高さ属性が許可値（{@link #VALID_GUARD_HEIGHTS}）であることを検証する（Task 33）。
-     * 値は {@link Move#getGuardHeight()} 経由で正規化済み（未指定は "mid"）のため、
-     * ここに来る時点で null は来ない想定だが、未知値（例 "high"）は弾く。
+     * ガード高さ属性が許可値（{@link GuardHeight}）であることを検証する（Task 33）。
+     * 生トークン（{@link Move#getGuardHeightToken()}）を {@link GuardHeight#fromToken(String)} で解釈し、
+     * {@code null} / 空（未指定 → 既定の中段）は許可、未知値（例 "high"）のみ弾く。
      */
-    private static void requireValidGuardHeight(String value, String field, String src) {
-        if (value == null || !VALID_GUARD_HEIGHTS.contains(value)) {
+    private static void requireValidGuardHeight(String token, String field, String src) {
+        boolean unknown = token != null && !token.trim().isEmpty() && GuardHeight.fromToken(token) == null;
+        if (unknown) {
             throw new SchemaException(
-                    field + " の値 \"" + value + "\" は不正です。許可値: overhead / mid / low (" + src + ")");
+                    field + " の値 \"" + token + "\" は不正です。許可値: overhead / mid / low (" + src + ")");
         }
     }
 
@@ -251,6 +271,42 @@ public final class CharacterLoader {
             throw new SchemaException(
                     field + " の値 \"" + value + "\" は未知のコマンドです。許可値: "
                             + VALID_COMMANDS + " (" + src + ")");
+        }
+    }
+
+    /**
+     * スプライト定義を検証する（Task 34・任意フィールド）。{@code null}（未指定）は許可。
+     * 指定時は path 非空・frameWidth/frameHeight が正・stateRows[].state 非空・row 非負を要求する。
+     * 実在チェック（PNG が存在するか）は描画側（{@code SpriteLibrary}）に委ね、欠落時は矩形へフォールバックする。
+     */
+    private static void requireOptionalSprite(com.phantomnexus.shared.types.Sprite sprite, String field, String src) {
+        if (sprite == null) {
+            return;
+        }
+        requireText(sprite.getPath(), field + ".path", src);
+        requirePositive(sprite.getFrameWidth(), field + ".frameWidth", src);
+        requirePositive(sprite.getFrameHeight(), field + ".frameHeight", src);
+        com.phantomnexus.shared.types.SpriteStateRow[] rows = sprite.getStateRows();
+        if (rows != null) {
+            // 正規化（trim + toLowerCase）後の state 重複を検出する。SpriteLibrary は state を
+            // 正規化して Map へ入れるため、重複があると静かに上書きされ意図しない行マッピングになる。
+            Set<String> seenStates = new HashSet<>();
+            for (int i = 0; i < rows.length; i++) {
+                com.phantomnexus.shared.types.SpriteStateRow r = rows[i];
+                if (r == null) {
+                    throw new SchemaException(field + ".stateRows[" + i + "] が null (" + src + ")");
+                }
+                requireText(r.getState(), field + ".stateRows[" + i + "].state", src);
+                if (!seenStates.add(r.getState().trim().toLowerCase())) {
+                    throw new SchemaException(
+                            field + ".stateRows[" + i + "].state が重複しています: \""
+                                    + r.getState() + "\" (" + src + ")");
+                }
+                if (r.getRow() < 0) {
+                    throw new SchemaException(
+                            field + ".stateRows[" + i + "].row は 0 以上が必要 = " + r.getRow() + " (" + src + ")");
+                }
+            }
         }
     }
 

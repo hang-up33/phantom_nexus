@@ -7,12 +7,14 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
+import com.phantomnexus.runtime.battle.DamagePopup;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -28,11 +30,15 @@ import com.phantomnexus.shared.types.Stage;
 /**
  * バトルシーンの描画担当（Task 6: キャラクター描画 / Task 7: 移動・向き）。
  *
- * <p>背景クリア → 床 + キャラクター矩形 + 向きマーカー + アニメフレームピップ（{@link ShapeRenderer}）→
- * タイトル / 名前 / アニメ状態ラベル / 入力 HUD（{@link SpriteBatch}）の順に描く。キャラクターはスプライト
- * 導入前のプレースホルダとして、{@link Fighter} の現在位置・{@link Character} の寸法どおりの塗り矩形で表示し、
- * {@link FighterAnimator} の縦ボブで待機 / 歩行のアニメ進行を可視化する。向きは前面側に置く小矩形のマーカーで
- * 示す。Task 9 は状態機械 + フレームタイミングの管理を実装し、実スプライトは Task 15/16（JSON）で差し替える。
+ * <p>描画パスの順序：(1) ステージ背景 + 床（{@link ShapeRenderer}）→ (2) キャラクターのスプライト
+ * （{@link SpriteBatch} + {@link SpriteLibrary}。Task 34）→ (3) ガード / 攻撃 strike / 接触 / 飛び道具 /
+ * HP ゲージ等のオーバーレイ（{@link ShapeRenderer}）→ (4) デバッグ判定枠 → (5) タイトル / 名前 / 状態
+ * ラベル / 入力 HUD（{@link SpriteBatch}）。
+ *
+ * <p>キャラクターは JSON にスプライト定義（{@link Character#getSprite()}）があれば {@link SpriteLibrary} が
+ * 切り出した {@link TextureRegion} を、{@link FighterAnimator} の状態（→行）・フレーム（→列）に同期して
+ * 向き反転つきで描く（Task 34）。スプライト未指定のキャラは従来どおりプレースホルダ矩形 + 向きマーカーで
+ * 描画し、{@link FighterAnimator} の縦ボブでアニメ進行を可視化する（後方互換）。
  */
 public class GameRenderer {
 
@@ -53,10 +59,19 @@ public class GameRenderer {
     private static final Color ATK_STARTUP_COLOR = new Color(0.96f, 0.82f, 0.28f, 0.85f);
     private static final Color ATK_ACTIVE_COLOR = new Color(0.95f, 0.25f, 0.22f, 0.9f);
     private static final Color ATK_RECOVERY_COLOR = new Color(0.55f, 0.57f, 0.64f, 0.8f);
+    // 投げ（grab box）の strike 矩形色。通常攻撃（黄→赤→灰）と区別する紫（Task 35）。
+    private static final Color THROW_COLOR = new Color(0.82f, 0.38f, 0.95f, 0.9f);
     private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
     private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
+    // ダメージ数値ポップアップ：通常ヒット=暖色（黄）/ ガード chip=寒色（青、GUARD_COLOR と同系）。
+    private static final Color POPUP_HIT_COLOR = new Color(1f, 0.92f, 0.40f, 1f);
+    private static final Color POPUP_CHIP_COLOR = new Color(0.55f, 0.80f, 1f, 1f);
+    private static final float POPUP_RISE_PER_FRAME = 1.3f; // 1 フレームあたりの上昇量（px）
+    private static final float POPUP_BASE_OFFSET_Y = 36f;    // 命中位置からの初期持ち上げ（px）
+    private static final float POPUP_SCALE = 1.7f;           // 数字フォント倍率
+    private static final float POPUP_FADE_START = 0.6f;      // この進捗以降フェード開始（0..1）
     private static final Color WIN_DOT_ON = new Color(1f, 0.85f, 0.20f, 1f);
     private static final Color WIN_DOT_OFF = new Color(0.28f, 0.30f, 0.36f, 1f);
     private static final float WIN_DOT_SIZE = 14f;
@@ -73,10 +88,14 @@ public class GameRenderer {
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
+    // キャラのスプライトシート（あれば矩形の代わりにテクスチャ描画。Task 34）。
+    private final SpriteLibrary sprites = new SpriteLibrary();
     private final OrthographicCamera camera;
     private final Viewport viewport;
     private final BitmapFont font;
     private final GlyphLayout layout = new GlyphLayout();
+    // ダメージ数値ポップアップ描画用のフェード色（毎フレームの再確保を避ける作業用バッファ）。
+    private final Color popupColor = new Color();
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -114,21 +133,26 @@ public class GameRenderer {
      * @param anim1        プレイヤー 1 のアニメーション状態
      * @param anim2        プレイヤー 2 のアニメーション状態
      * @param projectiles  飛び道具（必殺技の弾）一覧
+     * @param popups       ダメージ数値ポップアップ一覧（被弾 / ガード時の与ダメージ表示）
      * @param round        ラウンド進行 / 勝敗（タイマー・結果表示）
      * @param debug        デバッグ当たり判定オーバーレイ（有効時に判定枠を重ね描き）
      * @param controlsHint 操作ガイド（HUD）
      * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
-                            List<Projectile> projectiles, RoundManager round, DebugOverlay debug,
-                            String controlsHint, String statusLine) {
+                            List<Projectile> projectiles, List<DamagePopup> popups, RoundManager round,
+                            DebugOverlay debug, String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
+        // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
+        sprites.ensureLoaded(p1.getDef());
+        sprites.ensureLoaded(p2.getDef());
 
-        // --- ステージ背景（空グラデ + 地面）+ キャラクター矩形 + 向きマーカー + アニメフレームピップ ---
-        shapes.setProjectionMatrix(camera.combined);
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // --- パス 1: ステージ背景（空グラデ + 地面）---
+        shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
         // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
@@ -136,8 +160,19 @@ public class GameRenderer {
         // 地面（床）。
         shapes.setColor(groundColor);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
-        drawFighter(p1, anim1, P1_COLOR);
-        drawFighter(p2, anim2, P2_COLOR);
+        shapes.end();
+
+        // --- パス 2: キャラクターのスプライト（テクスチャ描画。Task 34）---
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        drawFighterSprite(p1, anim1);
+        drawFighterSprite(p2, anim2);
+        batch.end();
+
+        // --- パス 3: オーバーレイ（矩形フォールバック / ガード / 攻撃 strike / 接触 / 飛び道具 / HP）---
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        drawFighterOverlay(p1, anim1, P1_COLOR);
+        drawFighterOverlay(p2, anim2, P2_COLOR);
         // 飛び道具（必殺技の弾）。
         drawProjectiles(projectiles);
         // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
@@ -150,10 +185,10 @@ public class GameRenderer {
         drawWinDots(round);
         shapes.end();
 
-        // --- デバッグ当たり判定枠（有効時のみ。Line で重ね描き。投影は上で設定済み）---
+        // --- パス 4: デバッグ当たり判定枠（有効時のみ。Line で重ね描き。投影は上で設定済み）---
         debug.drawBoxes(shapes, p1, p2);
 
-        // --- テキスト（タイトル / 名前 + アニメ状態ラベル / HP 数値 / 入力 HUD） ---
+        // --- パス 5: テキスト（タイトル / 名前 + アニメ状態ラベル / HP 数値 / 入力 HUD） ---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
         font.getData().setScale(1.5f);
@@ -166,6 +201,8 @@ public class GameRenderer {
         drawHpLabels(p2, false);
         drawNameLabel(p1, anim1);
         drawNameLabel(p2, anim2);
+        // ダメージ数値ポップアップ（命中位置から上昇＋終盤フェード。HIT=黄 / CHIP=青）。
+        drawDamagePopups(popups);
         if (!stageName.isEmpty()) {
             drawCentered("Stage: " + stageName, GameConstants.WORLD_WIDTH / 2f, 100f);
         }
@@ -305,33 +342,66 @@ public class GameRenderer {
     }
 
     /**
-     * ファイターをプレースホルダ矩形で描く。アニメーションの縦ボブを位置に反映し、向きマーカーと
-     * 現在フレームを示すピップ列を添える（スプライト導入までの可視化）。
+     * ファイターのスプライト（テクスチャ）をパス 2（{@link SpriteBatch}）で描く（Task 34）。
+     *
+     * <p>JSON にスプライト定義があり読み込み済みのキャラのみ描画する（未指定 / 欠落キャラはここでは
+     * 何もせず、パス 3 の {@link #drawFighterOverlay} が矩形フォールバックを描く）。アニメーション状態
+     * （→行）・フレーム（→列）に対応する領域を引き、向きが左なら水平反転、しゃがみ中は高さを縮め、
+     * のけぞり中は赤みを乗せる。位置は矩形版と同じく中心 X 基準・足元 Y + 縦ボブ。
      */
-    private void drawFighter(Fighter f, FighterAnimator anim, Color fallback) {
+    private void drawFighterSprite(Fighter f, FighterAnimator anim) {
         Character d = f.getDef();
-        // キャラ JSON に色があればそれを使う（Task 22）。無ければプレイヤー既定色。
-        Color color = characterColor(d, fallback);
+        TextureRegion region = sprites.region(d, anim.getState(), anim.getFrameIndex());
+        if (region == null) {
+            return; // スプライト未指定 / 欠落 → 矩形フォールバック（drawFighterOverlay）。
+        }
+        float left = f.getX() - d.getWidth() / 2f;
+        float bottom = f.getY() + anim.bobOffset();
+        float drawHeight = f.isCrouching() ? d.getHeight() / 3f : d.getHeight();
+        // 向き：シートは右向きが基準。左向きは水平反転（共有領域のため毎回 flip 状態を揃える）。
+        boolean faceLeft = !f.isFacingRight();
+        if (region.isFlipX() != faceLeft) {
+            region.flip(true, false);
+        }
+        // のけぞり中は赤みを乗せて被弾を可視化（矩形版の hitstunFlash に相当）。
+        if (f.isInHitstun()) {
+            batch.setColor(1f, 0.55f, 0.55f, 1f);
+        }
+        batch.draw(region, left, bottom, d.getWidth(), drawHeight);
+        batch.setColor(Color.WHITE);
+    }
+
+    /**
+     * ファイターのオーバーレイ要素をパス 3（{@link ShapeRenderer}）で描く（Task 34 で {@code drawFighter} から分離）。
+     *
+     * <p>スプライト未指定 / 欠落のキャラは従来のプレースホルダ矩形 + 向きマーカー（被弾フラッシュ込み）を
+     * ここで描く（後方互換）。スプライト描画済みのキャラは本体矩形を省き、ガードオーバーレイ・攻撃 strike・
+     * フレームピップのみを重ねる（これらは矩形 / スプライトの双方に共通の可視化）。
+     */
+    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback) {
+        Character d = f.getDef();
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
         float bottom = f.getY() + anim.bobOffset();
-        // しゃがみ中は高さを半分にして低姿勢を可視化（Task 25）。
+        // しゃがみ中は高さを縮めて低姿勢を可視化（Task 25）。
         float drawHeight = f.isCrouching() ? d.getHeight() / 3f : d.getHeight();
-        // のけぞり中は白くフラッシュして被弾を可視化する。
-        shapes.setColor(f.isInHitstun() ? hitstunFlash(color) : color);
-        shapes.rect(left, bottom, d.getWidth(), drawHeight);
-        // ガード中：半透明ブルーのオーバーレイで盾状態を可視化する（Task 27）。
+        if (!sprites.isReady(d)) {
+            // スプライト未指定 / 欠落：従来のプレースホルダ矩形（キャラ色 / 被弾フラッシュ）+ 向きマーカー。
+            Color color = characterColor(d, fallback);
+            shapes.setColor(f.isInHitstun() ? hitstunFlash(color) : color);
+            shapes.rect(left, bottom, d.getWidth(), drawHeight);
+            float markerY = bottom + drawHeight - MARKER_SIZE - 12f;
+            float markerX = f.isFacingRight()
+                    ? left + d.getWidth() - MARKER_SIZE - 8f
+                    : left + 8f;
+            shapes.setColor(FACING_COLOR);
+            shapes.rect(markerX, markerY, MARKER_SIZE, MARKER_SIZE);
+        }
+        // ガード中：半透明ブルーのオーバーレイで盾状態を可視化する（矩形 / スプライト共通。Task 27）。
         if (f.isGuarding()) {
             shapes.setColor(GUARD_COLOR);
             shapes.rect(left, bottom, d.getWidth(), drawHeight);
         }
-        // 向きマーカー：上部の前面側に小矩形を置く。
-        float markerY = bottom + drawHeight - MARKER_SIZE - 12f;
-        float markerX = f.isFacingRight()
-                ? left + d.getWidth() - MARKER_SIZE - 8f
-                : left + 8f;
-        shapes.setColor(FACING_COLOR);
-        shapes.rect(markerX, markerY, MARKER_SIZE, MARKER_SIZE);
         // 攻撃中は前方の strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描く。
         if (f.isAttacking()) {
             drawAttackStrike(f);
@@ -362,7 +432,8 @@ public class GameRenderer {
         // 下段（しゃがみ）攻撃は脚部の低位に描く（CollisionSystem の判定位置と一致させる。Task 31）。
         float offsetY = f.isCrouchAttacking() ? GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y : m.getHitboxOffsetY();
         float boxY = f.getY() + offsetY;
-        shapes.setColor(attackPhaseColor(f.getAttackPhase()));
+        // 投げ（grab box）は通常攻撃の区間色ではなく専用の紫で描き、ガード不能の掴みであることを可視化する（Task 35）。
+        shapes.setColor(f.isThrowing() ? THROW_COLOR : attackPhaseColor(f.getAttackPhase()));
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
     }
 
@@ -437,6 +508,32 @@ public class GameRenderer {
         }
     }
 
+    /**
+     * ダメージ数値ポップアップを描く。各ポップアップは命中位置から経過フレームに比例して上昇し、終盤
+     * （{@link #POPUP_FADE_START} 以降）でフェードアウトする。通常ヒットは黄、ガード chip は青で色分けする。
+     * テキストパス（{@link SpriteBatch}）内で呼び、フォントの倍率・色は最後に既定（白・等倍）へ戻す。
+     */
+    private void drawDamagePopups(List<DamagePopup> popups) {
+        if (popups.isEmpty()) {
+            return;
+        }
+        font.getData().setScale(POPUP_SCALE);
+        for (DamagePopup p : popups) {
+            float progress = p.getLifespan() > 0 ? (float) p.getAge() / p.getLifespan() : 1f;
+            // フェード：前半は不透明、POPUP_FADE_START 以降で 1→0 へ線形に消す。
+            float alpha = progress < POPUP_FADE_START
+                    ? 1f
+                    : Math.max(0f, 1f - (progress - POPUP_FADE_START) / (1f - POPUP_FADE_START));
+            Color base = p.getKind() == DamagePopup.Kind.CHIP ? POPUP_CHIP_COLOR : POPUP_HIT_COLOR;
+            popupColor.set(base.r, base.g, base.b, alpha);
+            font.setColor(popupColor);
+            float y = p.getOriginY() + POPUP_BASE_OFFSET_Y + p.getAge() * POPUP_RISE_PER_FRAME;
+            drawCentered(String.valueOf(p.getAmount()), p.getOriginX(), y);
+        }
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+    }
+
     /** ファイターの名前と現在の状態（攻撃中は区間、それ以外はアニメ状態 / フレーム）を矩形の上に表示する。 */
     private void drawNameLabel(Fighter f, FighterAnimator anim) {
         float centerX = f.getX();
@@ -447,7 +544,9 @@ public class GameRenderer {
         if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
-            String prefix = f.isSpecialActive() ? "special" : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
+            String prefix = f.isThrowing() ? "throw"
+                    : f.isSpecialActive() ? "special"
+                    : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
             stateLabel = prefix + ":" + f.getAttackPhase().name().toLowerCase();
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
@@ -470,6 +569,7 @@ public class GameRenderer {
     public void dispose() {
         batch.dispose();
         shapes.dispose();
+        sprites.dispose();
         font.dispose();
     }
 }
