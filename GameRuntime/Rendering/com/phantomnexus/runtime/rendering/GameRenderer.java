@@ -59,6 +59,8 @@ public class GameRenderer {
     private static final Color ATK_STARTUP_COLOR = new Color(0.96f, 0.82f, 0.28f, 0.85f);
     private static final Color ATK_ACTIVE_COLOR = new Color(0.95f, 0.25f, 0.22f, 0.9f);
     private static final Color ATK_RECOVERY_COLOR = new Color(0.55f, 0.57f, 0.64f, 0.8f);
+    // 投げ（grab box）の strike 矩形色。通常攻撃（黄→赤→灰）と区別する紫（Task 35）。
+    private static final Color THROW_COLOR = new Color(0.82f, 0.38f, 0.95f, 0.9f);
     private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
@@ -430,7 +432,8 @@ public class GameRenderer {
         // 下段（しゃがみ）攻撃は脚部の低位に描く（CollisionSystem の判定位置と一致させる。Task 31）。
         float offsetY = f.isCrouchAttacking() ? GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y : m.getHitboxOffsetY();
         float boxY = f.getY() + offsetY;
-        shapes.setColor(attackPhaseColor(f.getAttackPhase()));
+        // 投げ（grab box）は通常攻撃の区間色ではなく専用の紫で描き、ガード不能の掴みであることを可視化する（Task 35）。
+        shapes.setColor(f.isThrowing() ? THROW_COLOR : attackPhaseColor(f.getAttackPhase()));
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
     }
 
@@ -541,7 +544,9 @@ public class GameRenderer {
         if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
-            String prefix = f.isSpecialActive() ? "special" : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
+            String prefix = f.isThrowing() ? "throw"
+                    : f.isSpecialActive() ? "special"
+                    : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
             stateLabel = prefix + ":" + f.getAttackPhase().name().toLowerCase();
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();

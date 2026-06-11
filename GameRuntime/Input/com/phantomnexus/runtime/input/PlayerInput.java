@@ -32,7 +32,7 @@ public class PlayerInput {
     /**
      * プレイヤー 1 の既定割当。
      * 移動: WASD / ジャンプ: W / しゃがみ: S
-     * 攻撃: 弱=F / 中=G / 強=H
+     * 攻撃: 弱=F / 中=G / 強=H / 投げ=T
      */
     public static PlayerInput player1Defaults() {
         EnumMap<InputAction, Integer> b = new EnumMap<>(InputAction.class);
@@ -43,13 +43,14 @@ public class PlayerInput {
         b.put(InputAction.ATTACK_LIGHT, Input.Keys.F);
         b.put(InputAction.ATTACK_MEDIUM, Input.Keys.G);
         b.put(InputAction.ATTACK_HEAVY, Input.Keys.H);
+        b.put(InputAction.THROW, Input.Keys.T);
         return new PlayerInput(b);
     }
 
     /**
      * プレイヤー 2 の既定割当。
      * 移動: 方向キー / ジャンプ: ↑ / しゃがみ: ↓
-     * 攻撃: 弱=Numpad1 / 中=Numpad2 / 強=Numpad3
+     * 攻撃: 弱=Numpad1 / 中=Numpad2 / 強=Numpad3 / 投げ=Numpad0
      */
     public static PlayerInput player2Defaults() {
         EnumMap<InputAction, Integer> b = new EnumMap<>(InputAction.class);
@@ -60,6 +61,7 @@ public class PlayerInput {
         b.put(InputAction.ATTACK_LIGHT, Input.Keys.NUMPAD_1);
         b.put(InputAction.ATTACK_MEDIUM, Input.Keys.NUMPAD_2);
         b.put(InputAction.ATTACK_HEAVY, Input.Keys.NUMPAD_3);
+        b.put(InputAction.THROW, Input.Keys.NUMPAD_0);
         return new PlayerInput(b);
     }
 
@@ -123,7 +125,8 @@ public class PlayerInput {
                 + "  Crouch " + keyName(InputAction.DOWN)
                 + "  L:" + keyName(InputAction.ATTACK_LIGHT)
                 + "  M:" + keyName(InputAction.ATTACK_MEDIUM)
-                + "  H:" + keyName(InputAction.ATTACK_HEAVY);
+                + "  H:" + keyName(InputAction.ATTACK_HEAVY)
+                + "  Throw:" + keyName(InputAction.THROW);
     }
 
     private String keyName(InputAction action) {

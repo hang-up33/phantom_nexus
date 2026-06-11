@@ -34,10 +34,14 @@ public class FighterAnimator {
         }
     }
 
-    /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
+    /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > 投げ > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
     private static AnimationState resolve(Fighter fighter) {
         if (fighter.isInHitstun()) {
             return AnimationState.HITSTUN;
+        }
+        // 投げ（Task 35）は地上・立ち専用の掴みポーズ。攻撃ステート中だが strike とは別表示にするため攻撃より先に評価する。
+        if (fighter.isThrowing()) {
+            return AnimationState.THROW;
         }
         if (fighter.isCrouchAttacking()) {
             return AnimationState.CROUCH_ATTACK;

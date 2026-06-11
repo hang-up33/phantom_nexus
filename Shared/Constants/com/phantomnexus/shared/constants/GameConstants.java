@@ -73,6 +73,17 @@ public final class GameConstants {
     public static final float LOW_ATTACK_HITBOX_OFFSET_Y = 0f;
 
     /**
+     * 投げ（Task 35）の hitstun フレーム数。通常被弾（{@link #HITSTUN_FRAMES}）より長く、掴みの拘束を表す。
+     * ガード不能の近接掴みが成立したときに被弾側へ適用する。
+     */
+    public static final int THROW_HITSTUN_FRAMES = 30;
+
+    /**
+     * 投げの knockback 倍率（{@link #KNOCKBACK_SPEED} に乗算）。通常被弾より強く吹き飛ばし、掴みからの放り投げを表す（Task 35）。
+     */
+    public static final float THROW_KNOCKBACK_SCALE = 1.6f;
+
+    /**
      * ダメージ数値ポップアップの表示フレーム数（被弾 / ガード時に与ダメージ量を命中位置から浮かび上がらせる演出）。
      *
      * <p>命中位置からこのフレーム数だけ上昇しながら表示し、終盤でフェードアウトして消える。60fps 基準で

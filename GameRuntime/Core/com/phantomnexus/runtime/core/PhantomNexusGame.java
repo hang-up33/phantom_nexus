@@ -237,8 +237,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 commandTimer1 = COMMAND_DISPLAY_FRAMES;
             }
         }
-        // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
-        if (cmd != Command.NONE && anyAttack) {
+        boolean crouchHeld = in.isDown(InputAction.DOWN);
+        // 投げ（Task 35）：地上・立ち（非しゃがみ）で投げボタンが押され、キャラに投げ技があれば最優先で発動する。
+        // ガード不能の近接掴み。Fighter 側が予約語 "throw" を受けて専用経路で起動する（通常攻撃 / 必殺技は抑止）。
+        boolean throwReq = in.isPressed(InputAction.THROW) && f.isGrounded() && !crouchHeld
+                && f.getDef().getThrowMove() != null;
+        if (throwReq) {
+            attackButton = "throw";
+        } else if (cmd != Command.NONE && anyAttack) {
+            // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
             Move special = findSpecialMove(f.getDef(), cmd);
             if (special != null && f.startSpecial(special)) {
                 if (special.isProjectile()) {
@@ -247,7 +254,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 attackButton = null;
             }
         }
-        boolean crouchHeld = in.isDown(InputAction.DOWN);
         f.update(dir, jump, attackButton, crouchHeld);
     }
 
@@ -308,41 +314,53 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
     }
 
-    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31）。 */
+    /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31 / Task 35）。 */
     private void resolveHit(Fighter attacker, Fighter defender) {
-        if (!attacker.hasAttackConnected() && CollisionSystem.isHitting(attacker, defender)) {
-            attacker.markAttackConnected();
-            Hitbox hb = CollisionSystem.activeHitbox(attacker);
-            int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
-            // ガード高さ属性（Task 33）で成立可否を決める：
-            //   low（下段／しゃがみ通常技。Task 31）   → しゃがみガードのみ成立（立ちガード貫通）
-            //   overhead（上段）                        → 立ちガードのみ成立（しゃがみガード貫通）
-            //   mid（中段／既定。Task 27/30）           → 立ち / しゃがみどちらでも成立
-            boolean blocked = false;
-            if (defender.isGuarding()) {
-                switch (effectiveAttackHeight(attacker)) {
-                    case LOW:
-                        blocked = defender.isCrouchGuarding();
-                        break;
-                    case OVERHEAD:
-                        blocked = !defender.isCrouchGuarding();
-                        break;
-                    default: // MID
-                        blocked = true;
-                        break;
-                }
-            }
-            int before = defender.getCurrentHp();
-            if (blocked) {
-                // ガード成立：chip ダメージのみ（のけぞりなし）。
-                defender.applyGuard(hb.getDamage(), knockbackDir);
-            } else {
-                defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
-            }
-            // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべる。
-            spawnDamagePopup(before - defender.getCurrentHp(), blocked,
-                    hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+        if (attacker.hasAttackConnected() || !CollisionSystem.isHitting(attacker, defender)) {
+            return;
         }
+        // 投げ（Task 35）は地上の相手のみ掴める。空中の相手には不成立とし、未命中のまま（mark しない）後続フレームで再判定する。
+        if (attacker.isThrowing() && !defender.isGrounded()) {
+            return;
+        }
+        attacker.markAttackConnected();
+        Hitbox hb = CollisionSystem.activeHitbox(attacker);
+        int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
+        int before = defender.getCurrentHp();
+        // 投げはガード不能：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
+        if (attacker.isThrowing()) {
+            defender.applyThrow(hb.getDamage(), knockbackDir);
+            spawnDamagePopup(before - defender.getCurrentHp(), false,
+                    hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+            return;
+        }
+        // ガード高さ属性（Task 33）で成立可否を決める：
+        //   low（下段／しゃがみ通常技。Task 31）   → しゃがみガードのみ成立（立ちガード貫通）
+        //   overhead（上段）                        → 立ちガードのみ成立（しゃがみガード貫通）
+        //   mid（中段／既定。Task 27/30）           → 立ち / しゃがみどちらでも成立
+        boolean blocked = false;
+        if (defender.isGuarding()) {
+            switch (effectiveAttackHeight(attacker)) {
+                case LOW:
+                    blocked = defender.isCrouchGuarding();
+                    break;
+                case OVERHEAD:
+                    blocked = !defender.isCrouchGuarding();
+                    break;
+                default: // MID
+                    blocked = true;
+                    break;
+            }
+        }
+        if (blocked) {
+            // ガード成立：chip ダメージのみ（のけぞりなし）。
+            defender.applyGuard(hb.getDamage(), knockbackDir);
+        } else {
+            defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+        }
+        // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべる。
+        spawnDamagePopup(before - defender.getCurrentHp(), blocked,
+                hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
     }
 
     /**
