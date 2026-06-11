@@ -33,6 +33,8 @@ public class Fighter {
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
     private boolean aerialAttacking;  // 空中で開始した攻撃（Task 32）
     private boolean throwing;          // 投げ（ガード不能の掴み）を発動中か（Task 35）
+    private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
+    private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
@@ -54,6 +56,13 @@ public class Fighter {
      */
     public void update(int moveDir, boolean jumpPressed, AttackButton attackButton, boolean crouchHeld,
                        boolean throwReq) {
+        // 投げ抜け猶予窓・表示フレームを毎フレーム減衰させる（Task 36）。窓は投げボタン押下でアームされる。
+        if (throwTechWindow > 0) {
+            throwTechWindow--;
+        }
+        if (throwTechFrames > 0) {
+            throwTechFrames--;
+        }
         // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30）。低姿勢判定は crouching を併用。
@@ -156,6 +165,8 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        throwTechWindow = 0;
+        throwTechFrames = 0;
         guarding = false;
     }
 
@@ -183,6 +194,8 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        throwTechWindow = 0;
+        throwTechFrames = 0; // 投げ抜け硬直中に被弾したらラベルをのけぞりへ戻す（表示 desync 防止・Task 36）
     }
 
     /**
@@ -201,6 +214,44 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        throwTechWindow = 0;
+        throwTechFrames = 0; // 投げ抜け硬直中に投げで上書きされたらラベルをのけぞりへ戻す（Task 36）
+    }
+
+    /**
+     * 投げ抜けの猶予窓をアームする（Task 36）。投げボタンを押した（接地）フレームに Core から呼ぶ。
+     * この窓が残っている間に相手の投げを掴まれると投げ抜け（{@link #applyThrowTech}）が成立する。
+     */
+    public void armThrowTech() {
+        throwTechWindow = GameConstants.THROW_TECH_WINDOW;
+    }
+
+    /** 投げ抜け可能な状態か（直近に投げボタンを押して猶予窓が残っているか）（Task 36）。 */
+    public boolean canTechThrow() {
+        return throwTechWindow > 0;
+    }
+
+    /**
+     * 投げ抜け（throw tech, Task 36）を適用する。ノーダメージで両者が反対方向へ弾かれ、短い硬直に入る。
+     * 進行中の投げ / 攻撃は中断する。ダメージ・のけぞりは無し（hitstun と同じ移動・行動拘束を {@link #throwTechFrames} で再利用）。
+     */
+    public void applyThrowTech(int pushDir) {
+        velocityX = pushDir * GameConstants.THROW_TECH_PUSHBACK;
+        hitstunFrames = GameConstants.THROW_TECH_FRAMES; // 行動拘束・knockback 減衰の既存ロジックを流用（ダメージは無し）
+        throwTechFrames = GameConstants.THROW_TECH_FRAMES; // 表示用（label を "tech" にする）
+        throwTechWindow = 0;
+        attackPhase = AttackPhase.NONE;
+        attackFrame = 0;
+        currentMove = null;
+        crouching = false;
+        crouchAttacking = false;
+        aerialAttacking = false;
+        throwing = false;
+    }
+
+    /** 投げ抜けの硬直中か（表示ラベルを "tech" にするための判定）（Task 36）。 */
+    public boolean isThrowTeched() {
+        return throwTechFrames > 0;
     }
 
     /**

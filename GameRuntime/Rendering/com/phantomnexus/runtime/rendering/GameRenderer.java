@@ -541,7 +541,10 @@ public class GameRenderer {
         float top = f.getY() + displayHeight;
         drawCentered(f.getDef().getName(), centerX, top + 30f);
         String stateLabel;
-        if (f.isInHitstun()) {
+        if (f.isThrowTeched()) {
+            // 投げ抜けの硬直は hitstun フレームを流用するため、ラベルは tech を優先表示する（Task 36）。
+            stateLabel = "tech";
+        } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
             String prefix = f.isThrowing() ? "throw"
