@@ -84,6 +84,11 @@ public final class AiController {
             // 掴みの startup 中から毎フレーム armThrowTech() し続けるので、active で掴まれた瞬間に canTechThrow() が成立して
             // 投げ抜け（相互に弾かれ・ノーダメージ）になる。空中は掴めない（Task 35）ので接地時のみ。乱数なし＝決定的。
             // 自分が攻撃硬直 / のけぞり中（canStartAction()==false）は窓を立てられず掴まれる＝硬直を投げで狩る択は残る。
+            // ダッシュ接近中（Task 50）にこの分岐へ入ったらダッシュを止めてニュートラルに戻す（ガード反応と同じ作法）。
+            // 止めないとダッシュ移動が継続して間合いがずれ、投げの成立可否・抜け後の位置まで変わる（CodeRabbit 指摘）。
+            if (self.isDashing()) {
+                self.cancelDash();
+            }
             self.armThrowTech();
             dashTapStep = 0;
         } else if (opponentStriking && distance <= GUARD_RANGE && self.canStartAction()) {
