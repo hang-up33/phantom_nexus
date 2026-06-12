@@ -170,4 +170,14 @@ public final class GameConstants {
 
     /** EX 飛び道具の見た目・判定の拡大率（Task 44）。判定矩形・描画ともこの倍率で大型化する。 */
     public static final float EX_PROJECTILE_SCALE = 1.5f;
+
+    /**
+     * コンボダメージ補正（ダメージスケーリング・Task 46）の 1 ヒットあたりの減衰量。コンボ 2 ヒット目以降、
+     * ヒット数が 1 増えるごとに与ダメージ倍率をこの値だけ下げる（1 ヒット目は等倍）。長いコンボほど
+     * 後続の伸びが鈍り、無限・即死コンボを抑える。倍率は {@link #COMBO_SCALE_MIN} で下限を打つ。
+     */
+    public static final float COMBO_SCALE_STEP = 0.1f;
+
+    /** コンボダメージ補正の最小倍率（Task 46）。これ以上は減らない下限（与ダメージが 0 にならないよう保証）。 */
+    public static final float COMBO_SCALE_MIN = 0.3f;
 }
