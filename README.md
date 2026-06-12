@@ -105,6 +105,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 39 | コンボカウンター（連続ヒット数を "N HITS!" で表示） | ✅ 完了 |
 | 40 | 第2ステージ追加（stage002・JSON のみで背景差し替え検証） | ✅ 完了 |
 | 41 | 3 体目キャラ追加（fighter003 Tetsu・JSON のみでキャラ追加検証） | ✅ 完了 |
+| 42 | ラウンド開始イントロ演出（"ROUND N" → "FIGHT!" ＋ 開始前の入力ロック） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
@@ -128,6 +129,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 - **ガード高さ属性（Task 33）**：技ごとに `guardHeight`（`overhead`/`mid`/`low`）を JSON でデータ化。**上段（overhead）は立ちガードのみ可・しゃがみガード貫通**で、下段（しゃがみガード必須・Task 31）と対の読み合いになる。中段（既定）は両ガード可。未指定の旧 JSON は `mid` 扱い（後方互換）。例：Aoi の強攻撃 `heavy_slam` を overhead 化
 - **ガード（Task 27 / 30）**：後退方向保持で立ちガード・chip ダメージ（通常の 10%、最低 1）・のけぞりなし・半透明ブルーオーバーレイ。しゃがみ中の後退方向保持で**しゃがみガード**（低姿勢ガード・Task 30）
 - **複数ラウンド制（Task 26）**：先取 2 ラウンド（ベスト・オブ 3）・インターバルバナー・勝利ドット（HP バー横）・マッチ結果表示（勝者 + スコア）
+- **ラウンド開始イントロ（Task 42）**：各ラウンド開始時に "ROUND N" → "FIGHT!" 演出を再生し、その間は操作・判定・タイマーを停止（格闘ゲーム定番の試合開始シーケンス）。撮影時は既定スキップ・`-x intro=true` で演出を撮影可能
 - **データ駆動**：キャラ/ステージを外部 JSON から読込（`Shared/Schema` の単一の真実 + バリデーション）。キャラは複数（`fighter001` Aoi / `fighter002` Akane / `fighter003` Tetsu）・ステージは複数（`stage001` Twilight Arena / `stage002` Verdant Glade）を JSON だけで追加・差し替え可能（Task 22 / 40 / 41。撮影は `-x p1char=<id>` / `-x p2char=<id>` / `-x stage=<id>` でオーバーライド）
 - **複数技（Task 24）**：`normalMoves[]`（弱/中/強 3 ボタン）・`specialMoves[]`（複数コマンド技）を JSON で定義。P1: F/G/H、P2: Numpad 1/2/3
 - **コマンド技/必殺技**：入力履歴＋コマンド検出（波動拳 236+A 等）・飛び道具の必殺技

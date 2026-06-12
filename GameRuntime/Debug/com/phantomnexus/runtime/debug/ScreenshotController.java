@@ -192,6 +192,19 @@ public final class ScreenshotController {
     }
 
     /**
+     * ラウンド開始イントロ（"ROUND N"/"FIGHT!" 演出・Task 42）を有効にするか。撮影モードでは既定で
+     * <strong>スキップ</strong>（既存スクショレシピは frame1 から戦闘前提のため後方互換を保つ）、{@code intro=true}
+     * 指定時のみ有効化して開始演出コマを撮れる。通常起動・撮影モード外では {@code fallback}（既定 ON）。
+     */
+    public boolean roundIntroEnabled(boolean fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.intro"));
+        return "true".equalsIgnoreCase(v);
+    }
+
+    /**
      * 読み込むステージ ID の撮影用オーバーライド。撮影モードで {@code stage=<id>} 指定時のみ差し替える。
      * 通常起動・未指定時は {@code fallback}。複数ステージ（背景）の見え方を 1 起動で撮り分けるために使う。
      */
