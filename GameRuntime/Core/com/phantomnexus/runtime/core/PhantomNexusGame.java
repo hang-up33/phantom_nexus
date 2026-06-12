@@ -318,9 +318,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         } else if (cmd != Command.NONE && anyAttack) {
             // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
             Move special = findSpecialMove(f.getDef(), cmd);
-            if (special != null && f.startSpecial(special)) {
-                // 飛び道具の必殺技を、メーター満タンなら EX（消費して強化）で撃つ（Task 44）。
-                boolean ex = special.isProjectile() && f.hasFullMeter();
+            // メーター満タンなら EX（消費して強化）で出す。飛び道具は大型・高ダメージ弾（Task 44）、
+            // 打撃必殺技はダメージ強化（Task 54）。ex を startSpecial に渡し、打撃の EX を Fighter が扱う。
+            boolean ex = special != null && f.hasFullMeter();
+            if (special != null && f.startSpecial(special, ex)) {
                 if (ex) {
                     f.spendFullMeter();
                 }
