@@ -1,0 +1,93 @@
+{
+  "id": "fighter006",
+  "name": "Iwao",
+  "hp": 1200,
+  "walkSpeed": 3.0,
+  "jumpPower": 10.5,
+  "width": 112,
+  "height": 252,
+  "color": [0.78, 0.20, 0.24],
+  "sprite": {
+    "path": "Characters/fighter006.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "hammer_jab",
+      "button": "light",
+      "damage": 55,
+      "startup": 5,
+      "active": 3,
+      "recovery": 11,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 70,
+      "hitboxHeight": 34
+    },
+    {
+      "id": "shoulder_ram",
+      "button": "medium",
+      "damage": 85,
+      "startup": 10,
+      "active": 4,
+      "recovery": 18,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 95,
+      "hitboxWidth": 88,
+      "hitboxHeight": 46
+    },
+    {
+      "id": "ground_pound",
+      "button": "heavy",
+      "damage": 135,
+      "startup": 17,
+      "active": 4,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 90,
+      "hitboxWidth": 104,
+      "hitboxHeight": 52
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "rising_hammer",
+      "command": "CHARGE_SHOT",
+      "damage": 115,
+      "startup": 5,
+      "active": 6,
+      "recovery": 30,
+      "invincibleFrames": 10,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 60,
+      "hitboxWidth": 82,
+      "hitboxHeight": 162
+    }
+  ],
+  "throwMove": {
+    "id": "back_breaker",
+    "damage": 175,
+    "startup": 4,
+    "active": 2,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 54,
+    "hitboxHeight": 150
+  }
+}
