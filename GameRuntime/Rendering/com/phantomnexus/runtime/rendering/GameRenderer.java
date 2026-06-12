@@ -107,6 +107,16 @@ public class GameRenderer {
     private static final Color GUARD_BAR_LOW = new Color(0.98f, 0.55f, 0.20f, 1f); // 残量わずか＝橙で警告
     private static final Color GUARD_BREAK_COLOR = new Color(1f, 0.30f, 0.26f, 1f); // "GUARD BREAK!" の赤
     private static final float GUARD_BREAK_SCALE = 1.5f;
+    // 必殺技ゲージ（スーパーメーター・Task 44）。画面下端の細バー。満タンで EX 可（金色で点灯）。
+    private static final float METER_BAR_WIDTH = 360f;
+    private static final float METER_BAR_HEIGHT = 12f;
+    private static final float METER_BAR_MARGIN = 40f;
+    private static final float METER_BAR_BOTTOM = 16f;
+    private static final Color METER_BAR_BACK = new Color(0.10f, 0.10f, 0.14f, 1f);
+    private static final Color METER_BAR_FILL = new Color(0.30f, 0.62f, 0.95f, 1f);   // 蓄積中＝青
+    private static final Color METER_BAR_FULL = new Color(1f, 0.82f, 0.25f, 1f);      // 満タン＝金（EX 可）
+    private static final Color METER_FRAME_COLOR = new Color(0.80f, 0.82f, 0.90f, 1f);
+    private static final Color EX_PROJECTILE_GLOW = new Color(1f, 0.82f, 0.30f, 1f);  // EX 弾の金グロー
     private static final String STATE_LABEL_GUARD_BREAK = "guard_break"; // 名前下の状態ラベル（ハードコード回避）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
@@ -213,6 +223,9 @@ public class GameRenderer {
         // ガードゲージ（HP バーの直下の細バー。ガードで減り、尽きるとガードクラッシュ。Task 43）。
         drawGuardGauge(p1, true);
         drawGuardGauge(p2, false);
+        // 必殺技ゲージ（画面下端の細バー。貯まると EX 必殺技が撃てる。Task 44）。
+        drawSuperMeter(p1, true);
+        drawSuperMeter(p2, false);
         // 勝利ラウンド数を示すドット（HP バー内側端の下）。金色=獲得、暗色=未獲得。
         drawWinDots(round);
         shapes.end();
@@ -396,6 +409,25 @@ public class GameRenderer {
         shapes.rect(fillLeft, gaugeBottom, fillWidth, GUARD_BAR_HEIGHT);
     }
 
+    /**
+     * 必殺技ゲージ（スーパーメーター）を 1 本描く（Task 44）。画面下端に配置し、HP/ガードと同じく
+     * P1 は左から / P2 は右から増える方向に塗る。満タンは金色（EX 必殺技が撃てる合図）。
+     */
+    private void drawSuperMeter(Fighter f, boolean leftAnchored) {
+        float outerLeft = leftAnchored
+                ? METER_BAR_MARGIN
+                : GameConstants.WORLD_WIDTH - METER_BAR_MARGIN - METER_BAR_WIDTH;
+        shapes.setColor(METER_FRAME_COLOR);
+        shapes.rect(outerLeft - 2f, METER_BAR_BOTTOM - 2f, METER_BAR_WIDTH + 4f, METER_BAR_HEIGHT + 4f);
+        shapes.setColor(METER_BAR_BACK);
+        shapes.rect(outerLeft, METER_BAR_BOTTOM, METER_BAR_WIDTH, METER_BAR_HEIGHT);
+        float ratio = Math.max(0f, Math.min(1f, f.getSuperMeter() / GameConstants.SUPER_METER_MAX));
+        float fillWidth = METER_BAR_WIDTH * ratio;
+        float fillLeft = leftAnchored ? outerLeft : outerLeft + (METER_BAR_WIDTH - fillWidth);
+        shapes.setColor(f.hasFullMeter() ? METER_BAR_FULL : METER_BAR_FILL);
+        shapes.rect(fillLeft, METER_BAR_BOTTOM, fillWidth, METER_BAR_HEIGHT);
+    }
+
     /** 残量割合に応じた HP フィル色（高=緑 / 中=黄 / 低=赤）。 */
     private static Color hpFillColor(float ratio) {
         if (ratio > 0.5f) {
@@ -537,13 +569,13 @@ public class GameRenderer {
                 1f);
     }
 
-    /** 飛び道具を外側グロー + 内側コアの二重円で描く（Task 20）。 */
+    /** 飛び道具を外側グロー + 内側コアの二重円で描く（Task 20）。EX 弾（Task 44）は金色のグローで強調。 */
     private void drawProjectiles(List<Projectile> projectiles) {
         for (Projectile p : projectiles) {
             float cx = p.getX();
             float cy = p.getY() + p.getHeight() / 2f;
             float r = Math.min(p.getWidth(), p.getHeight()) / 2f;
-            shapes.setColor(PROJECTILE_GLOW);
+            shapes.setColor(p.isEx() ? EX_PROJECTILE_GLOW : PROJECTILE_GLOW);
             shapes.circle(cx, cy, r);
             shapes.setColor(PROJECTILE_CORE);
             shapes.circle(cx, cy, r * 0.55f);
