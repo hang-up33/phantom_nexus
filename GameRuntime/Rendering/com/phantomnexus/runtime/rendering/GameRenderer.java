@@ -700,7 +700,10 @@ public class GameRenderer {
         float top = f.getY() + displayHeight;
         drawCentered(f.getDef().getName(), centerX, top + 30f);
         String stateLabel;
-        if (f.isThrowTeched()) {
+        if (f.isKnockedDown()) {
+            // ダウン（Task 60）。HITSTUN ポーズを流用しつつ knockdown ラベルで識別する（ダウン中は被弾無敵）。
+            stateLabel = "knockdown";
+        } else if (f.isThrowTeched()) {
             // 投げ抜けの硬直は hitstun フレームを流用するため、ラベルは tech を優先表示する（Task 36）。
             stateLabel = "tech";
         } else if (f.isGuardBroken()) {

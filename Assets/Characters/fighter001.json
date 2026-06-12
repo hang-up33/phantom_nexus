@@ -62,7 +62,8 @@
       "hitboxOffsetX": 0,
       "hitboxOffsetY": 60,
       "hitboxWidth": 110,
-      "hitboxHeight": 90
+      "hitboxHeight": 90,
+      "knockdown": true
     }
   ],
   "specialMoves": [
