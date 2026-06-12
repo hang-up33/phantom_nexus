@@ -28,12 +28,23 @@ public final class AiController {
     private static final float THROW_RANGE = 130f;
     /** 攻撃 / 投げ後に次の能動行動まで空けるフレーム数（連打防止）。 */
     private static final int ATTACK_COOLDOWN = 45;
+    /**
+     * この距離（中心間, px）より遠ければ歩きでなくダッシュ（二度押し前ステップ・Task 49）で素早く間合いを詰める（Task 50）。
+     * {@link #ATTACK_RANGE} までの接近のうち、遠距離はダッシュ・近距離は歩きと使い分ける。
+     */
+    private static final float DASH_APPROACH_RANGE = 260f;
 
     private int cooldown;
+    /**
+     * AI のダッシュ二度押しパターンの進行状態（Task 50）。Fighter のダッシュ検出は「同方向の押下エッジが受付窓内に 2 回」で
+     * 成立するため、AI 側で 0=1 度目押下 → 1=ニュートラル（離す）→ 2=2 度目押下（発動）の 3 フレームを生成する。
+     */
+    private int dashTapStep;
 
-    /** ラウンド間リセット（クールダウンを消去して次ラウンド開始時の行動可否を初期化する）。 */
+    /** ラウンド間リセット（クールダウン・ダッシュ進行を消去して次ラウンド開始時の行動可否を初期化する）。 */
     public void reset() {
         cooldown = 0;
+        dashTapStep = 0;
     }
 
     /**
@@ -64,18 +75,45 @@ public final class AiController {
         if (opponentStriking && distance <= GUARD_RANGE && self.canStartAction()) {
             // ガード反応：相手の打撃に合わせて後退方向を保持し、ガードで chip に抑える。
             moveDir = backDir;
+            dashTapStep = 0;
         } else if (opponent.isGuarding() && hasThrow && distance <= THROW_RANGE
                 && cooldown == 0 && self.canStartAction()) {
             // 投げ崩し：ガード偏重の相手をガード不能の投げで崩す（打撃は防がれるため）。
             throwReq = true;
             cooldown = ATTACK_COOLDOWN;
+            dashTapStep = 0;
+        } else if (distance > DASH_APPROACH_RANGE && self.canStartAction()) {
+            // 遠距離：ダッシュ（二度押し前ステップ）で素早く間合いを詰める（Task 50）。
+            // Fighter のダッシュ検出（同方向押下エッジ×2 が受付窓内）に合わせ、押下→離す→押下の 3 フレームを生成する。
+            if (self.isDashing()) {
+                // 既にダッシュ発動中：方向を維持し（向き固定）、パターンを初期化して次の二度押しに備える。
+                moveDir = towardDir;
+                dashTapStep = 0;
+            } else {
+                switch (dashTapStep) {
+                    case 0: // 1 度目の押下（エッジを立てる）
+                        moveDir = towardDir;
+                        dashTapStep = 1;
+                        break;
+                    case 1: // ニュートラル（一度離して次の押下をエッジにする）
+                        moveDir = 0;
+                        dashTapStep = 2;
+                        break;
+                    default: // 2 度目の押下（受付窓内ならダッシュ発動）
+                        moveDir = towardDir;
+                        dashTapStep = 0;
+                        break;
+                }
+            }
         } else if (distance > ATTACK_RANGE) {
-            // 間合いの外：相手へ接近する。
+            // 間合いの外（ただしダッシュ距離より内）：歩いて接近する。
             moveDir = towardDir;
+            dashTapStep = 0;
         } else if (cooldown == 0 && self.canStartAction()) {
             // 間合いの内：通常攻撃を出す（クールダウン明け・行動可能時のみ）。
             attack = true;
             cooldown = ATTACK_COOLDOWN;
+            dashTapStep = 0;
         }
         self.update(moveDir, false, attack ? AttackButton.LIGHT : null, false, throwReq);
     }

@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49・50 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -364,10 +364,18 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
-## 簡易 AI（Task 21 → Task 37）
+## 簡易 AI（Task 21 → Task 37 → Task 50）
 
 - `GameRuntime/Battle/AiController` が 1 体を状態ベースで操作する（人間の `PlayerInput` の差し替え）。Task 21 の方針は「近づいて、間合い（中心間 ≤ 150px）に入ったら通常攻撃」。攻撃後はクールダウン（45F）で連打を防ぐ。
 - Core は P2 を既定で AI 制御（**F2** でトグル、撮影は `ai=false` で無効化）。AI は `Fighter.update` を人間と同じ経路で呼ぶため、移動・攻撃・押し合い・被弾はすべて共通ロジックを通る。
+
+### ダッシュ接近（Task 50）
+
+遠距離からの接近は歩きだけだと遅いため、Task 50 で AI に**ダッシュ接近**（Task 49 の二度押し前ステップを利用）を追加した。中心間距離が `DASH_APPROACH_RANGE`(260px) より遠ければ歩行でなくダッシュで素早く間合いを詰め、それより内（≤ 260px）は従来どおり歩いて間合いを調整する。
+
+- **仕組み**：`Fighter` のダッシュ検出は「同方向の押下エッジが受付窓内に 2 回」で成立するため、AI 側で `dashTapStep`（0=1 度目押下 → 1=ニュートラル＝離す → 2=2 度目押下＝発動）の 3 フレームを生成して人間の二度押しを模す。ダッシュ発動中（`isDashing()`）は方向を維持しパターンを 0 に戻して次の二度押しに備える。
+- **状態の持ち越し防止**：ダッシュ以外の分岐（ガード反応・投げ崩し・歩き接近・通常攻撃）に入ったら `dashTapStep=0` にリセットし、間合いが変わって再びダッシュへ戻るときに中途半端なエッジ（いきなりニュートラルや 2 度目）から始まらないようにする。`reset()`（ラウンド間）でも 0 に戻す。
+- **決定的**：判断は距離と観測状態のみで**乱数を使わない**（入力リプレイと両立）。Task 49 のダッシュ機構（`Fighter`）はそのまま流用し、`AiController` の接近分岐を歩き／ダッシュに分けただけ（`Fighter`/Core の戦闘ロジックは不変）。
 
 ### 読み合い反応（Task 37）
 
@@ -590,4 +598,5 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 45) チェーンコンボ（通常技キャンセル）を追記。`Fighter.canChainInto(AttackButton)` を新設（接地・進行中が通常技・`ACTIVE`/`RECOVERY`・`attackConnected`・新ボタン段位 `ordinal` が現在より上）。`update()` の攻撃開始ブロックに `else if (canChainInto(...))` を足し、命中した通常技を上位ボタンの通常技へ `beginAttack` で即キャンセル（`attackConnected`/`attackPhase` リセット＝多段防止と両立）。硬直を飛ばすため上位技の active が hitstun 切れ前に届き、弱→中→強の 3 連ヒット（コンボカウンターが `3 HITS!`・例 Aoi で 50+80+130=260）が成立。チェーン順はボタン段位の全キャラ共通ルールで JSON 変更なし。乱数なし＝決定的（攻撃ステート/ダメージ/hitstun のロジックは不変で発動経路を 1 つ追加しただけ）。「チェーンコンボ（通常技キャンセル）（Task 45）」節を追加。
 - (Task 46) コンボダメージ補正（ダメージスケーリング）を追記。`Fighter.scaledComboDamage(base)` を新設し、`applyHit`/`applyThrow` で `comboCount` 加算後に `applyDamage(scaledComboDamage(damage))` で適用（1 ヒット目は等倍、2 ヒット目以降は `1 - (n-1)×COMBO_SCALE_STEP` を `COMBO_SCALE_MIN` で下限を打って乗算・最低 1 ダメージ保証）。ガードの chip は非対象。ダメージ数値ポップアップ（HP 差）が補正後の値を自動表示（例：Aoi チェーン 50/72/104＝合計 226、補正前 260）。`GameConstants` に `COMBO_SCALE_STEP`(0.1)/`COMBO_SCALE_MIN`(0.3) を追加。乱数なし＝決定的（攻撃ステート/hitstun/knockback は不変で与ダメージ量のみ補正）。全キャラ共通の定数で持つ（JSON 変更なし）。「コンボダメージ補正（ダメージスケーリング）（Task 46）」節を追加。
 - (Task 47) 特殊キャンセル（通常技→必殺技）を追記。Task 45 の `canChainInto` を private ヘルパー `Fighter.isCancelableNormal()`（接地・通常技・`ACTIVE`/`RECOVERY`・`attackConnected`）へ共通化し、`canSpecialCancel()` を新設（追加条件なし）。`startSpecial` の開始ガードを `canStartAction() || canSpecialCancel()` に拡張し、命中した通常技を必殺技でキャンセルできるようにした（`beginAttack` リセットで多段防止と両立）。Core の必殺技ブロックは `attackPhase` 非依存で `startSpecial` を呼ぶため変更不要。例：Aoi `light`(50) → 波動拳キャンセル → 2 HITS（飛び道具にもコンボ補正が乗り 120×0.9=108・合計 158）。乱数なし＝決定的（`startSpecial` の開始条件を 1 つ緩めただけで攻撃ステート/ダメージ/hitstun は不変）。全キャラ共通ルール（JSON 変更なし）。「特殊キャンセル（通常技 → 必殺技）（Task 47）」節を追加。
+- (Task 50) AI のダッシュ接近を追記。`AiController.control` の接近分岐を距離で 2 段化し、中心間 > `DASH_APPROACH_RANGE`(260px) なら歩きでなくダッシュ（Task 49 の二度押し前ステップ）で素早く間合いを詰める。`Fighter` のダッシュ検出（同方向押下エッジ×2 が受付窓内）に合わせ、AI が `dashTapStep`（0=押下 → 1=ニュートラル → 2=押下＝発動）の 3 フレームを生成。`isDashing()` 中は方向維持＋パターン 0 復帰。ダッシュ以外の分岐（ガード/投げ/歩き/攻撃）と `reset()` で `dashTapStep=0`（持ち越し防止）。`DASH_APPROACH_RANGE` 定数を `AiController` に追加。判断は距離と観測状態のみ＝**乱数なし（決定的・入力リプレイと両立）**。`Fighter`/Core の戦闘ロジック・`GameConstants`・JSON は不変（AI の接近分岐のみ）。「簡易 AI」節に「ダッシュ接近（Task 50）」サブ節を追加。
 - (Task 49) ダッシュ（二度押しステップ）を追記。`Fighter` に `prevMoveDir`/`dashTapDir`/`dashTapWindow`/`dashFrames`/`dashDir` を追加し、`update()` で `moveDir` の立ち上がりエッジ＋受付窓（`DASH_TAP_WINDOW`=12f）で二度押しを検出して `dashFrames`（`DASH_FRAMES`=12f）を立てる。歩行分岐の前に dash 分岐を置き `walkSpeed × DASH_SPEED_MULTIPLIER`（2.4）で確定移動（方向を離しても継続・攻撃/必殺技/投げ/ジャンプ/しゃがみ/被弾でキャンセル）。バックステップはガードと被るためダッシュ中は `guarding=false`。`isDashing()` を公開し `GameRenderer` は名前ラベルを `dash` に（歩行アニメ流用・新規 `AnimationState` なし）。入力系（`PlayerInput`/`CommandDetector`）は不変で Fighter 内に完結。`beginAttack`/`applyHit`/`applyThrow`/`applyThrowTech`/`reset()` で `dashFrames` クリア。`GameConstants` に `DASH_TAP_WINDOW`/`DASH_FRAMES`/`DASH_SPEED_MULTIPLIER` を追加。乱数なし＝決定的。全キャラ共通の定数（JSON 変更なし）。「ダッシュ（二度押しステップ）（Task 49）」節を追加。
