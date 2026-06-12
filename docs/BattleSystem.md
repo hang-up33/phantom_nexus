@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35・36 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜37 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -225,11 +225,22 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
-## 簡易 AI（Task 21）
+## 簡易 AI（Task 21 → Task 37）
 
-- `GameRuntime/Battle/AiController` が 1 体を状態ベースで操作する（人間の `PlayerInput` の差し替え）。MVP の方針は「近づいて、間合い（中心間 ≤ 150px）に入ったら通常攻撃」。攻撃後はクールダウン（45F）で連打を防ぐ。
+- `GameRuntime/Battle/AiController` が 1 体を状態ベースで操作する（人間の `PlayerInput` の差し替え）。Task 21 の方針は「近づいて、間合い（中心間 ≤ 150px）に入ったら通常攻撃」。攻撃後はクールダウン（45F）で連打を防ぐ。
 - Core は P2 を既定で AI 制御（**F2** でトグル、撮影は `ai=false` で無効化）。AI は `Fighter.update` を人間と同じ経路で呼ぶため、移動・攻撃・押し合い・被弾はすべて共通ロジックを通る。
-- ジャンプ・必殺技・ガード・読み合いは将来拡張（第一設計書「MVP は高度な AI をやらない」）。
+
+### 読み合い反応（Task 37）
+
+Task 37 で「相手の現在状態に反応する」2 つの行動を追加した。判断は相手の観測状態（`isAttacking()` / `isThrowing()` / `isGuarding()`）と距離のみに基づき、**乱数を使わない（決定的＝入力リプレイと両立）**。
+
+| 反応 | 条件 | 行動 |
+|---|---|---|
+| ガード反応 | 相手が**打撃中**（`isAttacking() && !isThrowing()`）＋ 中心間 ≤ `GUARD_RANGE`(200px) ＋ 自分が行動可能 | 後退方向を保持して**ガード**（chip のみで凌ぐ）。投げはガード不能なので対象外 |
+| 投げ崩し | 相手が**ガード中**（`isGuarding()`）＋ 中心間 ≤ `THROW_RANGE`(130px) ＋ `throwMove` あり ＋ クールダウン明け | ガード不能の**投げ**で崩す（打撃は防がれるため。`throwReq=true`） |
+
+- **優先順**：ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃。状態反応（ガード/投げ）を距離ベース行動より優先する。
+- これにより「打撃＝ガードされる → 投げで崩す／投げ＝ガード不能だがジャンプ・投げ抜けで対応」という読み合いを CPU 戦でも体験できる。AI 自身の投げ抜け反応・ジャンプ・必殺技・しゃがみ系は将来拡張。
 
 ---
 
@@ -430,4 +441,5 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 35) 投げ技（ガード不能の近接掴み）を追記。`Character.throwMove`（任意の `Move`）・`InputAction.THROW`（P1=T / P2=Numpad0）を追加。`Fighter` に `throwing` フィールド・`applyThrow()`（フル damage ＋ 長 hitstun ＋ 強 knockback）・`isThrowing()` を追加し、地上・立ちで専用経路で発動（通常技 / 必殺技より最優先）。`PhantomNexusGame.resolveHit` で `isThrowing()` 時はガード判定をスキップ（ガード不能）＋空中の相手は掴めない（不成立）分岐を追加。`AnimationState.THROW` を追加し `FighterAnimator.resolve()` の優先順（のけぞり > 投げ > しゃがみ攻撃 > …）に織り込み。`GameRenderer` は grab box を紫（`THROW_COLOR`）で描き状態ラベルを `throw:<区間>` に。`GameConstants.THROW_HITSTUN_FRAMES`（30）/`THROW_KNOCKBACK_SCALE`（1.6）を追加。`CharacterLoader.validateThrowMove()`（button/command/guardHeight 不要）を追加。fighter001/002 に `throwMove` と sprite `throw` 行を追加。「投げ技（Task 35）」節を追加し、ステート一覧・アニメ優先順・やらないこと節を更新。
 - (feature/replay) 入力リプレイ（記録 / 再生）を追記。`GameRuntime/Debug/ReplayController` を新設し、毎フレームの押下マスク＋P2 AI 状態を記録 → `PlayerInput.setForcedHold` で再生。決定性（1 render = 1 固定ステップ・dt 非依存・AI 乱数なし）に依拠し、入力列のみで試合を完全再現する。`build.gradle` の run プロパティ転送に `phantom.replay.record`/`play`/`ai` を追加。**戦闘ロジックは不変**（記録/再生フックを Core の render に足しただけ）。設計書タスク順の外の開発ツール追加。「入力リプレイ（記録 / 再生）」節を追加。
 - (refactor) 通常技のボタン種別を `Shared/Types/AttackButton` enum（`LIGHT`/`MEDIUM`/`HEAVY`）に集約（`GuardHeight` と同パターン・戦闘仕様の変更なし）。`Fighter.update` の `attackButton` 引数を String → `AttackButton` に変更し、`selectNormalMove()` の照合を equalsIgnoreCase から enum 同一性に置換（トークン正規化は `AttackButton.fromToken` に一元化）。**Task 35 の投げ起動は予約語 `attackButton="throw"`（String）に依存していたため、本 enum 化に合わせて `Fighter.update` へ専用の `throwReq`（boolean）引数を新設して分離**（`AttackButton` は打撃 3 種に限定し、投げは別チャネルで通す）。攻撃処理（Task 11）/複数技対応（Task 24）/投げ技（Task 35）節の起動記述を更新。
-- (Task 36) 投げ抜け（throw tech）を追記。`Fighter` に `throwTechWindow`（投げボタン押下でアームする猶予窓）・`throwTechFrames`（抜け後の表示/硬直）フィールドと `armThrowTech()`/`canTechThrow()`/`applyThrowTech(pushDir)`/`isThrowTeched()` を追加。`PhantomNexusGame.updateFighterInput` で投げボタン押下（接地）時に `armThrowTech()`、`resolveHit` の投げ成立分岐に「被掴み側が `canTechThrow()` なら両者へ `applyThrowTech` でノーダメージ相互 knockback」を追加。`GameRenderer.drawNameLabel` は `isThrowTeched()` を hitstun より優先して `tech` 表示。`GameConstants` に `THROW_TECH_WINDOW`（10）/`THROW_TECH_FRAMES`（14）/`THROW_TECH_PUSHBACK` を追加。硬直は `hitstunFrames` を流用（新規 `AnimationState` は足さず HITSTUN ポーズを再利用）。「投げ抜け（Task 36）」節を追加。
+- (Task 36) 投げ抜け（throw tech）を追記。`Fighter` に `throwTechWindow`（投げボタン押下でアームする猶予窓）・`throwTechFrames`（抜け後の表示/硬直）フィールドと `armThrowTech()`/`canTechThrow()`/`applyThrowTech(pushDir)`/`isThrowTeched()` を追加。`PhantomNexusGame.updateFighterInput` で投げボタン押下（接地）時に `armThrowTech()`、`resolveHit` の投げ成立分岐に「被掴み側が `canTechThrow()` なら両者へ `applyThrowTech` でノーダメージ相互 knockback」を追加。`GameRenderer.drawNameLabel` は `isThrowTeched()` を hitstun より優先して `tech` 表示。`GameConstants` に `THROW_TECH_WINDOW`（10）/`THROW_TECH_FRAMES`（14）/`THROW_TECH_PUSHBACK` を追加。硬直は `hitstunFrames` を流用（新規 `AnimationState` は足さず HITSTUN ポーズを再利用）。`applyHit`/`applyThrow`/`applyThrowTech` で `guarding` を即解除し単一集約状態を一貫させる（CodeRabbit 指摘）。「投げ抜け（Task 36）」節を追加。
+- (Task 37) AI 読み合い反応を追記。`AiController.control` に「相手が打撃中ならガード（後退方向保持）」「相手がガード中なら投げで崩す（`throwReq=true`）」の 2 反応を追加（優先順：ガード ＞ 投げ ＞ 接近 ＞ 攻撃）。判断は相手の観測状態（`isAttacking`/`isThrowing`/`isGuarding`）＋距離のみで**乱数なし＝決定的**（入力リプレイと両立）。`GUARD_RANGE`(200)/`THROW_RANGE`(130) 定数を追加。`Fighter`/Core の戦闘ロジックは不変（AI の判断分岐のみ）。簡易 AI（Task 21）節に「読み合い反応（Task 37）」サブ節を追加。
