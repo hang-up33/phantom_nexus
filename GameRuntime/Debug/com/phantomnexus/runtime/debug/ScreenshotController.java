@@ -39,6 +39,9 @@ import java.util.List;
  *       書式 {@code start-end:tok+tok;...}。例：波動拳 {@code 1-12:p1.down;8-18:p1.down+p1.right;19-26:p1.right;22-22:p1.attack}。</li>
  *   <li>{@code phantom.screenshot.ai} — {@code false} で P2 の AI を無効化（人間=静止）。
  *       コマンド/飛び道具の撮影で P2 を動かしたくない時に使う。既定 ON。</li>
+ *   <li>{@code phantom.screenshot.aidiff} — P2 AI 難易度（{@code easy} / {@code normal} / {@code hard}・Task 56）。
+ *       他のプロパティと違い<b>撮影モードに依らず通常起動でも有効</b>（ゲームプレイ設定）。既定 HARD。
+ *       生トークンを返し解決は呼び手（{@code AiController.Difficulty.fromToken}）が行う。</li>
  * </ul>
  */
 public final class ScreenshotController {
