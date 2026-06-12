@@ -38,6 +38,12 @@ public class Character {
      */
     private Move throwMove;
     /**
+     * ダッシュ攻撃の技定義（任意）。ダッシュ（二度押しステップ・Task 49）中に攻撃ボタンを押すと出る突進攻撃（Task 65）。
+     * 未設定（{@code null}）ならそのキャラはダッシュ攻撃を持たず、ダッシュ中の攻撃は従来どおり通常技へキャンセルされる
+     * （後方互換）。通常技と同じく {@code button} / {@code guardHeight} / hitbox を持つが、発動はダッシュ中の攻撃入力に限る。
+     */
+    private Move dashAttack;
+    /**
      * 旧形式互換フィールド（Task 24 以前）。LibGDX Json がデシリアライズ後に
      * {@code CharacterLoader.migrateIfLegacy()} が {@code normalMoves} へ移行し、ゲームロジックは参照しない。
      */
@@ -123,6 +129,11 @@ public class Character {
     /** 投げ技の定義（ガード不能の近接掴み）。未設定なら {@code null}（そのキャラは投げを持たない。Task 35）。 */
     public Move getThrowMove() {
         return throwMove;
+    }
+
+    /** ダッシュ攻撃の定義（ダッシュ中の攻撃で出る突進技）。未設定なら {@code null}（そのキャラはダッシュ攻撃を持たない。Task 65）。 */
+    public Move getDashAttack() {
+        return dashAttack;
     }
 
     /** 旧形式互換：{@code CharacterLoader.migrateIfLegacy()} が使用する。ゲームロジックから呼ばない。 */

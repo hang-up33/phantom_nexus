@@ -202,4 +202,11 @@ public final class GameConstants {
 
     /** ダッシュ速度の倍率（Task 49）。ダッシュ中の移動量 = `walkSpeed × DASH_SPEED_MULTIPLIER`。 */
     public static final float DASH_SPEED_MULTIPLIER = 2.4f;
+
+    /**
+     * ダッシュ攻撃（Task 65）の突進初速（px/frame, 前方へ）。ダッシュ中に攻撃を出すと、ダッシュの勢いを
+     * 引き継いだ突進としてこの初速を {@code velocityX} へ与える。毎フレーム {@link #KNOCKBACK_FRICTION} で減衰し、
+     * 攻撃の startup〜active 間に前方へスライドしてから止まる（既存の velocityX 適用経路を流用）。
+     */
+    public static final float DASH_ATTACK_LUNGE_SPEED = 14f;
 }
