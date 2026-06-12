@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜46 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -302,6 +302,19 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
+## 特殊キャンセル（通常技 → 必殺技）（Task 47）
+
+命中した通常技を**必殺技でキャンセル**して繋ぐ（チェーンコンボ Task 45 の必殺技版）。通常技 → 飛び道具などへ硬直を待たず繋ぎ、コンボの締め・運び・ダメージ上乗せを成立させる格闘ゲームの根幹機構。
+
+- **キャンセル前提（`Fighter.isCancelableNormal()`）**：Task 45 の `canChainInto` と共通化した private ヘルパー。接地中・進行中が**通常技**（`currentMove.getButton() != null`＝必殺技/投げ不可）・`ACTIVE` か `RECOVERY`・**接触済み**（`attackConnected`＝空振りキャンセル不可）。`canChainInto`（＋段位上昇）と `canSpecialCancel`（追加条件なし）がこれを共有する。
+- **発動（`Fighter.startSpecial`）**：開始ガードを `canStartAction() || canSpecialCancel()` に拡張。新規発動（非攻撃中）に加え、命中した通常技の active/recovery 中でも必殺技を開始（`beginAttack` が `attackConnected`/`attackPhase` をリセット＝多段防止と両立）。**Core 側（`updateFighterInput` の必殺技ブロック）は `attackPhase` を見ずに `startSpecial` を呼ぶため変更不要**（コマンド入力は攻撃中も `InputHistory` に記録される）。
+- **コンボ成立**：キャンセルで通常技の硬直を飛ばし、必殺技（飛び道具）の active / 弾が相手の hitstun 切れ前に届く。例：Aoi の `light`（50）→ 波動拳キャンセル（`fireball` 120）で **2 HITS**。飛び道具にもコンボダメージ補正（Task 46）が乗り、2 段目は `120×0.9=108`（合計 158）。EX 必殺技（Task 44・メーター満タン）でのキャンセルも成立する。
+- **優先順**：Core は throwReq > 必殺技（コマンド成立＋攻撃）> 通常技/チェーンの順。必殺キャンセルが成立すると `attackButton=null` にして通常技/チェーンを抑止する。
+- **決定性**：入力（コマンド＋攻撃）と接触状態だけで決まり乱数なし（入力リプレイと両立）。攻撃ステート・ダメージ・hitstun は不変で、`startSpecial` の開始条件を 1 つ緩めただけ。
+- **データ**：キャンセル可否は「通常技 → 任意の必殺技」の全キャラ共通ルール（JSON 変更なし）。技ごとのキャンセル可否ルートのデータ化は将来候補。
+
+---
+
 ## しゃがみ攻撃（Task 28）
 
 | 項目 | 仕様 |
@@ -557,3 +570,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 44) 必殺技ゲージ／EX 必殺技を追記。`Fighter` に `superMeter`（float）と `gainMeter`/`hasFullMeter`/`spendFullMeter`/`setMeter`/`getSuperMeter` を追加（`reset()` で 0）。Core は `resolveHit`/`updateProjectiles` の決着点で `awardMeter(attacker, defender, blocked)` を呼び、命中=攻撃側多め(`METER_GAIN_ON_HIT`)・防御側少なめ(`METER_GAIN_ON_TAKE`)・ガード=両者わずか(`METER_GAIN_ON_GUARD`)を**固定値（乱数なし）**で加算。必殺技（飛び道具）発動時に満タンなら `spendFullMeter()` して EX 発射（`spawnProjectile(f, move, ex=true)`：ダメージ `EX_DAMAGE_MULTIPLIER`(1.6)倍・判定/描画 `EX_PROJECTILE_SCALE`(1.5)倍）。`Projectile` に `ex` フラグを追加し描画で金色グロー＋大型に。`GameRenderer` は画面下端に必殺技ゲージバー（青／満タン金）を追加。`ScreenshotController.initialMeter()`（`p1meter`/`p2meter` オーバーライド）を追加し `build.gradle` 転送リストへ反映。`GameConstants` に `SUPER_METER_MAX`/`METER_GAIN_ON_HIT`/`METER_GAIN_ON_TAKE`/`METER_GAIN_ON_GUARD`/`EX_DAMAGE_MULTIPLIER`/`EX_PROJECTILE_SCALE` を追加。全キャラ共通の定数で持つ（JSON 変更なし）。「必殺技ゲージ／EX 必殺技（Task 44）」節を追加。
 - (Task 45) チェーンコンボ（通常技キャンセル）を追記。`Fighter.canChainInto(AttackButton)` を新設（接地・進行中が通常技・`ACTIVE`/`RECOVERY`・`attackConnected`・新ボタン段位 `ordinal` が現在より上）。`update()` の攻撃開始ブロックに `else if (canChainInto(...))` を足し、命中した通常技を上位ボタンの通常技へ `beginAttack` で即キャンセル（`attackConnected`/`attackPhase` リセット＝多段防止と両立）。硬直を飛ばすため上位技の active が hitstun 切れ前に届き、弱→中→強の 3 連ヒット（コンボカウンターが `3 HITS!`・例 Aoi で 50+80+130=260）が成立。チェーン順はボタン段位の全キャラ共通ルールで JSON 変更なし。乱数なし＝決定的（攻撃ステート/ダメージ/hitstun のロジックは不変で発動経路を 1 つ追加しただけ）。「チェーンコンボ（通常技キャンセル）（Task 45）」節を追加。
 - (Task 46) コンボダメージ補正（ダメージスケーリング）を追記。`Fighter.scaledComboDamage(base)` を新設し、`applyHit`/`applyThrow` で `comboCount` 加算後に `applyDamage(scaledComboDamage(damage))` で適用（1 ヒット目は等倍、2 ヒット目以降は `1 - (n-1)×COMBO_SCALE_STEP` を `COMBO_SCALE_MIN` で下限を打って乗算・最低 1 ダメージ保証）。ガードの chip は非対象。ダメージ数値ポップアップ（HP 差）が補正後の値を自動表示（例：Aoi チェーン 50/72/104＝合計 226、補正前 260）。`GameConstants` に `COMBO_SCALE_STEP`(0.1)/`COMBO_SCALE_MIN`(0.3) を追加。乱数なし＝決定的（攻撃ステート/hitstun/knockback は不変で与ダメージ量のみ補正）。全キャラ共通の定数で持つ（JSON 変更なし）。「コンボダメージ補正（ダメージスケーリング）（Task 46）」節を追加。
+- (Task 47) 特殊キャンセル（通常技→必殺技）を追記。Task 45 の `canChainInto` を private ヘルパー `Fighter.isCancelableNormal()`（接地・通常技・`ACTIVE`/`RECOVERY`・`attackConnected`）へ共通化し、`canSpecialCancel()` を新設（追加条件なし）。`startSpecial` の開始ガードを `canStartAction() || canSpecialCancel()` に拡張し、命中した通常技を必殺技でキャンセルできるようにした（`beginAttack` リセットで多段防止と両立）。Core の必殺技ブロックは `attackPhase` 非依存で `startSpecial` を呼ぶため変更不要。例：Aoi `light`(50) → 波動拳キャンセル → 2 HITS（飛び道具にもコンボ補正が乗り 120×0.9=108・合計 158）。乱数なし＝決定的（`startSpecial` の開始条件を 1 つ緩めただけで攻撃ステート/ダメージ/hitstun は不変）。全キャラ共通ルール（JSON 変更なし）。「特殊キャンセル（通常技 → 必殺技）（Task 47）」節を追加。
