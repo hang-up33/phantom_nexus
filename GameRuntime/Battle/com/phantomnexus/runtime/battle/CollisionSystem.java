@@ -69,7 +69,11 @@ public final class CollisionSystem {
         // 下段（しゃがみ）攻撃は技定義の高い hitboxOffsetY を使わず脚部の低位に出す（Task 31）。
         float offsetY = f.isCrouchAttacking() ? GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y : m.getHitboxOffsetY();
         float y = f.getY() + offsetY;
-        return new Hitbox(x, y, m.getHitboxWidth(), m.getHitboxHeight(), m.getDamage());
+        // EX 打撃必殺技（Task 54）は与ダメージを EX_DAMAGE_MULTIPLIER 倍にする（飛び道具 EX のダメージ強化と対）。
+        int damage = f.isExAttack()
+                ? Math.round(m.getDamage() * GameConstants.EX_DAMAGE_MULTIPLIER)
+                : m.getDamage();
+        return new Hitbox(x, y, m.getHitboxWidth(), m.getHitboxHeight(), damage);
     }
 
     /** 2 つの AABB（左下原点・幅高さ）が重なるか。 */

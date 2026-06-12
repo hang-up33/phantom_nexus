@@ -119,6 +119,7 @@ public class GameRenderer {
     private static final Color EX_PROJECTILE_GLOW = new Color(1f, 0.82f, 0.30f, 1f);  // EX 弾の金グロー
     private static final String STATE_LABEL_GUARD_BREAK = "guard_break"; // 名前下の状態ラベル（ハードコード回避）
     private static final String STATE_LABEL_INVINCIBLE_SUFFIX = " [INV]"; // 無敵フレーム中の付加表示（Task 53）
+    private static final String STATE_LABEL_EX_SUFFIX = " [EX]"; // EX 必殺技中の付加表示（Task 54）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
@@ -547,8 +548,11 @@ public class GameRenderer {
         // 下段（しゃがみ）攻撃は脚部の低位に描く（CollisionSystem の判定位置と一致させる。Task 31）。
         float offsetY = f.isCrouchAttacking() ? GameConstants.LOW_ATTACK_HITBOX_OFFSET_Y : m.getHitboxOffsetY();
         float boxY = f.getY() + offsetY;
-        // 投げ（grab box）は通常攻撃の区間色ではなく専用の紫で描き、ガード不能の掴みであることを可視化する（Task 35）。
-        shapes.setColor(f.isThrowing() ? THROW_COLOR : attackPhaseColor(f.getAttackPhase()));
+        // 投げ（grab box）は専用の紫、EX 打撃必殺技（Task 54）は金色グロー、それ以外は区間色で strike を描く。
+        Color strikeColor = f.isThrowing() ? THROW_COLOR
+                : f.isExAttack() ? EX_PROJECTILE_GLOW
+                : attackPhaseColor(f.getAttackPhase());
+        shapes.setColor(strikeColor);
         shapes.rect(boxX, boxY, m.getHitboxWidth(), m.getHitboxHeight());
     }
 
@@ -719,6 +723,10 @@ public class GameRenderer {
         // （フレームデータ依存の無敵をスクショで確認できるようにする）。
         if (f.isInvincible()) {
             stateLabel = stateLabel + STATE_LABEL_INVINCIBLE_SUFFIX;
+        }
+        // EX 必殺技中（メーター消費の強化版・Task 54）は [EX] を付す（金色 strike と対）。
+        if (f.isExAttack()) {
+            stateLabel = stateLabel + STATE_LABEL_EX_SUFFIX;
         }
         drawCentered(stateLabel, centerX, top + 12f);
     }

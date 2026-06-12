@@ -33,6 +33,7 @@ public class Fighter {
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
     private boolean aerialAttacking;  // 空中で開始した攻撃（Task 32）
     private boolean throwing;          // 投げ（ガード不能の掴み）を発動中か（Task 35）
+    private boolean exAttack;           // 進行中の技が EX 版か（メーター消費・打撃のダメージ強化・Task 54）
     private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
@@ -365,6 +366,19 @@ public class Fighter {
      * @return 開始できたか（飛び道具の発射判定に使う）
      */
     public boolean startSpecial(Move move) {
+        return startSpecial(move, false);
+    }
+
+    /**
+     * 必殺技を開始する（EX 指定つき・Task 54）。{@code ex} が true なら EX 必殺技として開始し、打撃必殺技では
+     * 与ダメージが {@code EX_DAMAGE_MULTIPLIER} 倍になる（飛び道具の EX は Core 側で別途処理）。メーター消費・
+     * 飛び道具生成は Core が行う。
+     *
+     * @param move 発動する必殺技（{@code Character.getSpecialMoves()} から選んだもの）
+     * @param ex   EX 版として開始するか（メーター満タン時。打撃必殺技のダメージ強化に使う）
+     * @return 開始できたか（メーター消費 / 飛び道具の発射判定に使う）
+     */
+    public boolean startSpecial(Move move, boolean ex) {
         // 新規発動（非攻撃中）に加え、命中した通常技からの特殊キャンセル（Task 47）でも開始できる。
         if (move == null || !(canStartAction() || canSpecialCancel())) {
             return false;
@@ -375,7 +389,8 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
-        beginAttack(move);
+        beginAttack(move);    // beginAttack が exAttack=false にリセットするので、その後に EX を立てる。
+        exAttack = ex;        // 打撃必殺技なら CollisionSystem.activeHitbox がダメージを EX 倍にする（Task 54）。
         return true;
     }
 
@@ -437,6 +452,7 @@ public class Fighter {
         attackPhase = AttackPhase.STARTUP;
         attackFrame = 0;
         attackConnected = false;
+        exAttack = false; // 既定は非 EX。EX 必殺技のみ startSpecial(move, true) が beginAttack 後に true へ立てる（Task 54）。
         guarding = false; // 攻撃開始フレームにガード状態を残さない（同フレームの被弾が誤って applyGuard になるのを防ぐ）
         dashFrames = 0;   // 攻撃でダッシュをキャンセル（ダッシュ攻撃は通常攻撃として出る・Task 49）
     }
@@ -673,6 +689,15 @@ public class Fighter {
         }
         int inv = currentMove.getInvincibleFrames();
         return inv > 0 && attackFrame <= inv;
+    }
+
+    /**
+     * 進行中の技が EX 版か（Task 54）。EX 打撃必殺技は与ダメージが {@code EX_DAMAGE_MULTIPLIER} 倍になり、
+     * 描画も金色 strike ＋ {@code [EX]} ラベルで区別する。攻撃中（{@code attackPhase != NONE}）のみ有効で、
+     * 技が終われば自動的に false（次の技開始で {@code beginAttack} が false に戻す）。
+     */
+    public boolean isExAttack() {
+        return attackPhase != AttackPhase.NONE && exAttack;
     }
 
     /** 必殺技を発動中か（進行中の技が specialMoves 配列の要素か）。 */
