@@ -708,6 +708,15 @@ public class Fighter {
         return throwing;
     }
 
+    /**
+     * 現在発動中の投げが空中投げ（{@code airThrowMove}）か（Task 70）。
+     * 発動した {@link Move} の同一性で判定するため、低空空中投げが startup/active 中に着地しても種別は不変
+     * （解決時の接地状態に依存せず、「空中投げ＝空中の相手専用」「着地で回避可」の不変条件を保つ・Codex 指摘）。
+     */
+    public boolean isAirThrowing() {
+        return throwing && currentMove != null && currentMove == def.getAirThrowMove();
+    }
+
     /** ダッシュ攻撃（突進攻撃）を発動中か（Task 65）。攻撃ステート中かつダッシュ中に開始したもの。 */
     public boolean isDashAttacking() {
         return dashAttacking;

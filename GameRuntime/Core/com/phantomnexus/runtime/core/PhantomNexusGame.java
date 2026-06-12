@@ -418,11 +418,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (attacker.hasAttackConnected() || !CollisionSystem.isHitting(attacker, defender)) {
             return;
         }
-        // 投げは「掴む側と掴まれる側の接地状態が一致」したときのみ成立する（Task 35 / 空中投げ Task 70）。
-        //   地上投げ（attacker 接地）は地上の相手のみ／空中投げ（attacker 滞空）は空中の相手のみ掴める。
+        // 投げは種別に応じて掴める相手の接地状態が決まる（Task 35 / 空中投げ Task 70）。
+        //   地上投げは地上の相手のみ／空中投げ（airThrowMove）は空中の相手のみ掴める。
+        // 種別は「発動した Move」で固定（Fighter.isAirThrowing）＝低空空中投げが着地しても判定がブレない（Codex 指摘）。
+        //   空中投げ → 相手が接地なら whiff、地上投げ → 相手が滞空なら whiff（isAirThrowing == defender.isGrounded）。
         // 不一致なら grab box が重なった時点で whiff として消費し（markAttackConnected）、同じ active 区間内に
         // 相手の接地状態が変わっても掴み直さない＝地上投げはジャンプで、空中投げは着地で確実に回避できる。
-        if (attacker.isThrowing() && attacker.isGrounded() != defender.isGrounded()) {
+        if (attacker.isThrowing() && attacker.isAirThrowing() == defender.isGrounded()) {
             attacker.markAttackConnected();
             return;
         }
@@ -431,11 +433,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
         int before = defender.getCurrentHp();
         // 投げはガード不能だが、被掴み側が直近に投げボタンを押していれば投げ抜け（Task 36）。
-        // 投げ抜けは地上投げ限定（空中投げ＝attacker 滞空は committal な対空択で抜けられない・Task 70）。
-        // 投げ抜け窓のアームは接地時のみ（armThrowTech）なので、接地直後にジャンプした相手の残存窓で空中投げが
-        // 抜かれる境界を `attacker.isGrounded()` で明示的に塞ぐ。地上投げ（attacker 接地）は従来どおり techable。
+        // 投げ抜けは地上投げ限定（空中投げ＝committal な対空択で抜けられない・Task 70）。種別は発動した Move で固定
+        // （isAirThrowing）するので、接地直後にジャンプした相手の残存 tech 窓で空中投げが抜かれる境界も塞がる。
         if (attacker.isThrowing()) {
-            if (attacker.isGrounded() && defender.canTechThrow()) {
+            if (!attacker.isAirThrowing() && defender.canTechThrow()) {
                 // 投げ抜け成立：両者をノーダメージで反対方向へ弾き、短い硬直に入れる（ガード不能投げ唯一の対抗策）。
                 defender.applyThrowTech(knockbackDir);
                 attacker.applyThrowTech(-knockbackDir);
