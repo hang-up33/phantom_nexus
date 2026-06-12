@@ -197,12 +197,13 @@ public class Fighter {
             // 空中では空中攻撃（Task 32）として発動可（しゃがみ条件は無視）。
             if (attackPhase == AttackPhase.NONE && (attackButton != null || throwReq)
                     && (grounded ? (!crouchHeld || crouching) : true)) {
-                // 投げ（Task 35）は throwReq で起動する地上・立ち専用のガード不能掴み。
-                // 通常技 / 空中攻撃 / しゃがみ攻撃のいずれにも分類せず、専用フラグ throwing を立てる。
+                // 投げ（Task 35）は throwReq で起動するガード不能掴み。地上では地上投げ（地上の相手専用）、
+                // 滞空中では空中投げ（Task 70・空中の相手専用）を選ぶ。throwing フラグは両者共通（接地状態で種別を区別）。
+                // 通常技 / 空中攻撃 / しゃがみ攻撃のいずれにも分類しない。
                 // ダッシュ攻撃（Task 65）：接地ダッシュ中の攻撃で、キャラが dashAttack を持つなら通常技でなく突進技を出す。
                 boolean dashAtk = !throwReq && grounded && !crouchHeld
                         && dashFrames > 0 && def.getDashAttack() != null;
-                Move move = throwReq ? (grounded ? def.getThrowMove() : null)
+                Move move = throwReq ? (grounded ? def.getThrowMove() : def.getAirThrowMove())
                         : dashAtk ? def.getDashAttack()
                         : selectNormalMove(attackButton);
                 if (move != null) {

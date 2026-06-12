@@ -172,6 +172,9 @@ public final class CharacterLoader {
         // 投げ技（Task 35・任意）。未設定なら検証しない（投げを持たないキャラ）。
         validateThrowMove(c.getThrowMove(), "throwMove", src);
 
+        // 空中投げ（Task 70・任意）。地上投げと同型の grab box なので同じ検証を流用する（未設定なら検証しない）。
+        validateThrowMove(c.getAirThrowMove(), "airThrowMove", src);
+
         // ダッシュ攻撃（Task 65・任意）。未設定なら検証しない（ダッシュ攻撃を持たないキャラ）。
         validateDashAttack(c.getDashAttack(), "dashAttack", src);
     }

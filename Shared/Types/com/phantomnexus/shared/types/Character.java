@@ -48,6 +48,12 @@ public class Character {
      */
     private Move throwMove;
     /**
+     * 空中投げの技定義（任意・Task 70）。滞空中に投げボタンを押すと出る、空中の相手専用のガード不能掴み。
+     * 未設定（{@code null}）ならそのキャラは空中投げを持たない（後方互換）。{@link #throwMove}（地上投げ）と同型で、
+     * grab box・damage・frames を持つ。地上投げが地上の相手のみ掴めるのに対し、空中投げは滞空中の相手のみ掴める。
+     */
+    private Move airThrowMove;
+    /**
      * ダッシュ攻撃の技定義（任意）。ダッシュ（二度押しステップ・Task 49）中に攻撃ボタンを押すと出る突進攻撃（Task 65）。
      * 未設定（{@code null}）ならそのキャラはダッシュ攻撃を持たず、ダッシュ中の攻撃は従来どおり通常技へキャンセルされる
      * （後方互換）。通常技と同じく {@code button} / {@code guardHeight} / hitbox を持つが、発動はダッシュ中の攻撃入力に限る。
@@ -149,6 +155,11 @@ public class Character {
     /** 投げ技の定義（ガード不能の近接掴み）。未設定なら {@code null}（そのキャラは投げを持たない。Task 35）。 */
     public Move getThrowMove() {
         return throwMove;
+    }
+
+    /** 空中投げの定義（滞空中の相手専用のガード不能掴み）。未設定なら {@code null}（そのキャラは空中投げを持たない。Task 70）。 */
+    public Move getAirThrowMove() {
+        return airThrowMove;
     }
 
     /** ダッシュ攻撃の定義（ダッシュ中の攻撃で出る突進技）。未設定なら {@code null}（そのキャラはダッシュ攻撃を持たない。Task 65）。 */

@@ -319,8 +319,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (throwPressed && f.isGrounded()) {
             f.armThrowTech();
         }
-        boolean throwReq = throwPressed && f.isGrounded() && !crouchHeld
-                && f.getDef().getThrowMove() != null;
+        // 地上では地上投げ（接地・非しゃがみ・throwMove 所持）、滞空中では空中投げ（Task 70・airThrowMove 所持）。
+        boolean groundThrow = f.isGrounded() && !crouchHeld && f.getDef().getThrowMove() != null;
+        boolean airThrow = !f.isGrounded() && f.getDef().getAirThrowMove() != null;
+        boolean throwReq = throwPressed && (groundThrow || airThrow);
         if (throwReq) {
             // 投げ要求時は通常攻撃を抑止（発動は throwReq として Fighter.update へ渡す）。
             attackButton = null;
@@ -416,10 +418,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (attacker.hasAttackConnected() || !CollisionSystem.isHitting(attacker, defender)) {
             return;
         }
-        // 投げ（Task 35）は地上の相手のみ掴める。空中の相手に grab box が重なった時点で whiff として消費し
-        // （markAttackConnected）、同じ active 区間内に相手が着地しても掴み直さない＝ジャンプで確実に回避できる
-        // （PR 目標「ジャンプで回避可」を保証する）。
-        if (attacker.isThrowing() && !defender.isGrounded()) {
+        // 投げは「掴む側と掴まれる側の接地状態が一致」したときのみ成立する（Task 35 / 空中投げ Task 70）。
+        //   地上投げ（attacker 接地）は地上の相手のみ／空中投げ（attacker 滞空）は空中の相手のみ掴める。
+        // 不一致なら grab box が重なった時点で whiff として消費し（markAttackConnected）、同じ active 区間内に
+        // 相手の接地状態が変わっても掴み直さない＝地上投げはジャンプで、空中投げは着地で確実に回避できる。
+        if (attacker.isThrowing() && attacker.isGrounded() != defender.isGrounded()) {
             attacker.markAttackConnected();
             return;
         }
@@ -428,8 +431,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
         int before = defender.getCurrentHp();
         // 投げはガード不能だが、被掴み側が直近に投げボタンを押していれば投げ抜け（Task 36）。
+        // 投げ抜けは地上投げ限定（空中投げ＝attacker 滞空は committal な対空択で抜けられない・Task 70）。
+        // 投げ抜け窓のアームは接地時のみ（armThrowTech）なので、接地直後にジャンプした相手の残存窓で空中投げが
+        // 抜かれる境界を `attacker.isGrounded()` で明示的に塞ぐ。地上投げ（attacker 接地）は従来どおり techable。
         if (attacker.isThrowing()) {
-            if (defender.canTechThrow()) {
+            if (attacker.isGrounded() && defender.canTechThrow()) {
                 // 投げ抜け成立：両者をノーダメージで反対方向へ弾き、短い硬直に入れる（ガード不能投げ唯一の対抗策）。
                 defender.applyThrowTech(knockbackDir);
                 attacker.applyThrowTech(-knockbackDir);

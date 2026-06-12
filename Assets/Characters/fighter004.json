@@ -93,6 +93,17 @@
     "hitboxWidth": 48,
     "hitboxHeight": 140
   },
+  "airThrowMove": {
+    "id": "sky_grab",
+    "damage": 110,
+    "startup": 3,
+    "active": 3,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 50,
+    "hitboxWidth": 56,
+    "hitboxHeight": 120
+  },
   "dashAttack": {
     "id": "dash_shoulder",
     "guardHeight": "mid",

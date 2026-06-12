@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68・69 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜70 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -715,6 +715,27 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ---
 
+## 空中投げ（air throw・Task 70）
+
+`Character.airThrowMove`（任意 `Move`）を持つキャラは、**滞空中に投げボタン**を押すと**空中の相手専用のガード不能掴み**を発動する。地上投げ（Task 35）が地上の相手のみ掴めるのに対し、空中投げは滞空中の相手のみ掴める＝空対空の択（飛び込み合い・対空の的に対する掴み）。データ駆動で、キャラ JSON に `airThrowMove` を足すだけで増やせる（持たないキャラは従来どおり空中投げなし・後方互換）。
+
+| 項目 | 仕様 |
+|---|---|
+| データ | `Shared/Types.Character.airThrowMove`（任意の `Move`・`throwMove` と同型の grab box）。未指定なら空中投げを持たない（後方互換）。検証は `validateThrowMove` を流用 |
+| 発動条件 | **滞空中**（`!grounded`）+ 非攻撃中 + 投げボタンの立ち上がり + キャラに `airThrowMove` あり。Core が `throwReq=true` を渡し、`Fighter` が滞空中は `airThrowMove` を選んで `throwing=true` で起動する（地上投げと同じ専用経路・接地状態で種別を区別） |
+| 成立範囲（接地状態一致） | 投げは「**掴む側と掴まれる側の接地状態が一致**」したときのみ成立する。`resolveHit` の whiff 判定を `attacker.isGrounded() != defender.isGrounded()` に一般化（地上投げ＝両者接地／空中投げ＝両者滞空）。不一致なら grab box が重なっても whiff として消費（`markAttackConnected`）し掴み直さない＝**地上投げはジャンプで、空中投げは着地で確実に回避できる** |
+| ガード不能 | 地上投げと同じく `isThrowing()` 時は `blocked` 判定をスキップ（空中ガード中でも掴む） |
+| 被弾 | `applyThrow` を流用（フルダメージ + 長い hitstun + 強 knockback）。被弾側は黄色のダメージ数値ポップアップ |
+| 投げ抜け | 空中投げは**抜けられない**（投げ抜け窓のアームは接地時のみ・Task 36）＝committal な空対空択。地上投げのみ techable |
+| 視覚 | grab box は地上投げと同じ紫（`THROW_COLOR`）、状態ラベルは `throw:<区間>`（滞空中なので JUMP ポーズ） |
+| AI | `AiController` は空中で投げボタンを送らないため空中投げを出さない（影響なし） |
+
+- **実装の要点**：(1) `Fighter.update` の投げ選択を `grounded ? throwMove : airThrowMove` に拡張、(2) Core の `throwReq` を「接地＝地上投げ／滞空＝空中投げ」の論理和に拡張、(3) `resolveHit` の whiff 判定を接地状態一致へ一般化——の 3 点。`applyThrow`・ガード不能・紫描画・ラベルはすべて地上投げの実装を流用（新ステート/新描画なし）。
+- **決定性**：投げボタン入力と接地状態・grab box の重なりのみで決まり**乱数なし**（入力リプレイと両立）。`airThrowMove` はキャラ JSON のデータ。**リプレイ format 不変**だが、滞空中に投げボタンを押す既存リプレイで `airThrowMove` を持つキャラは「空振り→空中投げ」へ結果が変わり得る（戦闘仕様変更）。
+- **データ例**：fighter004 Rai に `airThrowMove`（`sky_grab`・dmg110）。二段ジャンプ・空中ダッシュ（Task 68/69）と合わせて高機動な空対空キャラに。
+
+---
+
 ## 投げ抜け（Task 36）
 
 ガード不能の投げ（Task 35）に対する唯一の対抗策。**掴まれる直前〜その瞬間にこちらも投げボタンを押す**と投げ抜け（throw tech）が成立し、掴みがノーダメージで相互に弾かれる。これで読み合いの択が「打撃＝ガード／投げ＝投げ抜け／空中＝ジャンプ」と揃う。
@@ -756,6 +777,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 70) 空中投げ（air throw）を追記。`Shared/Types/Character` に任意 `airThrowMove`（Move・省略可・後方互換）を追加（検証は `validateThrowMove` 流用）。`Fighter.update` の投げ選択を `grounded ? throwMove : airThrowMove` に拡張。Core の `throwReq` を「接地＝地上投げ／滞空＝空中投げ（airThrowMove 所持）」の論理和に拡張。`resolveHit` の投げ whiff 判定を `attacker.isGrounded() != defender.isGrounded()`（接地状態一致）に一般化＝地上投げはジャンプで、空中投げは着地で回避可。`applyThrow`・ガード不能・紫 grab box・`throw` ラベルは地上投げの実装を流用（新ステート/新描画なし）。空中投げは投げ抜け不可（tech 窓のアームは接地時のみ）＝committal な空対空択。例示として fighter004 Rai に `airThrowMove`（`sky_grab`・dmg110）。乱数なし・リプレイ format 不変だが、滞空中に投げボタンを押す既存リプレイは `airThrowMove` 持ちキャラで結果が変わり得る（戦闘仕様変更）。「空中投げ（air throw・Task 70）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 69) 空中ダッシュ（air dash）を追記。`Shared/Types/Character` に任意 int `airDashes`（既定 0・後方互換・`getAirDashes()` が負値→0）を追加。`Fighter` に `airDashesRemaining` フィールドを追加し、ダッシュ二度押し検出に `canAirDash`（`!grounded && airDashesRemaining>0 && attackPhase==NONE && dashFrames<=0`）を併設、成立で既存 `dashFrames`／`dashDir` を起動＋`airDashesRemaining--`。既存の `dashFrames>0` 滑空分岐をそのまま流用（重力継続＝弧を描く）。接地で `airDashesRemaining` 回復＋着地で `dashFrames` クリア（地上ダッシュへ持ち越さない）。`reset()`・コンストラクタで満タン。ダッシュ攻撃（Task 65・`grounded` 条件）は空中ダッシュ中非発動・空中ガード（Task 59）・二段ジャンプ（Task 68）は不変。データ駆動（`airDashes>0` のキャラのみ）・後方互換（既定 0）。例示として fighter004 Rai に `airDashes:1`。乱数なし・リプレイ format 不変だが、滞空中の方向二度押しを含む既存リプレイは `airDashes>0` キャラで結果が変わり得る（戦闘仕様変更）。「空中ダッシュ（air dash）（Task 69）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 68) 二段ジャンプ（air jump）を追記。`Shared/Types/Character` に任意 int `airJumps`（既定 0・後方互換・`getAirJumps()` が負値→0）を追加。`Fighter` に `airJumpsRemaining` フィールドを追加し、`update()` の空中分岐に `else if (jumpPressed && !grounded && airJumpsRemaining > 0)`（`velocityY=jumpPower` 上書き＋`airJumpsRemaining--`）を追加。着地ブロック・`reset()`・コンストラクタで `airJumpsRemaining = def.getAirJumps()` に回復。地上ジャンプは回数非消費。空中攻撃（Task 32）・空中ガード（Task 59）は不変。データ駆動（`airJumps>0` のキャラのみ）・後方互換（既定 0 は従来どおり地上ジャンプのみ）。例示として fighter004 Rai に `airJumps:1`。乱数なし・リプレイ format 不変だが、滞空中ジャンプ入力を含む既存リプレイは `airJumps>0` キャラで結果が変わり得る（戦闘仕様変更）。「二段ジャンプ（air jump）（Task 68）」節・ジャンプ節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 66) 受け身（ukemi・クイック起き上がり）を追記。`GameConstants` に `UKEMI_WINDOW`(12)・`UKEMI_RISE_FRAMES`(20) を追加。`Fighter` のダウン inert 分岐（Task 60）で `knockdownFrames` 減算前に経過フレームを算出し、`ukemiInput`（攻撃/ジャンプ/投げ）が `UKEMI_WINDOW` 以内かつ残りが `UKEMI_RISE_FRAMES` 超なら `knockdownFrames` を `UKEMI_RISE_FRAMES` に短縮して `ukemiRecovery` フラグを立てる。`isUkemiRecovering()` を追加し、`GameRenderer.drawNameLabel` がダウンラベルを `knockdown(ukemi)` に切替。`applyKnockdown`・`reset()` で `ukemiRecovery=false`。ダウン中無敵（Task 60）は短縮後も `knockdownFrames>0` の間そのまま効くので、受け身で縮めれば無敵も早く切れる＝トレードオフが自動成立（専用調整不要）。JSON 変更なし（グローバル機構）。乱数なし・リプレイ format 不変（受け身は通常の行動入力で記録済み）だが、ダウン直後に行動入力を含む既存リプレイは結果が変わり得る（戦闘仕様変更）。AI は現状ダウン中に入力しないため受け身しない（人間のみ・将来拡張）。「受け身（ukemi・クイック起き上がり）（Task 66）」節・ダウン節の起き上がり行・ステート一覧・冒頭サマリを追加。
