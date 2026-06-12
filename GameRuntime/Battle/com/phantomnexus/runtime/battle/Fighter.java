@@ -319,6 +319,12 @@ public class Fighter {
         if (move == null || !(canStartAction() || canSpecialCancel())) {
             return false;
         }
+        // しゃがみ通常技からの特殊キャンセル時に低姿勢フラグを引き継がないよう、開始前に姿勢フラグを落とす
+        // （必殺技は立ち扱い。クリアしないと crouchAttacking が残り必殺技の hurtbox/判定高さ=LOW に化ける・Task 47）。
+        // 新規発動（attackPhase==NONE）ではこれらは既に false なので no-op（チェーン開始経路と同じ作法）。
+        crouchAttacking = false;
+        aerialAttacking = false;
+        throwing = false;
         beginAttack(move);
         return true;
     }
