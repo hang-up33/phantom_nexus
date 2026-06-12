@@ -169,6 +169,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `normalMoves` | Move[] | ✅ | 通常技配列（1 件以上）。各技の `button` で弱/中/強を区別 |
 | `specialMoves` | Move[] | 任意 | 必殺技配列（省略可）。各技の `command` でコマンド種別を指定 |
 | `throwMove` | Move | 任意 | 投げ技（ガード不能の近接掴み, Task 35）。省略時はそのキャラは投げを持たない（後方互換）。`button` / `command` / `guardHeight` は不要 |
+| `airThrowMove` | Move | 任意 | 空中投げ（滞空中の相手専用のガード不能掴み, Task 70）。省略時はそのキャラは空中投げを持たない（後方互換）。`throwMove` と同型の grab box で、地上投げが地上の相手のみ掴めるのに対し空中投げは滞空中の相手のみ掴める。`button` / `command` / `guardHeight` は不要 |
 | `dashAttack` | Move | 任意 | ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃, Task 65）。省略時はそのキャラはダッシュ攻撃を持たず、ダッシュ中の攻撃は従来どおり通常技へキャンセルされる（後方互換）。`button` / `command` は不要（発動はダッシュ＋攻撃入力）。打撃なので `guardHeight`（既定 `mid`）は有効 |
 
 ### Sprite（`sprite` オブジェクト・Task 34）
@@ -331,6 +332,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 70) `Character` に任意フィールド **`airThrowMove`**（Move・省略可）を追加。空中投げ（滞空中の相手専用のガード不能掴み・Task 70）で、`throwMove`（地上投げ）と同型の grab box を持つ。省略時はそのキャラは空中投げを持たない（後方互換）。検証は `throwMove` と同じ `validateThrowMove` を流用。例示として fighter004 Rai に `airThrowMove`（`sky_grab`・dmg110）を付与（高機動ラッシュ＋空対空の掴み）。戦闘仕様は BattleSystem.md「空中投げ（Task 70）」節を参照。
 - (Task 69) `Character` に任意フィールド **`airDashes`**（int・既定 0）を追加。空中ダッシュの回数（air dash・Task 69）で、`1` なら滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。省略時 0＝空中ダッシュなし（後方互換）。`getAirDashes()` が負値を 0 に丸める。例示として fighter004 Rai に `airDashes: 1` を付与（二段ジャンプ＋空中ダッシュ＝高機動ラッシュ型）。戦闘仕様は BattleSystem.md「空中ダッシュ（Task 69）」節を参照。
 - (Task 68) `Character` に任意フィールド **`airJumps`**（int・既定 0）を追加。空中での追加ジャンプ回数（二段ジャンプ・Task 68）で、`1` なら地上ジャンプ後に空中でもう一度跳べる（接地で回復）。省略時 0＝空中ジャンプなし（後方互換）。`getAirJumps()` が負値を 0 に丸める。例示として fighter004 Rai に `airJumps: 1` を付与（高速ラッシュ＋空中機動）。戦闘仕様は BattleSystem.md「二段ジャンプ（Task 68）」節を参照。
 - (Task 67) 8 体目キャラ `Assets/Characters/fighter008.json`（"Ren"・HP880・**ダッシュ起き攻め rushdown 型**の green）＋プレースホルダ・スプライト `fighter008.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・JSON＋PNG の追加だけでキャラが動作する**ことを再々々々々検証（7 体目 fighter007 に続く 8 体目）。アーキタイプを差別化：速い `walkSpeed5.8` で前進し、**`dashAttack`（Task 65）に `knockdown:true`（Task 60）を載せた `dash_blitz`**（ダッシュ突進でダウンを奪い起き攻めへ移行）を軸に、強攻撃 `rising_crush`・飛び道具 `gale_shot`（HADOUKEN）・投げ `collar_toss` を持つ攻め寄り。**新キャラが `dashAttack`（Task 65）・`knockdown`（Task 60）・飛び道具・投げといった既存機構を、技 JSON にフィールドを足すだけでコード変更なしに享受できる**ことをスクショで実証（Ren の `dash_blitz` 命中で相手 `knockdown`・80＝ダッシュ攻撃＋ダウンの複合がデータ駆動で成立）。撮影は `-x p1char=fighter008` / `-x p2char=fighter008`。
