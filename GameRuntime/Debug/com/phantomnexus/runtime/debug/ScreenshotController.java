@@ -234,6 +234,20 @@ public final class ScreenshotController {
     }
 
     /**
+     * P2 の AI 難易度トークン（{@code easy} / {@code normal} / {@code hard}）の撮影用オーバーライド（Task 56）。
+     * 撮影モードで {@code aidiff=<token>} 指定時のみ差し替える。通常起動・未指定時は {@code fallback}（生トークンを返し、
+     * 解決は呼び手＝Core が {@code AiController.Difficulty.fromToken} で行う＝Debug→Battle 依存を作らない）。
+     * 難易度別の反応の見え方を 1 起動で撮り分けるために使う（例：{@code -x aidiff=easy}）。
+     */
+    public String aiDifficulty(String fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.aidiff"));
+        return v != null ? v : fallback;
+    }
+
+    /**
      * 指定プレイヤーの初期必殺技ゲージ量の撮影用オーバーライド（Task 44）。撮影モードで
      * {@code p1meter=<値>} / {@code p2meter=<値>} 指定時のみ返す（未指定 / 通常起動は {@code fallback}）。
      * EX 必殺技（メーター満タンで強化）の見え方を貯め直しなしで撮るために使う（例：{@code -x p1meter=100}）。

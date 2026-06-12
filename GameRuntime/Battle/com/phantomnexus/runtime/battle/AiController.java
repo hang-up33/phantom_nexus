@@ -22,6 +22,32 @@ import com.phantomnexus.shared.types.Move;
  */
 public final class AiController {
 
+    /**
+     * AI の難易度（Task 56）。実装済みの反応群を段階的に解放してプレイ感を変える。判断ロジック自体は同じで、
+     * <b>どの反応を有効にするか</b>だけが変わる（乱数は増やさない＝決定的・入力リプレイと両立）。
+     * <ul>
+     *   <li>{@link #EASY}：反応なし。歩いて接近し間合いで通常攻撃するだけ（Task 21 の素の AI 相当）。</li>
+     *   <li>{@link #NORMAL}：＋ <b>ガード反応 / 投げ崩し</b>（Task 37 の読み合い）。</li>
+     *   <li>{@link #HARD}：＋ <b>投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）</b>＝全反応。</li>
+     * </ul>
+     */
+    public enum Difficulty {
+        EASY, NORMAL, HARD;
+
+        /** 小文字トークン（{@code "easy"} 等）から解決。未知・null は {@code null}（呼び手が既定へ丸める）。 */
+        public static Difficulty fromToken(String token) {
+            if (token == null) {
+                return null;
+            }
+            switch (token.trim().toLowerCase()) {
+                case "easy":   return EASY;
+                case "normal": return NORMAL;
+                case "hard":   return HARD;
+                default:       return null;
+            }
+        }
+    }
+
     /** この距離（中心間, px）以下で通常攻撃を試みる。通常攻撃の届く間合いより少し内側。 */
     private static final float ATTACK_RANGE = 150f;
     /** この距離（中心間, px）以下で相手の打撃に反応してガードする。攻撃間合いより少し広く取り、被弾前に盾を構える。 */
@@ -48,6 +74,11 @@ public final class AiController {
 
     private int cooldown;
     /**
+     * 難易度（Task 56）。既定 {@link Difficulty#HARD}＝全反応有効で、Task 55 までの従来挙動と同一
+     * （入力リプレイの決定性・既存スクショレシピを保つため既定は HARD）。
+     */
+    private Difficulty difficulty = Difficulty.HARD;
+    /**
      * AI のダッシュ二度押しパターンの進行状態（Task 50）。Fighter のダッシュ検出は「同方向の押下エッジが受付窓内に 2 回」で
      * 成立するため、AI 側で 0=1 度目押下 → 1=ニュートラル（離す）→ 2=2 度目押下（発動）の 3 フレームを生成する。
      */
@@ -59,12 +90,26 @@ public final class AiController {
         dashTapStep = 0;
     }
 
+    /** 難易度を設定する（Task 56）。{@code null} は無視（既定 {@link Difficulty#HARD} を保つ）。 */
+    public void setDifficulty(Difficulty d) {
+        if (d != null) {
+            difficulty = d;
+        }
+    }
+
+    /** 現在の難易度（HUD 表示・テスト用）。 */
+    public Difficulty getDifficulty() {
+        return difficulty;
+    }
+
     /**
      * 1 フレーム分、AI の判断で {@code self} を操作する。
      *
      * <p>優先順：<b>無敵対空 ＞ 投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃</b>。相手の状態に反応する反応群を
-     * 距離ベースの行動（接近 / 攻撃）より優先する。落ちてくる相手（空中）への無敵対空（Task 55）を最優先に置く
-     * （飛び込みは打撃なのでガードでも凌げるが、無敵技を持つなら迎撃の方が見返りが大きい）。
+     * 距離ベースの行動（接近 / 攻撃）より優先する。落ちてくる相手（空中）への無敵対空（Task 55）を最優先に置く。
+     * 各反応は{@link #difficulty 難易度}（Task 56）で解放段階が決まる：対空 / 投げ抜け / ダッシュ接近は HARD のみ、
+     * ガード反応 / 投げ崩しは NORMAL 以上。EASY は反応なし（接近＋通常攻撃のみ）。解放されない反応は分岐をスキップし、
+     * 下位の接近 / 攻撃へ自然にフォールスルーする。
      *
      * @param self     操作対象のファイター
      * @param opponent 相手（距離 / 状態判定の基準）
@@ -85,13 +130,17 @@ public final class AiController {
         boolean attack = false;
         boolean throwReq = false;
 
+        // 難易度（Task 56）でどの反応を解放するか。defends=ガード/投げ崩し（NORMAL 以上）、advanced=投げ抜け/ダッシュ/対空（HARD のみ）。
+        boolean defends = difficulty != Difficulty.EASY;
+        boolean advanced = difficulty == Difficulty.HARD;
+
         // 無敵打撃必殺技（リバーサル・Task 53）を持つなら対空に使える。落ちてくる相手をこれで迎撃する。
         Move antiAir = findAntiAirMove(self);
         boolean opponentJumpIn = !opponent.isGrounded()        // 相手が空中
                 && opponent.getVelocityY() <= 0f               // 下降（または頂点）＝こちらへ落ちてくる
                 && distance <= ANTI_AIR_RANGE;                 // 縦長対空 hitbox の届く水平間合い
 
-        if (antiAir != null && opponentJumpIn && self.isGrounded()
+        if (advanced && antiAir != null && opponentJumpIn && self.isGrounded()
                 && self.canStartAction() && cooldown == 0) {
             // 無敵対空（Task 55）：飛び込んでくる相手を無敵フレーム付き打撃必殺技で落とす。
             // AI はコマンド検出（updateFighterInput）を経由しないので、自分で startSpecial を直接呼ぶ。
@@ -100,7 +149,7 @@ public final class AiController {
             self.startSpecial(antiAir);
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
-        } else if (opponent.isThrowing() && distance <= THROW_TECH_RANGE
+        } else if (advanced && opponent.isThrowing() && distance <= THROW_TECH_RANGE
                 && self.isGrounded() && self.canStartAction()) {
             // 投げ抜け反応（Task 51）：相手の掴み（ガード不能）に反応して投げ抜け窓をアームし、ニュートラルで抜けに専念する。
             // 掴みの startup 中から毎フレーム armThrowTech() し続けるので、active で掴まれた瞬間に canTechThrow() が成立して
@@ -113,7 +162,7 @@ public final class AiController {
             }
             self.armThrowTech();
             dashTapStep = 0;
-        } else if (opponentStriking && distance <= GUARD_RANGE && self.canStartAction()) {
+        } else if (defends && opponentStriking && distance <= GUARD_RANGE && self.canStartAction()) {
             // ガード反応：相手の打撃に合わせて後退方向を保持し、ガードで chip に抑える。
             // ダッシュ接近中（dashFrames>0 で guarding が抑止される）に GUARD_RANGE 内で相手の打撃を検知したら、
             // 自分のダッシュをキャンセルしてガードを優先する（Task 50 / Codex 指摘）。ダッシュは AI 自身の選択なので
@@ -123,14 +172,14 @@ public final class AiController {
             }
             moveDir = backDir;
             dashTapStep = 0;
-        } else if (opponent.isGuarding() && hasThrow && distance <= THROW_RANGE
+        } else if (defends && opponent.isGuarding() && hasThrow && distance <= THROW_RANGE
                 && cooldown == 0 && self.canStartAction()) {
             // 投げ崩し：ガード偏重の相手をガード不能の投げで崩す（打撃は防がれるため）。
             throwReq = true;
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
-        } else if (distance > DASH_APPROACH_RANGE && self.canStartAction()) {
-            // 遠距離：ダッシュ（二度押し前ステップ）で素早く間合いを詰める（Task 50）。
+        } else if (advanced && distance > DASH_APPROACH_RANGE && self.canStartAction()) {
+            // 遠距離：ダッシュ（二度押し前ステップ）で素早く間合いを詰める（Task 50。HARD のみ／他は下の歩き接近）。
             // Fighter のダッシュ検出（同方向押下エッジ×2 が受付窓内）に合わせ、押下→離す→押下の 3 フレームを生成する。
             if (self.isDashing()) {
                 // 既にダッシュ発動中：方向を維持し（向き固定）、パターンを初期化して次の二度押しに備える。
