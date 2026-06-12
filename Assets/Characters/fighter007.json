@@ -1,0 +1,95 @@
+{
+  "id": "fighter007",
+  "name": "Kaede",
+  "hp": 950,
+  "walkSpeed": 4.6,
+  "jumpPower": 12.5,
+  "width": 86,
+  "height": 224,
+  "color": [0.85, 0.35, 0.62],
+  "sprite": {
+    "path": "Characters/fighter007.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "jab",
+      "button": "light",
+      "damage": 45,
+      "startup": 4,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 80,
+      "hitboxHeight": 32
+    },
+    {
+      "id": "poke",
+      "button": "medium",
+      "damage": 75,
+      "startup": 8,
+      "active": 4,
+      "recovery": 15,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 102,
+      "hitboxHeight": 38
+    },
+    {
+      "id": "roundhouse",
+      "button": "heavy",
+      "damage": 115,
+      "startup": 14,
+      "active": 4,
+      "recovery": 28,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 95,
+      "hitboxWidth": 104,
+      "hitboxHeight": 48,
+      "knockdown": true
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "wind_shot",
+      "command": "HADOUKEN",
+      "damage": 95,
+      "startup": 7,
+      "active": 4,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 46,
+      "hitboxHeight": 46,
+      "projectile": true,
+      "projectileSpeed": 12.0
+    }
+  ],
+  "throwMove": {
+    "id": "hip_throw",
+    "damage": 130,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 48,
+    "hitboxHeight": 140
+  }
+}
