@@ -432,6 +432,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
             spawnDamagePopup(before - defender.getCurrentHp(), false,
                     hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
             spawnHitSpark(false, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+            // 投げ成立はフルダメージの攻撃なので、通常ヒットと同様にメーターを貯める（ダメージ＝メーターの一貫性）。
+            // 非加算はノーダメージの outcome のみ（投げ抜け＝上の return / 空中 whiff＝markAttackConnected で先に return）。
             awardMeter(attacker, defender, false);
             return;
         }
