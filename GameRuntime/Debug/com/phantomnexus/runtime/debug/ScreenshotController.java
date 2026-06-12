@@ -234,15 +234,14 @@ public final class ScreenshotController {
     }
 
     /**
-     * P2 の AI 難易度トークン（{@code easy} / {@code normal} / {@code hard}）の撮影用オーバーライド（Task 56）。
-     * 撮影モードで {@code aidiff=<token>} 指定時のみ差し替える。通常起動・未指定時は {@code fallback}（生トークンを返し、
-     * 解決は呼び手＝Core が {@code AiController.Difficulty.fromToken} で行う＝Debug→Battle 依存を作らない）。
-     * 難易度別の反応の見え方を 1 起動で撮り分けるために使う（例：{@code -x aidiff=easy}）。
+     * P2 の AI 難易度トークン（{@code easy} / {@code normal} / {@code hard}）のオーバーライド（Task 56）。
+     * <b>撮影モードに依らず常に読む</b>点が他のオーバーライド（{@code charId}/{@code stageId} 等は撮影時のみ）と異なる
+     * ——難易度は「撮影レシピ」ではなく<b>ゲームプレイ設定</b>で、通常起動（{@code gradle run -Dphantom.screenshot.aidiff=hard}）
+     * でも効かせたいため（CodeRabbit 指摘）。未指定時は {@code fallback}（生トークンを返し、解決は呼び手＝Core が
+     * {@code AiController.Difficulty.fromToken} で行う＝Debug→Battle 依存を作らない）。プロパティ名は転送リスト統一のため
+     * {@code phantom.screenshot.} 名前空間のままだが、実体は撮影専用ではない（実行時メニュー化までの暫定設定窓口）。
      */
     public String aiDifficulty(String fallback) {
-        if (!isEnabled()) {
-            return fallback;
-        }
         String v = trimToNull(System.getProperty("phantom.screenshot.aidiff"));
         return v != null ? v : fallback;
     }
