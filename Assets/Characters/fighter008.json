@@ -1,0 +1,108 @@
+{
+  "id": "fighter008",
+  "name": "Ren",
+  "hp": 880,
+  "walkSpeed": 5.8,
+  "jumpPower": 13.5,
+  "width": 80,
+  "height": 215,
+  "color": [0.20, 0.66, 0.33],
+  "sprite": {
+    "path": "Characters/fighter008.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "quick_slash",
+      "button": "light",
+      "damage": 40,
+      "startup": 4,
+      "active": 3,
+      "recovery": 8,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 128,
+      "hitboxWidth": 76,
+      "hitboxHeight": 30
+    },
+    {
+      "id": "side_kick",
+      "button": "medium",
+      "damage": 62,
+      "startup": 7,
+      "active": 4,
+      "recovery": 13,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 88,
+      "hitboxHeight": 36
+    },
+    {
+      "id": "rising_crush",
+      "button": "heavy",
+      "guardHeight": "mid",
+      "damage": 105,
+      "startup": 10,
+      "active": 5,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 78,
+      "hitboxWidth": 92,
+      "hitboxHeight": 74
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "gale_shot",
+      "command": "HADOUKEN",
+      "damage": 85,
+      "startup": 9,
+      "active": 3,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 50,
+      "hitboxHeight": 50,
+      "projectile": true,
+      "projectileSpeed": 10.5
+    }
+  ],
+  "throwMove": {
+    "id": "collar_toss",
+    "damage": 130,
+    "startup": 3,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 150
+  },
+  "dashAttack": {
+    "id": "dash_blitz",
+    "guardHeight": "mid",
+    "knockdown": true,
+    "damage": 80,
+    "startup": 8,
+    "active": 5,
+    "recovery": 18,
+    "hitboxOffsetX": 32,
+    "hitboxOffsetY": 92,
+    "hitboxWidth": 104,
+    "hitboxHeight": 62
+  }
+}
