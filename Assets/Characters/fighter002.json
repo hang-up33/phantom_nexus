@@ -78,6 +78,19 @@
       "hitboxHeight": 46,
       "projectile": true,
       "projectileSpeed": 13.0
+    },
+    {
+      "id": "rising_talon",
+      "command": "CHARGE_SHOT",
+      "damage": 95,
+      "startup": 4,
+      "active": 6,
+      "recovery": 28,
+      "invincibleFrames": 8,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 70,
+      "hitboxWidth": 76,
+      "hitboxHeight": 150
     }
   ],
   "throwMove": {

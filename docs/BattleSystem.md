@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜54 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜55 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -379,7 +379,7 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
-## 簡易 AI（Task 21 → Task 37 → Task 50 → Task 51）
+## 簡易 AI（Task 21 → Task 37 → Task 50 → Task 51 → Task 55）
 
 - `GameRuntime/Battle/AiController` が 1 体を状態ベースで操作する（人間の `PlayerInput` の差し替え）。Task 21 の方針は「近づいて、間合い（中心間 ≤ 150px）に入ったら通常攻撃」。攻撃後はクールダウン（45F）で連打を防ぐ。
 - Core は P2 を既定で AI 制御（**F2** でトグル、撮影は `ai=false` で無効化）。AI は `Fighter.update` を人間と同じ経路で呼ぶため、移動・攻撃・押し合い・被弾はすべて共通ロジックを通る。
@@ -416,7 +416,20 @@ Task 51 で 3 つ目の反応「投げ抜け」を追加した。投げはガー
 - **優先順**（更新）：**投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃**。ガード不能の投げへの反応を最優先に置く。
 - **仕組み**：人間が投げボタン押下でアームする投げ抜け窓（Task 36）を、AI は「相手が投げ中」を観測してアームする（掴みには startup があるので、その間に窓を立て active で抜ける）。空中の相手は掴めない（Task 35）ので AI も接地時のみ反応。`armThrowTech()` を呼ぶだけで `Fighter`/Core は無改修。
 - **残る崩し（counterplay）**：AI が自分の攻撃硬直・のけぞり中（`canStartAction()==false`）は窓を立てられず掴まれる。よって「AI の技の硬直を投げで狩る」択は残り、投げが完全に死ににはならない（決定的なので人間側はタイミングを覚えれば崩せる）。
-- **決定的**：判断は相手の状態（`isThrowing()`）＋距離＋自分の接地/行動可否のみで**乱数なし**（入力リプレイと両立）。AI 自身のジャンプ・必殺技・しゃがみ系は将来拡張。
+- **決定的**：判断は相手の状態（`isThrowing()`）＋距離＋自分の接地/行動可否のみで**乱数なし**（入力リプレイと両立）。
+
+### 無敵対空（Task 55）
+
+Task 55 で AI が初めて**必殺技**を使う反応「無敵対空」を追加した。**無敵打撃必殺技（リバーサル・Task 53）を持つキャラ**の AI は、飛び込んでくる相手（空中＋下降中）をその無敵技で迎撃する。AI は人間の入力（コマンド検出）を経由しないため、`AiController` が `findAntiAirMove()` で `specialMoves[]` から無敵打撃技を探し、`self.startSpecial(move)` を**直接**呼ぶ（直後の `self.update` が技を進める）。打撃必殺技なので飛び道具生成・メーター消費は不要＝`Fighter`/Core は無改修。
+
+| 反応 | 条件 | 行動 |
+|---|---|---|
+| 無敵対空 | 相手が**空中**（`!isGrounded()`）＋**下降中**（`getVelocityY() <= 0`）＋ 中心間 ≤ `ANTI_AIR_RANGE`(170px) ＋ 自分が接地・行動可能 ＋ クールダウン明け ＋ **無敵打撃必殺技を所持** | `self.startSpecial(antiAir)` で無敵リバーサルを出し、落ちてくる相手を縦長の無敵 hitbox で迎撃する |
+
+- **優先順**（更新）：**無敵対空 ＞ 投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃**。落ちてくる相手への迎撃を最優先に置く。
+- **通常攻撃の地上限定化**：あわせて AI の通常攻撃分岐に `opponent.isGrounded()` 条件を追加。**空中の相手に地上通常技を振らない**（空振りするうえ、クールダウンを浪費して無敵対空の機会を潰すため）。
+- **データ駆動**：対空は「キャラ JSON に無敵打撃必殺技があるか」で決まる（例：fighter002 Akane に `rising_talon`＝`CHARGE_SHOT`・打撃・`invincibleFrames:8` を追加）。該当技を持たないキャラの AI は対空しない（接近して通常戦）。新キャラに無敵技を足すだけで AI もそれで対空する。
+- **決定的**：判断は相手の空中状態・下降・距離・所持技のみで**乱数なし**（入力リプレイと両立）。AI 自身のジャンプ・しゃがみ系は将来拡張。
 
 ---
 
@@ -627,6 +640,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 45) チェーンコンボ（通常技キャンセル）を追記。`Fighter.canChainInto(AttackButton)` を新設（接地・進行中が通常技・`ACTIVE`/`RECOVERY`・`attackConnected`・新ボタン段位 `ordinal` が現在より上）。`update()` の攻撃開始ブロックに `else if (canChainInto(...))` を足し、命中した通常技を上位ボタンの通常技へ `beginAttack` で即キャンセル（`attackConnected`/`attackPhase` リセット＝多段防止と両立）。硬直を飛ばすため上位技の active が hitstun 切れ前に届き、弱→中→強の 3 連ヒット（コンボカウンターが `3 HITS!`・例 Aoi で 50+80+130=260）が成立。チェーン順はボタン段位の全キャラ共通ルールで JSON 変更なし。乱数なし＝決定的（攻撃ステート/ダメージ/hitstun のロジックは不変で発動経路を 1 つ追加しただけ）。「チェーンコンボ（通常技キャンセル）（Task 45）」節を追加。
 - (Task 46) コンボダメージ補正（ダメージスケーリング）を追記。`Fighter.scaledComboDamage(base)` を新設し、`applyHit`/`applyThrow` で `comboCount` 加算後に `applyDamage(scaledComboDamage(damage))` で適用（1 ヒット目は等倍、2 ヒット目以降は `1 - (n-1)×COMBO_SCALE_STEP` を `COMBO_SCALE_MIN` で下限を打って乗算・最低 1 ダメージ保証）。ガードの chip は非対象。ダメージ数値ポップアップ（HP 差）が補正後の値を自動表示（例：Aoi チェーン 50/72/104＝合計 226、補正前 260）。`GameConstants` に `COMBO_SCALE_STEP`(0.1)/`COMBO_SCALE_MIN`(0.3) を追加。乱数なし＝決定的（攻撃ステート/hitstun/knockback は不変で与ダメージ量のみ補正）。全キャラ共通の定数で持つ（JSON 変更なし）。「コンボダメージ補正（ダメージスケーリング）（Task 46）」節を追加。
 - (Task 47) 特殊キャンセル（通常技→必殺技）を追記。Task 45 の `canChainInto` を private ヘルパー `Fighter.isCancelableNormal()`（接地・通常技・`ACTIVE`/`RECOVERY`・`attackConnected`）へ共通化し、`canSpecialCancel()` を新設（追加条件なし）。`startSpecial` の開始ガードを `canStartAction() || canSpecialCancel()` に拡張し、命中した通常技を必殺技でキャンセルできるようにした（`beginAttack` リセットで多段防止と両立）。Core の必殺技ブロックは `attackPhase` 非依存で `startSpecial` を呼ぶため変更不要。例：Aoi `light`(50) → 波動拳キャンセル → 2 HITS（飛び道具にもコンボ補正が乗り 120×0.9=108・合計 158）。乱数なし＝決定的（`startSpecial` の開始条件を 1 つ緩めただけで攻撃ステート/ダメージ/hitstun は不変）。全キャラ共通ルール（JSON 変更なし）。「特殊キャンセル（通常技 → 必殺技）（Task 47）」節を追加。
+- (Task 55) AI の無敵対空を追記。`AiController` に最優先の反応分岐を追加：相手が空中（`!isGrounded()`）＋下降中（`getVelocityY() <= 0`）＋中心間 ≤ `ANTI_AIR_RANGE`(170px)＋自分が接地・行動可能・クールダウン明けで、`findAntiAirMove()`（`specialMoves[]` から `!isProjectile() && invincibleFrames>0` を探す）が見つかれば `self.startSpecial(antiAir)` を直接呼ぶ（AI はコマンド検出を経由しないため）。打撃必殺技なので飛び道具/メーターの Core 処理は不要＝`Fighter`/Core 無改修（`Fighter.getVelocityY()` getter のみ追加）。あわせて通常攻撃分岐に `opponent.isGrounded()` を追加し空中の相手に地上技を振らない（空振り・クールダウン浪費の回避）。データ駆動：`fighter002.json`（Akane）に無敵打撃必殺技 `rising_talon`（`CHARGE_SHOT`・`invincibleFrames:8`・dmg95）を追加し、AI がこれで飛び込みを迎撃。優先順を「無敵対空 ＞ 投げ抜け ＞ ガード ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃」に更新。判断は相手の空中状態・下降・距離・所持技のみ＝**乱数なし（決定的・入力リプレイと両立）**。`ANTI_AIR_RANGE` 定数を `AiController` に追加。`GameConstants`/JSON スキーマは不変。「簡易 AI」節に「無敵対空（Task 55）」サブ節を追加。
 - (Task 54) EX 打撃必殺技を追記。EX（メーター満タンで消費して強化）を飛び道具だけでなく**打撃必殺技**にも拡張。`Fighter` に `exAttack`（boolean）と `startSpecial(Move, boolean ex)` オーバーロード・`isExAttack()` を追加（`beginAttack` が `exAttack=false` にリセット、EX 必殺技開始時のみ true）。`CollisionSystem.activeHitbox` が `f.isExAttack()` のとき与ダメージを `EX_DAMAGE_MULTIPLIER`(1.6) 倍にする。Core の必殺技発動を `boolean ex = special!=null && f.hasFullMeter()` に変更し `startSpecial(special, ex)`＋満タンなら `spendFullMeter()`（飛び道具/打撃の両方で消費）。`GameRenderer` は EX 打撃の strike 矩形を金色（`EX_PROJECTILE_GLOW`）に描き、状態ラベルに `[EX]`（定数 `STATE_LABEL_EX_SUFFIX`）を付す。例：Aoi の `rising_dragon`(110・無敵対空) が満タンで `round(110×1.6)=176` の EX 無敵対空に（`special:active [INV] [EX]`・金色 strike）。`GameConstants`/JSON スキーマは不変（既存 `EX_DAMAGE_MULTIPLIER` を流用・データ追加なし）。乱数なし＝決定的。「必殺技ゲージ／EX 必殺技」節の EX 発動・描画を打撃対応に更新。
 - (Task 53) 打撃必殺技 / 無敵リバーサルを追記。`Shared/Types/Move` に任意 `invincibleFrames`（int・既定 0・getter は負値を 0 に丸め）を追加。`Fighter.isInvincible()`（進行中の技に `invincibleFrames>0` があり `attackFrame<=invincibleFrames` の間 true・`attackPhase!=NONE` 限定）を新設。`CollisionSystem.isHitting`/`hits` の冒頭で `defender.isInvincible()` なら被弾しない（打撃・飛び道具とも）。`GameRenderer.drawNameLabel` は無敵中に状態ラベルへ `[INV]` を付す（定数 `STATE_LABEL_INVINCIBLE_SUFFIX`）。あわせて**打撃必殺技（`projectile=false` の必殺技）**が `startSpecial`→`beginAttack` の通常 hitbox 経路で動くことを明文化（Core は projectile 時のみ弾を生成＝既存実装で打撃必殺技は動作。今回が初の実例）。`fighter001.json`（Aoi）に 2 つ目の必殺技 `rising_dragon`（command `CHARGE_SHOT`・打撃・`invincibleFrames:9`・dmg110・4/6/30）を追加し、飛び道具（HADOUKEN）＋無敵対空（CHARGE_SHOT）の 2 系統を実証。乱数なし＝決定的（経過フレームのみ）。`GameConstants`/JSON スキーマ（後方互換）は不変。「必殺技ステート」節に打撃必殺技を追記し「無敵リバーサル必殺技（Task 53）」節を新設。
 - (Task 51) AI の投げ抜け反応を追記。`AiController.control` に最優先の反応分岐を追加：相手が投げ中（`isThrowing()`）＋中心間 ≤ `THROW_TECH_RANGE`(160px)＋自分が接地＋行動可能なら、毎フレーム `self.armThrowTech()` で投げ抜け窓をアームしニュートラルで抜けに専念する（掴みの startup 中に窓を立て active で投げ抜け＝ノーダメージ）。優先順を「投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃」に更新。これで Task 37 と合わせ「打撃＝ガード／ガード＝投げ／投げ＝投げ抜け」の三すくみが CPU 戦でも完成。AI の攻撃硬直・のけぞり中（`canStartAction()==false`）は窓を立てられず掴まれる＝硬直を投げで狩る counterplay は残る。`THROW_TECH_RANGE` 定数を `AiController` に追加。`armThrowTech()`（Task 36・既存）を呼ぶだけで `Fighter`/Core・`GameConstants`・JSON は不変。判断は相手の状態＋距離＋自分の接地/行動可否のみ＝**乱数なし（決定的・入力リプレイと両立）**。「簡易 AI」節に「投げ抜け反応（Task 51）」サブ節を追加。

@@ -522,6 +522,11 @@ public class Fighter {
         return grounded;
     }
 
+    /** 垂直速度（px/frame, 上向き正）。AI の対空判断で「下降中（{@code <= 0}）か」を見るのに使う（Task 55）。 */
+    public float getVelocityY() {
+        return velocityY;
+    }
+
     public int getMoveDir() {
         return moveDir;
     }

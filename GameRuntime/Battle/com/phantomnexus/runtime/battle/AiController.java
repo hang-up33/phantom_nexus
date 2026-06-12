@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.battle;
 
 import com.phantomnexus.shared.types.AttackButton;
+import com.phantomnexus.shared.types.Move;
 
 /**
  * 簡易 AI（Task 21 → Task 37 で読み合い反応を追加）。1 体のファイターを状態ベースで操作する。
@@ -39,6 +40,11 @@ public final class AiController {
      * {@link #ATTACK_RANGE} までの接近のうち、遠距離はダッシュ・近距離は歩きと使い分ける。
      */
     private static final float DASH_APPROACH_RANGE = 260f;
+    /**
+     * この距離（中心間, px）以下に<b>落ちてくる相手</b>（空中＋下降中）がいれば無敵対空（リバーサル）で落とす（Task 55）。
+     * 無敵打撃必殺技を持つキャラのみ発動。対空 hitbox（縦長）が届く水平間合いに合わせる。
+     */
+    private static final float ANTI_AIR_RANGE = 170f;
 
     private int cooldown;
     /**
@@ -56,8 +62,9 @@ public final class AiController {
     /**
      * 1 フレーム分、AI の判断で {@code self} を操作する。
      *
-     * <p>優先順：<b>投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃</b>。相手の状態に反応する 3 つ（投げ抜け / ガード / 投げ）を
-     * 距離ベースの行動（接近 / 攻撃）より優先する。投げはガード不能なので、投げ反応（抜け）を最優先に置く。
+     * <p>優先順：<b>無敵対空 ＞ 投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃</b>。相手の状態に反応する反応群を
+     * 距離ベースの行動（接近 / 攻撃）より優先する。落ちてくる相手（空中）への無敵対空（Task 55）を最優先に置く
+     * （飛び込みは打撃なのでガードでも凌げるが、無敵技を持つなら迎撃の方が見返りが大きい）。
      *
      * @param self     操作対象のファイター
      * @param opponent 相手（距離 / 状態判定の基準）
@@ -78,7 +85,22 @@ public final class AiController {
         boolean attack = false;
         boolean throwReq = false;
 
-        if (opponent.isThrowing() && distance <= THROW_TECH_RANGE
+        // 無敵打撃必殺技（リバーサル・Task 53）を持つなら対空に使える。落ちてくる相手をこれで迎撃する。
+        Move antiAir = findAntiAirMove(self);
+        boolean opponentJumpIn = !opponent.isGrounded()        // 相手が空中
+                && opponent.getVelocityY() <= 0f               // 下降（または頂点）＝こちらへ落ちてくる
+                && distance <= ANTI_AIR_RANGE;                 // 縦長対空 hitbox の届く水平間合い
+
+        if (antiAir != null && opponentJumpIn && self.isGrounded()
+                && self.canStartAction() && cooldown == 0) {
+            // 無敵対空（Task 55）：飛び込んでくる相手を無敵フレーム付き打撃必殺技で落とす。
+            // AI はコマンド検出（updateFighterInput）を経由しないので、自分で startSpecial を直接呼ぶ。
+            // 打撃必殺技なので飛び道具生成・メーター消費は不要＝Core 無改修で成立。直後の self.update が技を進める。
+            // 乱数なし＝決定的（相手の空中状態・下降・距離のみで判断）。
+            self.startSpecial(antiAir);
+            cooldown = ATTACK_COOLDOWN;
+            dashTapStep = 0;
+        } else if (opponent.isThrowing() && distance <= THROW_TECH_RANGE
                 && self.isGrounded() && self.canStartAction()) {
             // 投げ抜け反応（Task 51）：相手の掴み（ガード不能）に反応して投げ抜け窓をアームし、ニュートラルで抜けに専念する。
             // 掴みの startup 中から毎フレーム armThrowTech() し続けるので、active で掴まれた瞬間に canTechThrow() が成立して
@@ -134,12 +156,31 @@ public final class AiController {
             // 間合いの外（ただしダッシュ距離より内）：歩いて接近する。
             moveDir = towardDir;
             dashTapStep = 0;
-        } else if (cooldown == 0 && self.canStartAction()) {
-            // 間合いの内：通常攻撃を出す（クールダウン明け・行動可能時のみ）。
+        } else if (opponent.isGrounded() && cooldown == 0 && self.canStartAction()) {
+            // 間合いの内：通常攻撃を出す（クールダウン明け・行動可能時のみ）。空中の相手には出さない
+            // ——地上の通常技は空振りするうえ、クールダウンを浪費して無敵対空（Task 55）の機会を潰すため。
             attack = true;
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
         }
         self.update(moveDir, false, attack ? AttackButton.LIGHT : null, false, throwReq);
+    }
+
+    /**
+     * 対空に使える技＝<b>無敵フレーム付きの打撃必殺技</b>（リバーサル・Task 53）を {@code specialMoves[]} から探す（Task 55）。
+     * 飛び道具（{@code projectile}）は対空に使わない（縦の無敵迎撃が要るため）。無ければ {@code null}（そのキャラは対空しない）。
+     * データ駆動：キャラ JSON に該当技があるキャラ（例：fighter002 の {@code rising_talon}）だけが AI 対空をする。
+     */
+    private static Move findAntiAirMove(Fighter self) {
+        Move[] specials = self.getDef().getSpecialMoves();
+        if (specials == null) {
+            return null;
+        }
+        for (Move m : specials) {
+            if (m != null && !m.isProjectile() && m.getInvincibleFrames() > 0) {
+                return m;
+            }
+        }
+        return null;
     }
 }
