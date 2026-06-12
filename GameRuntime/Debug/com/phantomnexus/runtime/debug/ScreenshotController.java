@@ -203,6 +203,23 @@ public final class ScreenshotController {
         return v != null ? v : fallback;
     }
 
+    /**
+     * 読み込むキャラクター ID の撮影用オーバーライド。撮影モードで {@code p1char=<id>} / {@code p2char=<id>}
+     * 指定時のみ差し替える（{@code stageId} のキャラ版）。通常起動・未指定時は {@code fallback}。
+     * 新キャラを 1 起動で撮るために使う（例：{@code -x p2char=fighter003}）。
+     *
+     * @param player 1（P1）または 2（P2）
+     * @param fallback 未指定時に使う既定キャラ ID
+     */
+    public String charId(int player, String fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String key = player == 1 ? "phantom.screenshot.p1char" : "phantom.screenshot.p2char";
+        String v = trimToNull(System.getProperty(key));
+        return v != null ? v : fallback;
+    }
+
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
         addTokens(spec, p1Hold, p2Hold);

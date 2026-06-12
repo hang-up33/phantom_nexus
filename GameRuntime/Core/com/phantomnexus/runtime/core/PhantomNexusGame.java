@@ -97,8 +97,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         p1Input.setForcedHold(screenshot.heldActions(1));
         p2Input.setForcedHold(screenshot.heldActions(2));
         // 外部 JSON からキャラクター定義を読み込む（Task 16）。データ I/O は Shared/Schema が単一の真実。
-        Character aoi = CharacterLoader.load("fighter001");
-        Character akane = CharacterLoader.load("fighter002");
+        // 既定は fighter001 / fighter002。撮影時は p1char=/p2char=<id> でオーバーライド可能（新キャラの撮影用。Task 41）。
+        Character aoi = CharacterLoader.load(screenshot.charId(1, "fighter001"));
+        Character akane = CharacterLoader.load(screenshot.charId(2, "fighter002"));
         // 撮影モード時は初期 X をオーバーライド可能（近接が必要な被弾スクショ等の再現用）。
         spawnX1 = screenshot.spawnX(1, GameConstants.P1_SPAWN_X);
         spawnX2 = screenshot.spawnX(2, GameConstants.P2_SPAWN_X);

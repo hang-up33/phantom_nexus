@@ -81,7 +81,7 @@ tasks.named('run', JavaExec) {
     ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold',
      'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit',
      'phantom.screenshot.debug', 'phantom.screenshot.script', 'phantom.screenshot.ai',
-     'phantom.screenshot.stage',
+     'phantom.screenshot.stage', 'phantom.screenshot.p1char', 'phantom.screenshot.p2char',
      'phantom.replay.record', 'phantom.replay.play', 'phantom.replay.ai'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {
