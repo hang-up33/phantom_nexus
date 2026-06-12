@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -22,11 +22,14 @@
 
 `idle / walk / jump / jump_attack(空中攻撃) / attack / throw(投げ) / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
 空中ガード（Task 59）は専用の `AnimationState` を持たず JUMP ポーズ＋青オーバーレイを流用し、ラベル `air_guard` で識別する。
+ダウン（Task 60）も専用 `AnimationState` を持たず HITSTUN ポーズを流用し、ラベル `knockdown` で識別する（ダウン中は被弾無敵）。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
 アニメーション状態の導出優先順（`FighterAnimator.resolve()` が単一の真実。優先順が変わるタスクでは本リストを更新する。旧タスク節の優先順は当時存在した状態のみの短縮表記を含むが、順序は本リストと矛盾しない）：
 
-> **のけぞり > 投げ > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**
+> **ダウン > のけぞり > 投げ > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**
+
+（ダウン（Task 60・ラベル `knockdown`）はのけぞり（hitstun）と同じく `HITSTUN` ポーズを流用するが、`FighterAnimator.resolve()` が `isKnockedDown()` を `isInHitstun()` より先に評価するため最優先。空中ガード（Task 59・ラベル `air_guard`）は「空中」ポーズ＋青オーバーレイ流用のため本リストでは「空中」の位置。）
 
 | 区間 | 内容 |
 |---|---|
@@ -115,6 +118,28 @@
 - 被弾で `damage` 分 HP を減算。
 - 被弾側は `hitstun`（のけぞり）ステートへ遷移し、一定フレーム行動不能。
 - MVP ではガード・コンボ補正は対象外とした（ガードは Task 27 以降で実装済み。コンボ補正は将来拡張）。
+
+---
+
+## ダウン（knockdown）（Task 60）
+
+特定の技（`Move.knockdown=true`）を**非ガードで**食らうと、通常のけぞりではなく**ダウン**に陥る。ダウンはデータ駆動で、技 JSON にフラグを足すだけで増やせる。
+
+| 条件 | 値 |
+|---|---|
+| 発動条件 | `Move.knockdown=true` の技が**非ガード**でヒット（ガード時は通常どおり chip。投げ・飛び道具は対象外＝打撃ヒットのみ） |
+| 行動不能 | `KNOCKDOWN_FRAMES`(60) フレーム（のけぞり `HITSTUN_FRAMES`(18) より長い） |
+| ダウン中無敵 | あり（**起き攻め / OTG なし**）。当たり判定（`CollisionSystem.isHitting` / `hits`）が `isKnockedDown()` を見て一律外す（打撃・飛び道具とも当たらない） |
+| knockback | 通常被弾の `KNOCKDOWN_KNOCKBACK_SCALE`(1.4) 倍で強く転ばせる |
+| コンボ | ダウンはコンボの締め（`knockdownFrames` が尽きた瞬間に `comboCount=0`）。コンボ補正（Task 46）は通常被弾と同じく適用 |
+| 起き上がり | `KNOCKDOWN_FRAMES` 経過で自動的に起き上がる（idle へ復帰） |
+| 視覚 | 専用 `AnimationState` は持たず `HITSTUN` ポーズを流用し、状態ラベル `knockdown` で識別（`air_guard`/`tech`/`guard_break` と同じ「既存ポーズ流用＋ラベルで区別」方式） |
+
+- **`Move.knockdown`**（任意 boolean・既定 `false`＝後方互換）：`Shared/Types/Move` に追加。旧 JSON はキー無しで `false`＝通常のけぞり。
+- **`Fighter.applyKnockdown(damage, knockbackDir)`**：`resolveHit` が非ガード・ダウン技ヒット時に `applyHit` の代わりに呼ぶ。`knockdownFrames` を立て、コンボ計数・補正は `applyHit` と同じ。`update()` 冒頭に `hitstunFrames` と並ぶ inert 分岐（ダウン優先）を持ち、行動不能・knockback 減衰・起き上がりを担う。
+- **`Fighter.isKnockedDown()`**：ダウン中（被弾無敵）か。`CollisionSystem` の hit-test 冒頭で `isInvincible()` と並べて参照し、ダウン中の相手への攻撃を一律外す（OTG なし）。
+- **決定性**：フレームカウンタのみで乱数なし（入力リプレイと両立）。リプレイ format も不変。ただしダウン技ヒットを含む既存リプレイは「のけぞり→ダウン」へ結果が変わり得る（戦闘仕様変更）。
+- **データ例**：`fighter001` の `heavy_slam`（overhead 強攻撃）に `knockdown: true` を付与（非ガードヒットでダウン＝強攻撃の見返り）。飛び道具のダウンは将来拡張。
 
 ---
 
@@ -634,6 +659,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 60) ダウン（knockdown）を追記。`Shared/Types/Move` に任意 boolean `knockdown`（既定 false・後方互換）を追加し、`GameConstants` に `KNOCKDOWN_FRAMES`(60)・`KNOCKDOWN_KNOCKBACK_SCALE`(1.4) を追加。`Fighter` に `knockdownFrames` フィールド・`applyKnockdown()`・`isKnockedDown()` を追加し、`update()` 冒頭に hitstun と並ぶ inert 分岐（ダウン優先・行動不能・knockback 減衰・起き上がり）を実装。`guarding` 算出に `knockdownFrames <= 0` を追加（ダウン中はガード不可）。`reset()` で `knockdownFrames=0`。`CollisionSystem.isHitting`/`hits` の無敵ゲートに `|| defender.isKnockedDown()` を追加（ダウン中は打撃・飛び道具とも被弾無敵＝起き攻め/OTG なし）。`PhantomNexusGame.resolveHit` が非ガード・`attacker.getCurrentMove().isKnockdown()` のとき `applyHit` の代わりに `applyKnockdown` を呼ぶ（投げ・飛び道具は対象外）。`FighterAnimator.resolve` がダウンを HITSTUN ポーズへ流用し、`GameRenderer.drawNameLabel` が `knockdown` ラベルを最優先で表示。`fighter001` の `heavy_slam` に `knockdown: true` を付与（データ駆動の実例）。乱数なし・リプレイ format 不変だが、ダウン技ヒットを含む既存リプレイは「のけぞり→ダウン」へ結果が変わり得る（戦闘仕様変更）。「ダウン（knockdown）（Task 60）」節・ステート一覧・冒頭サマリを追加。
 - (Task 59) 空中ガードを追記。`Fighter.guarding` の算出条件から `grounded` を外し、滞空中でも後退方向保持でガードが成立するようにした（接地ガード Task 27／しゃがみガード Task 30／ガードクラッシュ Task 43 の既存ロジックは不変・空中ガードもゲージ消費とクラッシュを共有）。ジャンプ成立フレームの `guarding=false`（旧「空中ガード不可」）を 2 箇所（通常ジャンプ・ダッシュジャンプ）から除去。`isAirGuarding()`（`guarding && !grounded`）を追加し、`GameRenderer.drawNameLabel` に `air_guard` ラベルを追加（描画は JUMP ポーズ＋既存の青オーバーレイを流用＝専用 `AnimationState` は追加しない）。空中ガードは立ち扱い（`crouching` は接地時のみ true）で、飛び道具（`updateProjectiles` は高さ判定なしで一律ガード可）と中段 / 上段を chip で凌ぎ、下段は防げない（下段 hitbox は滞空 hurtbox に通常届かない）。あわせて `AiController` の投げ崩し分岐に `opponent.isGrounded()` を追加（空中ガード相手は掴めない＝Task 35 の地上限定投げ・空中ガード導入前は `isGuarding()` が接地を含意したため**従来挙動に対し no-op**）。`resolveHit`/`applyGuard`・`CollisionSystem`・`GameConstants`・JSON スキーマは不変。判断に乱数を増やさず**リプレイ format も不変**だが、滞空中に後退を保持した展開を含む既存リプレイは「被弾→空中ガード」へ結果が変わり得る（戦闘仕様変更のため。AI-on リプレイの再現範囲は「入力リプレイ（記録 / 再生）」節を参照）。ガード節の表（空中ガード＝可）・`Fighter.guarding` 算出の記述・ステート一覧を更新。
 - (Bootstrap) 第一設計書の戦闘要素・MVP 条件に基づく初版ドラフトを作成。
 - (Task 7) `GameRuntime/Battle/Fighter` を新設し、左右移動・画面端クランプ・相手方向への向き更新を追記。

@@ -99,6 +99,16 @@ public final class GameConstants {
     public static final float THROW_TECH_PUSHBACK = KNOCKBACK_SPEED;
 
     /**
+     * ダウン（knockdown, Task 60）の行動不能フレーム数。のけぞり（{@link #HITSTUN_FRAMES}）より長く、
+     * {@code Move.knockdown=true} の技を非ガードで食らうと適用される。ダウン中は被弾無敵（起き攻め＝OTG なし）で、
+     * このフレーム数が尽きると起き上がる。
+     */
+    public static final int KNOCKDOWN_FRAMES = 60;
+
+    /** ダウンの knockback 倍率（{@link #KNOCKBACK_SPEED} に乗算）。通常被弾より強く吹き飛ばして転ばせる（Task 60）。 */
+    public static final float KNOCKDOWN_KNOCKBACK_SCALE = 1.4f;
+
+    /**
      * ダメージ数値ポップアップの表示フレーム数（被弾 / ガード時に与ダメージ量を命中位置から浮かび上がらせる演出）。
      *
      * <p>命中位置からこのフレーム数だけ上昇しながら表示し、終盤でフェードアウトして消える。60fps 基準で

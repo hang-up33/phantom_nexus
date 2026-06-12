@@ -462,6 +462,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (blocked) {
             // ガード成立：chip ダメージのみ（のけぞりなし）。
             defender.applyGuard(hb.getDamage(), knockbackDir);
+        } else if (attacker.getCurrentMove() != null && attacker.getCurrentMove().isKnockdown()) {
+            // ダウン技（Task 60）：非ガードヒットで相手をダウンさせる（通常のけぞりの代わり・ダウン中無敵）。
+            defender.applyKnockdown(hb.getDamage(), knockbackDir);
         } else {
             defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
         }

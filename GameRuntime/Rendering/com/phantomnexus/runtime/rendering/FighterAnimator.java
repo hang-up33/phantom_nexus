@@ -36,6 +36,10 @@ public class FighterAnimator {
 
     /** ファイターの実行時状態 → アニメ状態の対応付け（のけぞり > 投げ > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機の優先順）。 */
     private static AnimationState resolve(Fighter fighter) {
+        // ダウン（Task 60）は専用ポーズを持たず、のけぞり（HITSTUN）ポーズを流用する（倒れ込み＝青ラベル air_guard 等と同じ流用方針）。
+        if (fighter.isKnockedDown()) {
+            return AnimationState.HITSTUN;
+        }
         if (fighter.isInHitstun()) {
             return AnimationState.HITSTUN;
         }

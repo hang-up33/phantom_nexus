@@ -88,8 +88,9 @@ public final class CollisionSystem {
      * （本メソッドは純粋な幾何判定のみ）。
      */
     public static boolean isHitting(Fighter attacker, Fighter defender) {
-        // 無敵フレーム中（リバーサル / 対空・Task 53）の相手は食らい判定を失うため当たらない。
-        if (defender.isInvincible()) {
+        // 無敵フレーム中（リバーサル / 対空・Task 53）・ダウン中（Task 60）の相手は食らい判定を失うため当たらない
+        // （ダウン中無敵＝起き攻め / OTG なし）。
+        if (defender.isInvincible() || defender.isKnockedDown()) {
             return false;
         }
         Hitbox hb = activeHitbox(attacker);
@@ -104,7 +105,8 @@ public final class CollisionSystem {
     /** 飛び道具 {@code p} が {@code defender} の hurtbox に重なるか（Task 20）。 */
     public static boolean hits(Projectile p, Fighter defender) {
         // 無敵フレーム中（Task 53）は飛び道具も食らわない（無敵対空でリバーサルが弾を抜ける）。
-        if (defender.isInvincible()) {
+        // ダウン中（Task 60）も同様に被弾無敵（倒れている相手に飛び道具は当たらない）。
+        if (defender.isInvincible() || defender.isKnockedDown()) {
             return false;
         }
         Hitbox hb = p.hitbox();

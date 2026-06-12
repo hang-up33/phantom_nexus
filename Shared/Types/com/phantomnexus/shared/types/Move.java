@@ -48,6 +48,13 @@ public class Move {
      */
     private int invincibleFrames = 0;
     /**
+     * ダウン技か（Task 60）。{@code true} の技を非ガードで食らうと、相手は通常のけぞりではなく
+     * <b>ダウン</b>（{@link com.phantomnexus.shared.constants.GameConstants#KNOCKDOWN_FRAMES} の行動不能＋ダウン中無敵）に陥る。
+     * 任意フィールドで既定 {@code false}（旧 JSON はキー無しで {@code false}＝後方互換＝通常のけぞり）。
+     * 飛び道具のダウンは将来対応で、現状は打撃ヒット（{@code resolveHit}）でのみ参照する。
+     */
+    private boolean knockdown = false;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -161,6 +168,11 @@ public class Move {
      */
     public int getInvincibleFrames() {
         return Math.max(0, invincibleFrames);
+    }
+
+    /** ダウン技か（Task 60）。{@code true} の技を非ガードで食らうと相手はダウンする。既定 {@code false}（後方互換）。 */
+    public boolean isKnockdown() {
+        return knockdown;
     }
 
     /**

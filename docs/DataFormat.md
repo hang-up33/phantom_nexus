@@ -104,7 +104,8 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
       "hitboxOffsetX": 0,
       "hitboxOffsetY": 60,
       "hitboxWidth": 110,
-      "hitboxHeight": 90
+      "hitboxHeight": 90,
+      "knockdown": true
     }
   ],
   "specialMoves": [
@@ -204,6 +205,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `hitboxWidth` | float | ✅ | hitbox の横幅（px） |
 | `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
 | `guardHeight` | string | 任意 | ガード高さ属性：`"overhead"`（上段・立ちガードのみ可）/ `"mid"`（中段・両ガード可, **既定**）/ `"low"`（下段・しゃがみガードのみ可）。省略時 `"mid"`（Task 33） |
+| `knockdown` | bool | 任意 | `true` の技を**非ガード**でヒットさせると相手をダウンさせる（通常のけぞりの代わり・ダウン中は被弾無敵＝OTG なし・Task 60）。省略時 `false`（後方互換）。投げ・飛び道具は対象外（打撃ヒットのみ） |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -223,6 +225,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `projectileSpeed` | float | 任意* | 飛び道具の速度（px/frame）。`projectile=true` なら必須 |
 | `invincibleFrames` | int | 任意 | 技の発生からこのフレーム数だけ食らい判定を失う（リバーサル / 対空・**Task 53**）。0（既定）＝無敵なし。打撃必殺技に付けると無敵対空になる（被弾・被弾飛び道具を無効化）。旧 JSON はキー無しで 0（後方互換） |
 | `guardHeight` | string | 任意 | ガード高さ属性（`overhead` / `mid` / `low`、既定 `mid`）。飛び道具は既定の `mid` 運用（Task 33） |
+| `knockdown` | bool | 任意 | `true` で非ガードヒット時に相手をダウンさせる（Task 60・既定 false）。打撃必殺技に付けると有効（飛び道具のダウンは将来対応＝現状は `resolveHit` の打撃ヒットのみ参照） |
 
 > hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。飛び道具技は hitbox 寸法を弾サイズとして使い、body 付随判定は持たない（ダメージは弾が運ぶ）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
 
@@ -302,6 +305,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 60) ダウン（knockdown）を追記。`Move` に任意 boolean `knockdown`（既定 false・後方互換）を追加：`true` の技を**非ガード**でヒットさせると相手をダウンさせる（通常のけぞりの代わり・`KNOCKDOWN_FRAMES`(60) 行動不能・ダウン中は被弾無敵＝OTG なし）。旧 JSON はキー無しで false＝通常のけぞり（`invincibleFrames` と同じフィールド初期化子による後方互換）。`CharacterLoader` は任意 boolean のため追加検証不要。例示として `fighter001` の `heavy_slam`（overhead 強攻撃）に `knockdown: true` を付与（非ガードヒットでダウン＝強攻撃の見返り）。戦闘仕様は BattleSystem.md「ダウン（knockdown）（Task 60）」節を参照。飛び道具のダウンは将来対応。`Move` の normal/special 両フィールド表に `knockdown` を追加。
 - (Task 58) 6 体目キャラ `Assets/Characters/fighter006.json`（"Iwao"・HP1200・**飛び道具を持たない純グラップラー型**の crimson）＋プレースホルダ・スプライト `fighter006.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・JSON＋PNG の追加だけでキャラが動作する**ことを再々々検証（5 体目 fighter005 に続く 6 体目）。アーキタイプを差別化：最高 HP1200・最遅 `walkSpeed3.0`・低ジャンプで重量級、通常技（`hammer_jab`/`shoulder_ram`/`ground_pound`）は短リーチ高火力、投げ `back_breaker` は**ロスター最大の dmg175**、`specialMoves` は無敵リバーサル `rising_hammer`（`CHARGE_SHOT`・`invincibleFrames:10`・dmg115）**1 件のみ**＝**飛び道具（`projectile`）を 1 つも持たない初のキャラ**（既存 5 体は全員 HADOUKEN 飛び道具持ち）。`specialMoves` は任意・CHARGE_SHOT 非飛び道具技は既存検証を通る（rising_talon と同型）ため**ローダ無改修**で成立。**新キャラが飛び道具を持たなくても、データ駆動 AI の無敵対空（Task 55）が `rising_hammer` を無改修で対空に使い、投げ崩し（Task 37）・投げ抜け（Task 51）等の既存反応もそのまま効く**ことをスクショで確認（P1 Iwao の `back_breaker` で 175・AI(P2)Iwao の `rising_hammer` 対空で飛び込みを 115 で迎撃）。撮影は `-x p1char=fighter006` / `-x p2char=fighter006`。
 - (Task 55) `fighter002.json`（Akane）に 2 つ目の必殺技 `rising_talon`（`CHARGE_SHOT`・打撃＝`projectile` 無し・`invincibleFrames:8`・dmg95）を追加（無敵打撃必殺技＝Task 53 のスキーマを流用）。これは AI の無敵対空（Task 55・戦闘仕様は BattleSystem.md）で AI が使う技で、`Character` の JSON 仕様は不変。「キャラ JSON に無敵打撃技を足すだけで AI もそれで対空する」データ駆動を実証。
 - (Task 53) 無敵リバーサル必殺技を追記。`Move` に任意フィールド `invincibleFrames`（int・既定 0）を追加：技発生からこのフレーム数だけ食らい判定を失う（リバーサル / 対空）。旧 JSON はキー無しで 0（後方互換）。あわせて **打撃必殺技**（`projectile=false` の必殺技＝発生時に近接 hitbox を出す）の運用を明文化（実装上は Task 20 から動作。fighter001 が初の実例）。`fighter001.json`（Aoi）に 2 つ目の必殺技 `rising_dragon`（command `CHARGE_SHOT`・`projectile` 無し＝打撃・`invincibleFrames: 9`・dmg110・startup4/active6/recovery30）を追加し、飛び道具（`fireball`=HADOUKEN）＋無敵対空（`rising_dragon`=CHARGE_SHOT）の 2 系統コマンドを持つキャラを実証（撮影で `<CHARGE (hold 4, 6+A)>` 成立・`special:active [INV]`・相手の攻撃を抜いて 110 反撃）。`Move` のフィールド表に `invincibleFrames` を追加。
