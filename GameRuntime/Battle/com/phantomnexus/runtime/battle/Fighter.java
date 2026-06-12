@@ -29,6 +29,7 @@ public class Fighter {
     private boolean attackConnected;
     private int hitstunFrames;
     private int knockdownFrames;        // ダウン（knockdown）の行動不能フレーム。ダウン中は被弾無敵（Task 60）
+    private boolean knockdownInertThisFrame; // このフレームの update 処理前にダウン中だったか（被弾ゲートの 1F ラッチ・Task 60）
     private float velocityX;
     private boolean crouching;
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
@@ -78,17 +79,13 @@ public class Fighter {
         if (guardBreakFrames > 0) {
             guardBreakFrames--;
         }
-        // ダウンの行動不能フレームを冒頭で減衰させる（Task 60・Codex 指摘）。減算を inert 分岐の中でなくここで行うことで、
-        // この後の guarding 算出・行動ゲート（canStartAction）と、同 tick で update の後に走る当たり判定の被弾ゲート
-        // （isKnockedDown）が**同一の post-decrement 値**を見るようにし、行動可能になるフレームと被弾可能になるフレームを揃える
-        // （ダウンが解ける最終フレームに「まだ動けないのに被弾だけ可能」な 1F の無防備窓ができるのを防ぐ）。
-        if (knockdownFrames > 0) {
-            knockdownFrames--;
-            // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
-            if (knockdownFrames == 0) {
-                comboCount = 0;
-            }
-        }
+        // ダウンの被弾無敵ラッチ（Task 60・Codex 指摘）：この update の処理前にダウン中だったか（＝このフレームは inert か）を
+        // 記録する。減算は下の inert 分岐内で行い 60F の行動不能を確保しつつ、当たり判定の被弾ゲート（isKnockedDown）は
+        // このラッチ ‖ knockdownFrames>0 で判定する。これにより、ダウンが解ける最終フレーム（inert 分岐で knockdownFrames が
+        // 0 になるフレーム）も resolveHit/描画では down 扱い＝被弾無敵になり、「行動可能フレーム」と「被弾可能フレーム」が揃う
+        // （まだ動けないのに被弾だけ可能、という 1F の無防備窓を作らない）。応用フレーム（applyKnockdown 直後）は
+        // knockdownFrames>0 側で無敵になる。
+        knockdownInertThisFrame = knockdownFrames > 0;
         // ガード判定：非のけぞり・非攻撃中に後退方向を保持しているか。接地でも滞空でも成立する（空中ガード・Task 59）。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30。しゃがみは接地時のみ）。低姿勢判定は crouching を併用。
@@ -104,10 +101,16 @@ public class Fighter {
         if (knockdownFrames > 0) {
             // ダウン（Task 60）：のけぞりと同じく行動不能だが、より長く・ダウン中は被弾無敵（起き攻め無し）。
             // hitstun より優先（ダウン技は通常のけぞりを上書きする）。knockback の滑りは hitstun と同じ式で減衰。
-            // カウンタの減算・コンボ終了は update 冒頭で済ませている（被弾ゲートとの整合・Task 60）。
+            // 減算はこの inert 分岐内で行い、KNOCKDOWN_FRAMES 分（60F）ちょうど行動不能にする。被弾ゲートとの整合は
+            // 上で記録した knockdownInertThisFrame ラッチが担う（最終フレームも resolveHit では down 扱い＝無敵）。
             crouching = false;
             guarding = false;
             this.moveDir = 0;
+            knockdownFrames--;
+            // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
+            if (knockdownFrames == 0) {
+                comboCount = 0;
+            }
             x += velocityX;
             clampToStage();
             velocityX *= GameConstants.KNOCKBACK_FRICTION;
@@ -259,6 +262,7 @@ public class Fighter {
         attackConnected = false;
         hitstunFrames = 0;
         knockdownFrames = 0;
+        knockdownInertThisFrame = false;
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
@@ -804,9 +808,14 @@ public class Fighter {
         return hitstunFrames;
     }
 
-    /** ダウン中か（Task 60）。ダウン中は行動不能かつ<b>被弾無敵</b>（起き攻め / OTG なし・当たり判定が参照）。 */
+    /**
+     * ダウン中か（Task 60）。ダウン中は行動不能かつ<b>被弾無敵</b>（起き攻め / OTG なし・当たり判定 / 描画が参照）。
+     * {@code knockdownFrames > 0}（応用フレーム〜拘束中）に加え、ダウンが解ける最終フレーム（{@code update()} の inert 分岐で
+     * {@code knockdownFrames} が 0 になったフレーム）も {@link #knockdownInertThisFrame} ラッチで down 扱いにする。
+     * これにより「まだ動けないのに被弾だけ可能」な 1F の無防備窓を防ぎ、行動可能フレームと被弾可能フレームを揃える。
+     */
     public boolean isKnockedDown() {
-        return knockdownFrames > 0;
+        return knockdownFrames > 0 || knockdownInertThisFrame;
     }
 
     /** 現在このファイターが受けている連続ヒット数（コンボ数）。hitstun が切れると 0 に戻る（Task 39）。 */
