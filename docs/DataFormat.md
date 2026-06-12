@@ -36,7 +36,8 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 1 キャラ = 1 JSON ファイル（`Assets/Characters/<id>.json`、UTF-8）。LibGDX `Json` が POJO（`Shared/Types/Character`）へ
 フィールド名一致でデシリアライズする（Task 16）。Task 24 で技定義を **配列（`normalMoves[]` / `specialMoves[]`）** に拡張。
-実サンプルは `Assets/Characters/fighter001.json` / `fighter002.json`。
+実サンプルは `Assets/Characters/fighter001.json`（Aoi）/ `fighter002.json`（Akane）/ `fighter003.json`（Tetsu）。
+撮影時は **`phantom.screenshot.p1char=<id>` / `p2char=<id>`（`-x p1char=<id>` / `-x p2char=<id>`）** で読み込むキャラを差し替えられる（新キャラの撮り分け用。`PhantomNexusGame` が `ScreenshotController.charId(player, fallback)` 経由で選択。`stageId(fallback)` のキャラ版）。
 
 ```json
 {
@@ -304,4 +305,5 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 - (refactor) `guardHeight` の正準値を `Shared/Types/GuardHeight` enum（`OVERHEAD`/`MID`/`LOW`）に集約。散在していた文字列リテラルと `CharacterLoader.VALID_GUARD_HEIGHTS` セットを廃し、解釈・既定・検証を `GuardHeight.fromToken(String)` に一元化した。**JSON 形式（小文字トークン `overhead`/`mid`/`low`・未指定は `mid`）は不変・後方互換**で、本書のフィールド仕様に変更はない（内部実装のみのリファクタ）。
 - (Task 35) `Character` に **投げ技 `throwMove`**（任意・`Move` 型）を追加。ガード不能の近接掴みで、`button`/`command`/`guardHeight` を持たない（専用の投げボタンで起動しガードを無視する）。`CharacterLoader.validateThrowMove()` が id / フレーム / hitbox 寸法のみ検証（button/command/guardHeight は検証しない）。未指定の旧 JSON はフィールド初期化子（`null`）により投げを持たない（後方互換）。`AnimationState` に `throw` ラベルを追加。`InputAction.THROW`（P1=T / P2=Numpad0）を追加。fighter001（`shoulder_throw`・dmg150）/ fighter002（`arm_toss`・dmg130）に `throwMove` と sprite `throw` 行を追加。
 - (refactor) `button` の正準値を `Shared/Types/AttackButton` enum（`LIGHT`/`MEDIUM`/`HEAVY`）に集約（`GuardHeight` と同パターン）。散在していた文字列リテラル（Core のボタン構築・`Fighter.selectNormalMove` の equalsIgnoreCase 照合・`CharacterLoader.VALID_BUTTONS` セット・`AiController` の `"light"` 直書き）を廃し、解釈・検証を `AttackButton.fromToken(String)` に一元化した。`guardHeight`（任意）と異なり `button` は必須のため `fromToken` は未指定で `null` を返し、ローダの必須チェックが弾く。**JSON 形式（小文字トークン `light`/`medium`/`heavy`・必須）は不変・後方互換**で、本書のフィールド仕様に変更はない（内部実装のみのリファクタ）。
+- (Task 41) 3 体目キャラ `Assets/Characters/fighter003.json`（"Tetsu"・HP1150・低速・大柄の紫グラップラー）＋プレースホルダ・スプライト `fighter003.png` を追加。`Character` の JSON 仕様は不変で、**コード変更なし・JSON 追加だけでキャラが増える**ことを再検証（Task 22 fighter002 に続く 3 体目）。技は通常（`heavy_jab`/`body_blow`/`low_sweep`=`guardHeight: low`）・必殺（`iron_wave` 飛び道具）・投げ（`iron_buster`・dmg160）。撮影時は `phantom.screenshot.p1char=<id>` / `p2char=<id>`（`-x p1char` / `-x p2char`）で読み込むキャラを差し替え可能（`PhantomNexusGame` が `ScreenshotController.charId()` 経由で選択）。
 - (Task 40) 第2ステージ `Assets/Stages/stage002.json`（"Verdant Glade"・青空＋緑地）を追加。Stage の JSON 仕様（`id`/`name`/`skyTop`/`skyBottom`/`groundColor`）は不変で、**コード変更なし・JSON 追加だけでステージが増える**ことを検証（Task 22 のキャラ版に相当するステージ版）。読み込むステージは既定 `stage001`、撮影時は `phantom.screenshot.stage=<id>`（`-x stage=<id>`）でオーバーライド可能（`PhantomNexusGame` が `ScreenshotController.stageId()` 経由で選択）。

@@ -1,0 +1,95 @@
+{
+  "id": "fighter003",
+  "name": "Tetsu",
+  "hp": 1150,
+  "walkSpeed": 3.5,
+  "jumpPower": 11.0,
+  "width": 110,
+  "height": 250,
+  "color": [0.55, 0.30, 0.62],
+  "sprite": {
+    "path": "Characters/fighter003.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "heavy_jab",
+      "button": "light",
+      "damage": 45,
+      "startup": 6,
+      "active": 4,
+      "recovery": 11,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 130,
+      "hitboxWidth": 80,
+      "hitboxHeight": 34
+    },
+    {
+      "id": "body_blow",
+      "button": "medium",
+      "damage": 85,
+      "startup": 9,
+      "active": 5,
+      "recovery": 17,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 92,
+      "hitboxHeight": 42
+    },
+    {
+      "id": "low_sweep",
+      "button": "heavy",
+      "guardHeight": "low",
+      "damage": 120,
+      "startup": 12,
+      "active": 5,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 10,
+      "hitboxWidth": 108,
+      "hitboxHeight": 40
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "iron_wave",
+      "command": "HADOUKEN",
+      "damage": 110,
+      "startup": 11,
+      "active": 4,
+      "recovery": 27,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 105,
+      "hitboxWidth": 56,
+      "hitboxHeight": 56,
+      "projectile": true,
+      "projectileSpeed": 8.0
+    }
+  ],
+  "throwMove": {
+    "id": "iron_buster",
+    "damage": 160,
+    "startup": 3,
+    "active": 2,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 52,
+    "hitboxHeight": 150
+  }
+}
