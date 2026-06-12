@@ -27,6 +27,7 @@ public final class RoundManager {
     private final int roundsToWin;
     private final int maxRounds; // = 2 * roundsToWin - 1：引き分けを除いた決着ラウンド上限
     private final int totalFrames;
+    private final int introFrames; // ラウンド開始イントロの総フレーム数（0 ならイントロ無し）
 
     // Win counters
     private int p1Wins = 0;
@@ -49,11 +50,27 @@ public final class RoundManager {
     private int betweenCountdown = 0;
     private boolean nextRoundReady = false;
 
+    // Round-intro state（"ROUND N" → "FIGHT!" 開始演出。この間は戦闘・タイマーを停止する）
+    private int introCountdown;
+
+    /** 既定（イントロ有り＝{@link GameConstants#ROUND_INTRO_FRAMES}）でラウンド管理を構築する。 */
     public RoundManager(BattleRules rules) {
+        this(rules, GameConstants.ROUND_INTRO_FRAMES);
+    }
+
+    /**
+     * イントロ長を指定してラウンド管理を構築する。
+     *
+     * @param rules 対戦ルール（制限時間・先取ラウンド数）
+     * @param introFrames ラウンド開始イントロの総フレーム数（0 ならイントロをスキップ。撮影モードの後方互換用）
+     */
+    public RoundManager(BattleRules rules, int introFrames) {
         this.roundsToWin = rules.getRoundsToWin();
         this.maxRounds = 2 * roundsToWin - 1;
         this.totalFrames = Math.max(0, rules.getTimeLimitSeconds()) * GameConstants.TARGET_FPS;
         this.remainingFrames = totalFrames;
+        this.introFrames = Math.max(0, introFrames);
+        this.introCountdown = this.introFrames;
     }
 
     /**
@@ -62,6 +79,11 @@ public final class RoundManager {
      */
     public void update(Fighter p1, Fighter p2) {
         if (matchOver) {
+            return;
+        }
+        // ラウンド開始イントロ中は戦闘・タイマー・勝敗判定を止め、演出カウントのみ進める。
+        if (introCountdown > 0) {
+            introCountdown--;
             return;
         }
         if (betweenCountdown > 0) {
@@ -126,6 +148,7 @@ public final class RoundManager {
         roundFinished = false;
         roundWinner = Winner.NONE;
         roundReason = FinishReason.NONE;
+        introCountdown = introFrames; // 新ラウンドも開始イントロを再生
     }
 
     private static Winner decideByHp(Fighter p1, Fighter p2) {
@@ -157,6 +180,24 @@ public final class RoundManager {
     /** ラウンド間カウントダウン中か。この間は戦闘を停止し、ラウンド結果バナーを表示する。 */
     public boolean isBetweenRounds() {
         return !matchOver && betweenCountdown > 0;
+    }
+
+    /** ラウンド開始イントロ中か。この間は戦闘・タイマーを停止し、"ROUND N" / "FIGHT!" 演出を表示する。 */
+    public boolean isRoundIntro() {
+        return !matchOver && introCountdown > 0;
+    }
+
+    /**
+     * イントロ中で末尾の "FIGHT!" 表示区間か（残り {@link GameConstants#FIGHT_FLASH_FRAMES} フレーム以下）。
+     * false かつ {@link #isRoundIntro()} が true なら "ROUND N" 表示区間。
+     */
+    public boolean isFightFlash() {
+        return isRoundIntro() && introCountdown <= GameConstants.FIGHT_FLASH_FRAMES;
+    }
+
+    /** ラウンド開始イントロの残フレーム数（0 はイントロ中でない）。 */
+    public int getIntroCountdown() {
+        return introCountdown;
     }
 
     /**

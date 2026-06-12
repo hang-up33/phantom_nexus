@@ -112,7 +112,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         BattleRules rules = new BattleRules(
                 screenshot.timeLimitSeconds(BattleRules.defaults().getTimeLimitSeconds()),
                 BattleRules.defaults().getRoundsToWin());
-        round = new RoundManager(rules);
+        // ラウンド開始イントロ（"ROUND N"/"FIGHT!"・Task 42）。通常起動は有効。撮影モードは既定でスキップし
+        // （既存スクショレシピの後方互換）、intro=true 指定時のみ有効化して開始演出を撮れる。
+        int introFrames = screenshot.roundIntroEnabled(true)
+                ? GameConstants.ROUND_INTRO_FRAMES : 0;
+        round = new RoundManager(rules, introFrames);
         // デバッグ当たり判定表示（Task 18）。既定 OFF・F1 でトグル。撮影時は debug=true で強制 ON。
         debugOverlay = new DebugOverlay();
         debugOverlay.setEnabled(screenshot.debugEnabled());
@@ -169,8 +173,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (round.isFinished()) {
             return;
         }
-        // ラウンド間インターバル中はファイター操作・判定を停止し、カウントダウンのみ進める。
-        if (!round.isBetweenRounds()) {
+        // ラウンド間インターバル中・ラウンド開始イントロ（"ROUND N"/"FIGHT!"）中は
+        // ファイター操作・判定を停止し、カウントダウンのみ進める。
+        if (!round.isBetweenRounds() && !round.isRoundIntro()) {
             updateFighterInput(fighter1, p1Input, history1, 1);
             if (p2AiEnabled) {
                 p2Ai.control(fighter2, fighter1);

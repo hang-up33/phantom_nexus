@@ -112,4 +112,18 @@ public final class GameConstants {
      * 戦闘結果には影響しない。
      */
     public static final int HIT_SPARK_FRAMES = 12;
+
+    /**
+     * ラウンド開始イントロ（"ROUND N" → "FIGHT!" 演出）の総フレーム数（Task 42）。各ラウンド開始時、
+     * この間はファイター操作・判定・タイマーを停止して開始演出を表示し、0 になった瞬間から戦闘開始。
+     * 60fps 基準で約 1.5 秒。撮影モードでは既定でスキップ（{@code -x intro=true} で有効化）し、
+     * 既存スクショレシピ（frame1 から戦闘前提）の後方互換を保つ。
+     */
+    public static final int ROUND_INTRO_FRAMES = 90;
+
+    /**
+     * ラウンド開始イントロのうち末尾の "FIGHT!" を表示するフレーム数（Task 42）。{@link #ROUND_INTRO_FRAMES}
+     * の残りがこの値以下になったら "ROUND N" から "FIGHT!" 表示へ切り替える。60fps 基準で約 0.5 秒。
+     */
+    public static final int FIGHT_FLASH_FRAMES = 30;
 }

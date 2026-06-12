@@ -72,6 +72,9 @@ public class GameRenderer {
     // コンボカウンター（Task 39）の文字色（鮮やかなオレンジ）と表示倍率。
     private static final Color COMBO_COLOR = new Color(1f, 0.62f, 0.18f, 1f);
     private static final float COMBO_SCALE = 1.7f;
+    // ラウンド開始イントロ（Task 42）："ROUND N"=白系 / "FIGHT!"=赤系で開始を強調。
+    private static final Color ROUND_INTRO_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
+    private static final Color FIGHT_FLASH_COLOR = new Color(0.98f, 0.30f, 0.26f, 1f);
     private static final int SPARK_SPOKES = 8;        // 放射スポーク本数
     private static final float SPARK_CORE_RADIUS = 9f; // 中心コア（縮小していく）の初期半径
     private static final float SPARK_REACH = 34f;      // スポーク先端が到達する最大距離
@@ -234,6 +237,8 @@ public class GameRenderer {
             drawResultBanner(p1, p2, round);
         } else if (round.isBetweenRounds()) {
             drawBetweenRoundBanner(p1, p2, round);
+        } else if (round.isRoundIntro()) {
+            drawRoundIntroBanner(round);
         }
         batch.end();
     }
@@ -280,6 +285,27 @@ public class GameRenderer {
         font.getData().setScale(1.2f);
         drawCentered("ROUND " + (round.getCurrentRound() + 1) + "  in " + secsLeft,
                 cx, GameConstants.WORLD_HEIGHT / 2f - 35f);
+        font.getData().setScale(1.0f);
+    }
+
+    /**
+     * ラウンド開始イントロバナー（Task 42）：開始前半は "ROUND N"（白）、末尾 {@code FIGHT_FLASH_FRAMES}
+     * フレームは "FIGHT!"（赤・拡大）を画面中央に表示する。この間は戦闘・タイマーが停止している。
+     * 色・倍率は共有状態のため、描画後に白・等倍へ戻す。
+     */
+    private void drawRoundIntroBanner(RoundManager round) {
+        float cx = GameConstants.WORLD_WIDTH / 2f;
+        float cy = GameConstants.WORLD_HEIGHT / 2f + 20f;
+        if (round.isFightFlash()) {
+            font.setColor(FIGHT_FLASH_COLOR);
+            font.getData().setScale(3.0f);
+            drawCentered("FIGHT!", cx, cy);
+        } else {
+            font.setColor(ROUND_INTRO_COLOR);
+            font.getData().setScale(2.5f);
+            drawCentered("ROUND " + round.getCurrentRound(), cx, cy);
+        }
+        font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
 
