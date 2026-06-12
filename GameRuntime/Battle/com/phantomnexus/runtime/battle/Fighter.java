@@ -263,6 +263,7 @@ public class Fighter {
         hitstunFrames = 0;
         knockdownFrames = 0;
         knockdownInertThisFrame = false;
+        crouching = false;
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
