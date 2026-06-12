@@ -105,4 +105,11 @@ public final class GameConstants {
      * 約 0.67 秒。純粋な視覚演出のため戦闘結果には影響しない（HP 計算とは独立）。
      */
     public static final int DAMAGE_POPUP_FRAMES = 40;
+
+    /**
+     * ヒットスパーク（命中時の火花エフェクト）の表示フレーム数（Task 38）。命中位置で放射状の火花が
+     * このフレーム数だけ拡大＋フェードして消える。60fps 基準で約 0.2 秒の短い手応え演出。純粋な視覚演出で
+     * 戦闘結果には影響しない。
+     */
+    public static final int HIT_SPARK_FRAMES = 12;
 }
