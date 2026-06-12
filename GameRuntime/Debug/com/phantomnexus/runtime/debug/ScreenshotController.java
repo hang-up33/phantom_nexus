@@ -191,6 +191,18 @@ public final class ScreenshotController {
         return v == null ? fallback : !"false".equalsIgnoreCase(v);
     }
 
+    /**
+     * 読み込むステージ ID の撮影用オーバーライド。撮影モードで {@code stage=<id>} 指定時のみ差し替える。
+     * 通常起動・未指定時は {@code fallback}。複数ステージ（背景）の見え方を 1 起動で撮り分けるために使う。
+     */
+    public String stageId(String fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.stage"));
+        return v != null ? v : fallback;
+    }
+
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
         addTokens(spec, p1Hold, p2Hold);

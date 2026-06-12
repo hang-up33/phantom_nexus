@@ -1,0 +1,7 @@
+{
+  "id": "stage002",
+  "name": "Verdant Glade",
+  "skyTop": [0.18, 0.46, 0.78],
+  "skyBottom": [0.62, 0.82, 0.94],
+  "groundColor": [0.16, 0.40, 0.22]
+}

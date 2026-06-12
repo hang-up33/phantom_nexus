@@ -79,11 +79,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
     @Override
     public void create() {
         renderer = new GameRenderer();
-        // ステージを外部 JSON から読み込み、背景描画に設定する（Task 17）。
-        Stage stage = StageLoader.load("stage001");
-        renderer.setStage(stage);
         // ヘッドレス自動スクショ（phantom.screenshot.* 指定時のみ有効。通常起動には無影響）。
+        // ステージ/キャラ等のオーバーライドを参照するため、他のロードより先に初期化する。
         screenshot = new ScreenshotController();
+        // ステージを外部 JSON から読み込み、背景描画に設定する（Task 17）。
+        // 既定 stage001。撮影時は stage=<id> でオーバーライド可能（背景の撮り分け用。Task 40）。
+        Stage stage = StageLoader.load(screenshot.stageId("stage001"));
+        renderer.setStage(stage);
         p1Input = PlayerInput.player1Defaults();
         p2Input = PlayerInput.player2Defaults();
         // 過渡状態の撮影用に、指定があれば起動時から入力を押下状態に固定する（通常は空＝無影響）。
