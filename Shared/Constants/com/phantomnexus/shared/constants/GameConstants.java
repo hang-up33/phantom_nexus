@@ -109,6 +109,19 @@ public final class GameConstants {
     public static final float KNOCKDOWN_KNOCKBACK_SCALE = 1.4f;
 
     /**
+     * 受け身（ukemi・クイック起き上がり, Task 66）の入力受付窓（フレーム）。ダウン（{@link #KNOCKDOWN_FRAMES}）開始から
+     * この経過フレーム以内に行動入力（攻撃 / ジャンプ / 投げ）があれば、残りダウンフレームを {@link #UKEMI_RISE_FRAMES} に
+     * 短縮して早く起き上がる（起き攻めへの対抗択）。窓を過ぎてからの入力は無効（フル {@link #KNOCKDOWN_FRAMES} 待つ）。
+     */
+    public static final int UKEMI_WINDOW = 12;
+
+    /**
+     * 受け身成立時の残りダウンフレーム（Task 66）。{@link #UKEMI_WINDOW} 内に受け身入力すると残りがこの値に短縮される。
+     * フル {@link #KNOCKDOWN_FRAMES}(60) より大幅に短いが、その分**起き上がりが早い＝無敵が早く切れる**（メアリーへの隙）。
+     */
+    public static final int UKEMI_RISE_FRAMES = 20;
+
+    /**
      * ダメージ数値ポップアップの表示フレーム数（被弾 / ガード時に与ダメージ量を命中位置から浮かび上がらせる演出）。
      *
      * <p>命中位置からこのフレーム数だけ上昇しながら表示し、終盤でフェードアウトして消える。60fps 基準で
