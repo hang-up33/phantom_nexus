@@ -206,8 +206,9 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `hitboxOffsetY` | float | ✅ | hitbox の足元高さ（px） |
 | `hitboxWidth` | float | ✅ | hitbox 横幅（px）。飛び道具は弾サイズ兼用 |
 | `hitboxHeight` | float | ✅ | hitbox 高さ（px） |
-| `projectile` | bool | 任意 | 飛び道具として発射するか（既定 false） |
+| `projectile` | bool | 任意 | 飛び道具として発射するか（既定 false）。`false`（既定）の必殺技は **打撃必殺技**＝発生時に近接 hitbox を出す（昇龍拳タイプ。Task 53） |
 | `projectileSpeed` | float | 任意* | 飛び道具の速度（px/frame）。`projectile=true` なら必須 |
+| `invincibleFrames` | int | 任意 | 技の発生からこのフレーム数だけ食らい判定を失う（リバーサル / 対空・**Task 53**）。0（既定）＝無敵なし。打撃必殺技に付けると無敵対空になる（被弾・被弾飛び道具を無効化）。旧 JSON はキー無しで 0（後方互換） |
 | `guardHeight` | string | 任意 | ガード高さ属性（`overhead` / `mid` / `low`、既定 `mid`）。飛び道具は既定の `mid` 運用（Task 33） |
 
 > hitbox 矩形は「前方の前面・足元」を原点とする相対座標で、向きに応じて左右反転する（実装は `Shared/Types.Move`）。飛び道具技は hitbox 寸法を弾サイズとして使い、body 付随判定は持たない（ダメージは弾が運ぶ）。hurtbox / pushbox は MVP ではキャラ矩形（`width`/`height`）を用いる（`Shared/Types.Hurtbox`/`PushBox`、Task 12）。
@@ -288,6 +289,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 53) 無敵リバーサル必殺技を追記。`Move` に任意フィールド `invincibleFrames`（int・既定 0）を追加：技発生からこのフレーム数だけ食らい判定を失う（リバーサル / 対空）。旧 JSON はキー無しで 0（後方互換）。あわせて **打撃必殺技**（`projectile=false` の必殺技＝発生時に近接 hitbox を出す）の運用を明文化（実装上は Task 20 から動作。fighter001 が初の実例）。`fighter001.json`（Aoi）に 2 つ目の必殺技 `rising_dragon`（command `CHARGE_SHOT`・`projectile` 無し＝打撃・`invincibleFrames: 9`・dmg110・startup4/active6/recovery30）を追加し、飛び道具（`fireball`=HADOUKEN）＋無敵対空（`rising_dragon`=CHARGE_SHOT）の 2 系統コマンドを持つキャラを実証（撮影で `<CHARGE (hold 4, 6+A)>` 成立・`special:active [INV]`・相手の攻撃を抜いて 110 反撃）。`Move` のフィールド表に `invincibleFrames` を追加。
 - (Task 52) 5 体目キャラ `Assets/Characters/fighter005.json`（"Sora"・HP750・遠距離 zoner 型の青緑）＋プレースホルダ・スプライト `fighter005.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・実行時はデータ資産（JSON＋プレースホルダ PNG）の追加だけでキャラが動作する**ことを再々検証（4 体目 fighter004 に続く 5 体目）。※本 PR には docs（README/CLAUDE/本書）・証跡スクショ等の補助ファイルも含むが、これらは実行時には不要（ランタイムに必要なのは JSON＋PNG の 2 ファイルのみ）。アーキタイプを差別化：通常技（`needle`/`lance`/`skewer`）は **hitboxWidth が 104/124/144 と長射程**でリーチ重視、必殺 `frost_shard`（飛び道具・`projectileSpeed 14.0` と高速）・投げ `spire_toss`（dmg100）、HP は低め（750）。**新キャラがコード変更なしで必殺技・投げ・既存戦闘機構をそのまま使える**ことをスクショで確認（236+A で frost_shard 発射／`skewer` の長い hitbox が 200px の間合いを抜いて 85 ダメージ）。撮影は `-x p1char=fighter005`。
 - (Bootstrap) 第一設計書の共通データ仕様に基づく初版ドラフトを作成。
 - (Task 6) `Shared/Types/Character` POJO を新設し、描画 / 当たり判定の基準となる `width` / `height` を追加（実装は id/name/hp/walkSpeed/jumpPower/width/height のサブセット。animations/moves/hitbox は Task 15 で正式化）。

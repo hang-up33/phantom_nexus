@@ -118,6 +118,7 @@ public class GameRenderer {
     private static final Color METER_FRAME_COLOR = new Color(0.80f, 0.82f, 0.90f, 1f);
     private static final Color EX_PROJECTILE_GLOW = new Color(1f, 0.82f, 0.30f, 1f);  // EX 弾の金グロー
     private static final String STATE_LABEL_GUARD_BREAK = "guard_break"; // 名前下の状態ラベル（ハードコード回避）
+    private static final String STATE_LABEL_INVINCIBLE_SUFFIX = " [INV]"; // 無敵フレーム中の付加表示（Task 53）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
@@ -713,6 +714,11 @@ public class GameRenderer {
             stateLabel = "dash";
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
+        }
+        // 無敵フレーム中（リバーサル / 対空・Task 53）は状態ラベルに [INV] を付して可視化する
+        // （フレームデータ依存の無敵をスクショで確認できるようにする）。
+        if (f.isInvincible()) {
+            stateLabel = stateLabel + STATE_LABEL_INVINCIBLE_SUFFIX;
         }
         drawCentered(stateLabel, centerX, top + 12f);
     }

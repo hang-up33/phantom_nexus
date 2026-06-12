@@ -659,6 +659,22 @@ public class Fighter {
         return currentMove;
     }
 
+    /**
+     * 現在、技の無敵フレーム中か（Task 53）。進行中の技に {@code invincibleFrames > 0} があり、その技の発生からの
+     * 経過フレーム（{@link #attackFrame}）が無敵窓内（{@code 1..invincibleFrames}）なら true。
+     *
+     * <p>無敵中はこのファイターの食らい判定が無効になり（{@code CollisionSystem.isHitting}/{@code hits} が defender 側で参照）、
+     * 打撃必殺技に付ければ昇龍拳タイプのリバーサル / 対空になる。攻撃中（{@code attackPhase != NONE}）のみ有効で、
+     * 技が終われば自動的に false。乱数は使わず経過フレームのみで決まる（決定的＝入力リプレイと両立）。
+     */
+    public boolean isInvincible() {
+        if (attackPhase == AttackPhase.NONE || currentMove == null) {
+            return false;
+        }
+        int inv = currentMove.getInvincibleFrames();
+        return inv > 0 && attackFrame <= inv;
+    }
+
     /** 必殺技を発動中か（進行中の技が specialMoves 配列の要素か）。 */
     public boolean isSpecialActive() {
         if (currentMove == null) {

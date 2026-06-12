@@ -40,6 +40,14 @@ public class Move {
     private boolean projectile;
     private float projectileSpeed;
     /**
+     * 無敵フレーム数（Task 53）。技の発生から数えてこのフレーム数だけ、この技を出している側が
+     * <b>食らい判定（hurtbox）を失う</b>（被弾・被弾飛び道具を無効化＝リバーサル / 対空）。0（既定）＝無敵なし。
+     * 旧 JSON（キー無し）は初期化子の 0 を保ち後方互換。打撃必殺技（{@code projectile=false}）に付けると
+     * 昇龍拳タイプの無敵対空になる。{@code attackFrame <= invincibleFrames} の間だけ無敵（{@link com.phantomnexus.shared.types.Move} の
+     * 値を {@code Fighter.isInvincible()} が参照）。値は技の全長を超えてもよい（全体無敵）。
+     */
+    private int invincibleFrames = 0;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -145,6 +153,14 @@ public class Move {
     /** 飛び道具の進行速度（px/frame, 前方）。{@link #isProjectile()} が true のとき有効。 */
     public float getProjectileSpeed() {
         return projectileSpeed;
+    }
+
+    /**
+     * 無敵フレーム数（Task 53）。技発生からこのフレーム数だけ食らい判定を失う（リバーサル / 対空）。
+     * 負値は 0 に丸める（後方互換・防御的）。0 ＝無敵なし。
+     */
+    public int getInvincibleFrames() {
+        return Math.max(0, invincibleFrames);
     }
 
     /**
