@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜65 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -22,7 +22,7 @@
 
 `idle / walk / jump / jump_attack(空中攻撃) / attack / throw(投げ) / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
 空中ガード（Task 59）は専用の `AnimationState` を持たず JUMP ポーズ＋青オーバーレイを流用し、ラベル `air_guard` で識別する。
-ダウン（Task 60）も専用 `AnimationState` を持たず HITSTUN ポーズを流用し、ラベル `knockdown` で識別する（ダウン中は被弾無敵）。
+ダウン（Task 60）も専用 `AnimationState` を持たず HITSTUN ポーズを流用し、ラベル `knockdown` で識別する（ダウン中は被弾無敵）。受け身（Task 66）成立中は `knockdown(ukemi)` ラベルでクイック起き上がりを識別する（ポーズは HITSTUN 流用のまま）。
 ダッシュ攻撃（Task 65）も専用 `AnimationState` を持たず ATTACK ポーズを流用し、ラベル `dash_attack:<区間>` で識別する（ダッシュ中の攻撃で出る突進打撃）。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
@@ -133,7 +133,7 @@
 | ダウン中無敵 | あり（**起き攻め / OTG なし**）。当たり判定（`CollisionSystem.isHitting` / `hits`）が `isKnockedDown()` を見て一律外す（打撃・飛び道具とも当たらない） |
 | knockback | 通常被弾の `KNOCKDOWN_KNOCKBACK_SCALE`(1.4) 倍で強く転ばせる |
 | コンボ | ダウンはコンボの締め（`knockdownFrames` が尽きた瞬間に `comboCount=0`）。コンボ補正（Task 46）は通常被弾と同じく適用 |
-| 起き上がり | `KNOCKDOWN_FRAMES` 経過で自動的に起き上がる（idle へ復帰） |
+| 起き上がり | `KNOCKDOWN_FRAMES` 経過で自動的に起き上がる（idle へ復帰）。ただし**受け身**（Task 66）で早めに起き上がれる |
 | 視覚 | 専用 `AnimationState` は持たず `HITSTUN` ポーズを流用し、状態ラベル `knockdown` で識別（`air_guard`/`tech`/`guard_break` と同じ「既存ポーズ流用＋ラベルで区別」方式） |
 
 - **`Move.knockdown`**（任意 boolean・既定 `false`＝後方互換）：`Shared/Types/Move` に追加。旧 JSON はキー無しで `false`＝通常のけぞり。
@@ -141,6 +141,25 @@
 - **`Fighter.isKnockedDown()`**：ダウン中（被弾無敵）か。`CollisionSystem` の hit-test 冒頭で `isInvincible()` と並べて参照し、ダウン中の相手への攻撃を一律外す（OTG なし）。
 - **決定性**：フレームカウンタのみで乱数なし（入力リプレイと両立）。リプレイ format も不変。ただしダウン技ヒットを含む既存リプレイは「のけぞり→ダウン」へ結果が変わり得る（戦闘仕様変更）。
 - **データ例**：`fighter001` の `heavy_slam`（overhead 強攻撃）に `knockdown: true` を付与（非ガードヒットでダウン＝強攻撃の見返り）。飛び道具のダウンは将来拡張。
+
+---
+
+## 受け身（ukemi・クイック起き上がり）（Task 66）
+
+ダウン（Task 60）した側が、**ダウン直後の受付窓内に行動入力**（攻撃 / ジャンプ / 投げ）をすると、残りダウンフレームを短縮して早く起き上がる**受け身**。フル `KNOCKDOWN_FRAMES`(60) を待つより素早く復帰でき、**起き攻め（ダウン中の重ね）への対抗択**になる。グローバル機構（JSON 変更なし・全キャラ共通）。
+
+| 項目 | 仕様 |
+|---|---|
+| 受付窓 | ダウン開始から `UKEMI_WINDOW`(12) フレーム以内に受け身入力（経過 = `KNOCKDOWN_FRAMES - knockdownFrames`） |
+| 受け身入力 | 攻撃ボタン / ジャンプ / 投げのいずれか（`attackButton != null \|\| jumpPressed \|\| throwReq`）。専用キーは増やさない |
+| 効果 | 残りダウンを `UKEMI_RISE_FRAMES`(20) に短縮（フル 60 → 20＝約 40 フレーム早く起き上がる） |
+| トレードオフ | 早く起き上がる＝**ダウン中無敵が早く切れる**（メアリー／重ねへの隙が残る＝ノーリスクではない） |
+| 視覚 | 受け身成立中は状態ラベルを `knockdown(ukemi)` にして識別（`isUkemiRecovering()`。ポーズは HITSTUN 流用のまま） |
+
+- **実装（`Fighter.update` のダウン inert 分岐）**：`knockdownFrames` 減算の**前**に経過フレームを算出し、`ukemiInput && elapsed <= UKEMI_WINDOW && knockdownFrames > UKEMI_RISE_FRAMES` なら `knockdownFrames = UKEMI_RISE_FRAMES` に短縮して `ukemiRecovery=true`。短縮済み（残り ≤ 20）や窓超過では無効＝フルダウンを待つ。`applyKnockdown`（新ダウン）・`reset()` で `ukemiRecovery=false`。
+- **無敵との整合**：ダウン中無敵（`isKnockedDown()`・Task 60 の 1F ラッチ）は短縮後も `knockdownFrames > 0` の間そのまま効くので、受け身で 20F に縮めれば**無敵もその分早く切れる**（トレードオフが自動的に成立）。専用の無敵調整は不要。
+- **決定性**：判断は入力と経過フレームのみで**乱数なし**。受け身入力は通常の行動入力なので**リプレイ format は不変**（記録済みのボタン入力で再現）。ただしダウン直後に行動入力を含む既存リプレイは「フルダウン→受け身」へ結果が変わり得る（戦闘仕様変更）。
+- **AI**：現状 AI（`AiController`）はダウン中に行動入力を出さない（`canStartAction()==false` で攻撃/ジャンプ分岐に入らない）ため受け身しない＝人間のみの択。AI の受け身は将来拡張。
 
 ---
 
@@ -701,6 +720,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 66) 受け身（ukemi・クイック起き上がり）を追記。`GameConstants` に `UKEMI_WINDOW`(12)・`UKEMI_RISE_FRAMES`(20) を追加。`Fighter` のダウン inert 分岐（Task 60）で `knockdownFrames` 減算前に経過フレームを算出し、`ukemiInput`（攻撃/ジャンプ/投げ）が `UKEMI_WINDOW` 以内かつ残りが `UKEMI_RISE_FRAMES` 超なら `knockdownFrames` を `UKEMI_RISE_FRAMES` に短縮して `ukemiRecovery` フラグを立てる。`isUkemiRecovering()` を追加し、`GameRenderer.drawNameLabel` がダウンラベルを `knockdown(ukemi)` に切替。`applyKnockdown`・`reset()` で `ukemiRecovery=false`。ダウン中無敵（Task 60）は短縮後も `knockdownFrames>0` の間そのまま効くので、受け身で縮めれば無敵も早く切れる＝トレードオフが自動成立（専用調整不要）。JSON 変更なし（グローバル機構）。乱数なし・リプレイ format 不変（受け身は通常の行動入力で記録済み）だが、ダウン直後に行動入力を含む既存リプレイは結果が変わり得る（戦闘仕様変更）。AI は現状ダウン中に入力しないため受け身しない（人間のみ・将来拡張）。「受け身（ukemi・クイック起き上がり）（Task 66）」節・ダウン節の起き上がり行・ステート一覧・冒頭サマリを追加。
 - (Task 65) ダッシュ攻撃を追記。`Shared/Types/Character` に任意 `dashAttack`（`Move`）を追加し、`GameConstants` に `DASH_ATTACK_LUNGE_SPEED`(14) を追加。`Fighter` の攻撃開始ブロックで「接地ダッシュ中（`dashFrames>0`）＋非しゃがみ＋攻撃＋`dashAttack` 所持」なら通常技でなく `def.getDashAttack()` を `beginAttack` し、`dashAttacking` フラグを立てて `velocityX = dashDir × DASH_ATTACK_LUNGE_SPEED`（既存 velocityX 適用＋減衰経路を流用＝前方突進）を与える（`beginAttack` が dashFrames を 0 にする前に `dashDir` を退避）。`isDashAttacking()` を追加し、攻撃終了・チェーン・`startSpecial` でフラグをクリア。`GameRenderer.drawNameLabel` に `dash_attack:<phase>` prefix を追加（ATTACK ポーズ流用）。`CharacterLoader.validateDashAttack`（任意・null 許可・フレーム/hitbox/guardHeight 検証）を追加。`dashAttack` は `button` を持たないためチェーン/特殊キャンセルの起点にはならない（committal）。例示として fighter004 Rai に `dash_shoulder`（dmg80）を追加。データ駆動（持つキャラだけ使える）・後方互換（持たないキャラはダッシュ中の攻撃が従来どおり通常技へキャンセル＝no-op）・乱数なし（突進初速/減衰も固定＝リプレイ format 不変）。「ダッシュ攻撃（Task 65）」節・ステート一覧・冒頭サマリを追加（DataFormat.md にもフィールド/Move 節を追加）。
 - (Task 64) AI の飛び道具牽制（zoner）を追記。`AiController` に `findProjectileMove()`（`specialMoves[]` から `projectile` な技を探す）・`pendingProjectile` フィールド・`consumePendingProjectile()` を追加し、遠距離（中心間 > `DASH_APPROACH_RANGE`(260px)）で自分・相手とも接地・クールダウン明け・飛び道具持ちなら `self.startSpecial(projectile)` で発射する分岐を**ダッシュ接近の前**に追加（**HARD のみ**）。`PhantomNexusGame` は `p2Ai.control(...)` の直後に `consumePendingProjectile()` を読み、非 null なら `spawnProjectile(fighter2, move, false)` で弾を生成する（**飛び道具のみ Core 連携が要る唯一の必殺技**＝弾という別オブジェクト生成は `Fighter` の状態遷移で完結しないため。打撃必殺技＝対空 Task 55 は Core 無改修だった）。クールダウン中はダッシュ接近へフォールスルー＝撃ちつ詰めつの zoner 行動。`Fighter`/`CollisionSystem`・`GameConstants`・JSON は不変。データ駆動（飛び道具を持たないキャラの AI はこの分岐をスキップ）。乱数なし（決定的・入力リプレイと両立／弾生成位置・速度も固定計算）だが HARD の挙動が Task 63 までと変わる（飛び道具持ちキャラの AI が遠距離で弾を撃つ）。「簡易 AI」節に「飛び道具牽制（zoner・Task 64）」サブ節を追加し、難易度 HARD 行・優先順を更新。
 - (Task 63) AI の下段読みしゃがみガードを追記。`AiController` のガード反応分岐（Task 37）に高さ読みを足し、相手の打撃が下段（`opponent.isCrouchAttacking()` か進行中の技の `getGuardHeight()==GuardHeight.LOW`）なら `crouchGuard = advanced && opponentLow` を立てて `self.update` の `crouchHeld`（従来 false 固定）として渡す。これで `Fighter` 既存のしゃがみガード（後退方向保持＋crouchHeld・Task 30）が成立し、下段を立ちガード貫通させず防げる。**HARD のみ**（NORMAL は従来どおり立ちガードで下段に弱い＝難易度差）。`AiController` に `GuardHeight` import と `crouchGuard` ローカル・下段判定を追加しただけで `Fighter`/Core・`GameConstants`・JSON は不変。乱数なし（決定的・入力リプレイと両立）だが HARD の挙動が Task 62 までと変わる（下段に対ししゃがみガードする）。「簡易 AI」節に「下段読みのしゃがみガード（Task 63）」サブ節を追加し、難易度 HARD 行を更新。

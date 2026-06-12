@@ -726,7 +726,8 @@ public class GameRenderer {
         String stateLabel;
         if (f.isKnockedDown()) {
             // ダウン（Task 60）。HITSTUN ポーズを流用しつつ knockdown ラベルで識別する（ダウン中は被弾無敵）。
-            stateLabel = "knockdown";
+            // 受け身（Task 66）成立中は knockdown(ukemi) として識別する（クイック起き上がりの証跡）。
+            stateLabel = f.isUkemiRecovering() ? "knockdown(ukemi)" : "knockdown";
         } else if (f.isThrowTeched()) {
             // 投げ抜けの硬直は hitstun フレームを流用するため、ラベルは tech を優先表示する（Task 36）。
             stateLabel = "tech";
