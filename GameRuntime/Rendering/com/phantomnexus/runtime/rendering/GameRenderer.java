@@ -15,6 +15,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.DamagePopup;
+import com.phantomnexus.runtime.battle.HitSpark;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -65,6 +66,13 @@ public class GameRenderer {
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
     private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
+    // ヒットスパーク（Task 38）：通常ヒット=暖色（白寄りの黄）/ ガード=寒色（青）。放射スポーク数と寸法。
+    private static final Color SPARK_HIT_COLOR = new Color(1f, 0.95f, 0.55f, 1f);
+    private static final Color SPARK_GUARD_COLOR = new Color(0.60f, 0.85f, 1f, 1f);
+    private static final int SPARK_SPOKES = 8;        // 放射スポーク本数
+    private static final float SPARK_CORE_RADIUS = 9f; // 中心コア（縮小していく）の初期半径
+    private static final float SPARK_REACH = 34f;      // スポーク先端が到達する最大距離
+    private static final float SPARK_SPOKE_HALF_WIDTH = 4f; // スポーク基部の半幅
     // ダメージ数値ポップアップ：通常ヒット=暖色（黄）/ ガード chip=寒色（青、GUARD_COLOR と同系）。
     private static final Color POPUP_HIT_COLOR = new Color(1f, 0.92f, 0.40f, 1f);
     private static final Color POPUP_CHIP_COLOR = new Color(0.55f, 0.80f, 1f, 1f);
@@ -96,6 +104,8 @@ public class GameRenderer {
     private final GlyphLayout layout = new GlyphLayout();
     // ダメージ数値ポップアップ描画用のフェード色（毎フレームの再確保を避ける作業用バッファ）。
     private final Color popupColor = new Color();
+    // ヒットスパーク描画用のフェード色（毎フレームの再確保を避ける作業用バッファ。Task 38）。
+    private final Color sparkColor = new Color();
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -134,14 +144,15 @@ public class GameRenderer {
      * @param anim2        プレイヤー 2 のアニメーション状態
      * @param projectiles  飛び道具（必殺技の弾）一覧
      * @param popups       ダメージ数値ポップアップ一覧（被弾 / ガード時の与ダメージ表示）
+     * @param sparks       ヒットスパーク一覧（命中位置の火花エフェクト。Task 38）
      * @param round        ラウンド進行 / 勝敗（タイマー・結果表示）
      * @param debug        デバッグ当たり判定オーバーレイ（有効時に判定枠を重ね描き）
      * @param controlsHint 操作ガイド（HUD）
      * @param statusLine   各ファイターの座標 / 向き（HUD・移動の動作確認用）
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
-                            List<Projectile> projectiles, List<DamagePopup> popups, RoundManager round,
-                            DebugOverlay debug, String controlsHint, String statusLine) {
+                            List<Projectile> projectiles, List<DamagePopup> popups, List<HitSpark> sparks,
+                            RoundManager round, DebugOverlay debug, String controlsHint, String statusLine) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
@@ -175,6 +186,8 @@ public class GameRenderer {
         drawFighterOverlay(p2, anim2, P2_COLOR);
         // 飛び道具（必殺技の弾）。
         drawProjectiles(projectiles);
+        // ヒットスパーク（命中位置で拡大＋フェードする火花。Task 38）。
+        drawHitSparks(sparks);
         // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
         drawContactMarker(p1, p2);
         drawContactMarker(p2, p1);
@@ -465,6 +478,46 @@ public class GameRenderer {
             shapes.circle(cx, cy, r);
             shapes.setColor(PROJECTILE_CORE);
             shapes.circle(cx, cy, r * 0.55f);
+        }
+    }
+
+    /**
+     * ヒットスパークを描く（Task 38）。各スパークは命中位置から放射状のスポーク（三角形）を伸ばしつつ、
+     * 経過に比例してスポークが外へ伸び・コアが縮み・全体がフェードする。通常ヒットは暖色、ガードは寒色。
+     * {@link ShapeRenderer.ShapeType#Filled} のオーバーレイパス内で呼ぶ（ブレンドは有効化済み）。
+     */
+    private void drawHitSparks(List<HitSpark> sparks) {
+        if (sparks.isEmpty()) {
+            return;
+        }
+        for (HitSpark s : sparks) {
+            float progress = s.getLifespan() > 0 ? (float) s.getAge() / s.getLifespan() : 1f;
+            float alpha = Math.max(0f, 1f - progress); // 線形フェードアウト
+            Color base = s.getKind() == HitSpark.Kind.GUARD ? SPARK_GUARD_COLOR : SPARK_HIT_COLOR;
+            sparkColor.set(base.r, base.g, base.b, alpha);
+            shapes.setColor(sparkColor);
+            float cx = s.getOriginX();
+            float cy = s.getOriginY();
+            float inner = SPARK_CORE_RADIUS * 0.5f;          // スポーク基部の半径
+            float outer = inner + progress * SPARK_REACH;    // スポーク先端の半径（外へ伸びる）
+            float half = SPARK_SPOKE_HALF_WIDTH * (1f - progress * 0.5f); // 先細りの基部幅
+            // 放射スポーク（先端の鋭い三角形を SPARK_SPOKES 本）。
+            for (int i = 0; i < SPARK_SPOKES; i++) {
+                double a = (Math.PI * 2.0 * i) / SPARK_SPOKES;
+                float dx = (float) Math.cos(a);
+                float dy = (float) Math.sin(a);
+                float px = -dy; // 垂直方向（基部の幅付け用）
+                float py = dx;
+                float tipX = cx + dx * outer;
+                float tipY = cy + dy * outer;
+                float b1x = cx + dx * inner + px * half;
+                float b1y = cy + dy * inner + py * half;
+                float b2x = cx + dx * inner - px * half;
+                float b2y = cy + dy * inner - py * half;
+                shapes.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
+            }
+            // 中心コア（時間とともに縮む明るい円）。
+            shapes.circle(cx, cy, SPARK_CORE_RADIUS * (1f - progress));
         }
     }
 

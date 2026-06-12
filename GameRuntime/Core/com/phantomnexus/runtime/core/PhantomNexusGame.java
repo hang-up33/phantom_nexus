@@ -6,6 +6,7 @@ import com.badlogic.gdx.Input;
 import com.phantomnexus.runtime.battle.AiController;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.DamagePopup;
+import com.phantomnexus.runtime.battle.HitSpark;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -62,6 +63,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private final List<Projectile> projectiles = new ArrayList<>();
     // ダメージ数値ポップアップ（被弾 / ガード時の与ダメージ量を命中位置に浮かび上がらせる演出）。
     private final List<DamagePopup> damagePopups = new ArrayList<>();
+    // ヒットスパーク（命中位置に出す火花の手応え演出。Task 38）。
+    private final List<HitSpark> hitSparks = new ArrayList<>();
     private final AiController p2Ai = new AiController();
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
@@ -141,8 +144,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, round, debugOverlay,
-                controlsHint, statusLine());
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks, round,
+                debugOverlay, controlsHint, statusLine());
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
@@ -152,6 +155,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // ダメージ数値ポップアップは決着 / ラウンド間でも上昇・フェードを続けるため、凍結ガードより前に進める
         // （KO を決めた一撃の数字が止まらず最後まで浮かぶ）。純粋な演出で戦闘結果には影響しない。
         updateDamagePopups();
+        // ヒットスパークも同様に凍結ガードより前で aging（KO を決めた一撃の火花が最後まで弾ける）。
+        updateHitSparks();
         // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
         if (round.isFinished()) {
             return;
@@ -203,6 +208,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         commandTimer2 = 0;
         projectiles.clear();
         damagePopups.clear();
+        hitSparks.clear();
         p2Ai.reset();
     }
 
@@ -215,6 +221,23 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 it.remove();
             }
         }
+    }
+
+    /** ヒットスパークを 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出。Task 38）。 */
+    private void updateHitSparks() {
+        for (Iterator<HitSpark> it = hitSparks.iterator(); it.hasNext(); ) {
+            HitSpark s = it.next();
+            s.update();
+            if (s.isExpired()) {
+                it.remove();
+            }
+        }
+    }
+
+    /** 命中位置にヒットスパークを 1 件生成する（ガード成立時は {@link HitSpark.Kind#GUARD} で色分け。Task 38）。 */
+    private void spawnHitSpark(boolean blocked, float centerX, float centerY) {
+        hitSparks.add(new HitSpark(blocked ? HitSpark.Kind.GUARD : HitSpark.Kind.HIT,
+                centerX, centerY, GameConstants.HIT_SPARK_FRAMES));
     }
 
     /**
@@ -336,8 +359,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 } else {
                     target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
                 }
-                spawnDamagePopup(before - target.getCurrentHp(), blocked,
-                        p.getX(), target.getY() + target.getDef().getHeight() / 2f);
+                float sparkY = target.getY() + target.getDef().getHeight() / 2f;
+                spawnDamagePopup(before - target.getCurrentHp(), blocked, p.getX(), sparkY);
+                spawnHitSpark(blocked, p.getX(), sparkY);
                 p.kill();
             }
             if (!p.isAlive()) {
@@ -368,12 +392,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 // 投げ抜け成立：両者をノーダメージで反対方向へ弾き、短い硬直に入れる（ガード不能投げ唯一の対抗策）。
                 defender.applyThrowTech(knockbackDir);
                 attacker.applyThrowTech(-knockbackDir);
+                // 掴みが弾かれた接触点に火花（ノーダメージなのでポップアップは出さない）。
+                spawnHitSpark(false, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
                 return;
             }
             // 投げ成立：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
             defender.applyThrow(hb.getDamage(), knockbackDir);
             spawnDamagePopup(before - defender.getCurrentHp(), false,
                     hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+            spawnHitSpark(false, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
             return;
         }
         // ガード高さ属性（Task 33）で成立可否を決める：
@@ -400,9 +427,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         } else {
             defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
         }
-        // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべる。
-        spawnDamagePopup(before - defender.getCurrentHp(), blocked,
-                hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+        // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべ、同位置に火花を出す。
+        float sparkX = hb.getX() + hb.getWidth() / 2f;
+        float sparkY = hb.getY() + hb.getHeight() / 2f;
+        spawnDamagePopup(before - defender.getCurrentHp(), blocked, sparkX, sparkY);
+        spawnHitSpark(blocked, sparkX, sparkY);
     }
 
     /**
