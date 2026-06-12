@@ -265,7 +265,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
         boolean crouchHeld = in.isDown(InputAction.DOWN);
         // 投げ（Task 35）：地上・立ち（非しゃがみ）で投げボタンが押され、キャラに投げ技があれば最優先で発動する。
         // ガード不能の近接掴み。Fighter 側が予約語 "throw" を受けて専用経路で起動する（通常攻撃 / 必殺技は抑止）。
-        boolean throwReq = in.isPressed(InputAction.THROW) && f.isGrounded() && !crouchHeld
+        boolean throwPressed = in.isPressed(InputAction.THROW);
+        // 投げボタンを押した接地フレームは投げ抜け猶予窓をアームする（掴まれた瞬間に抜けられる・Task 36）。
+        // 自分の投げが成立しない間合い／状況でも、防御反応としての投げ抜け入力はここで受け付ける。
+        if (throwPressed && f.isGrounded()) {
+            f.armThrowTech();
+        }
+        boolean throwReq = throwPressed && f.isGrounded() && !crouchHeld
                 && f.getDef().getThrowMove() != null;
         if (throwReq) {
             // 投げ要求時は通常攻撃を抑止（発動は throwReq として Fighter.update へ渡す）。
@@ -356,8 +362,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
         Hitbox hb = CollisionSystem.activeHitbox(attacker);
         int knockbackDir = defender.getX() >= attacker.getX() ? 1 : -1;
         int before = defender.getCurrentHp();
-        // 投げはガード不能：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
+        // 投げはガード不能だが、被掴み側が直近に投げボタンを押していれば投げ抜け（Task 36）。
         if (attacker.isThrowing()) {
+            if (defender.canTechThrow()) {
+                // 投げ抜け成立：両者をノーダメージで反対方向へ弾き、短い硬直に入れる（ガード不能投げ唯一の対抗策）。
+                defender.applyThrowTech(knockbackDir);
+                attacker.applyThrowTech(-knockbackDir);
+                return;
+            }
+            // 投げ成立：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
             defender.applyThrow(hb.getDamage(), knockbackDir);
             spawnDamagePopup(before - defender.getCurrentHp(), false,
                     hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);

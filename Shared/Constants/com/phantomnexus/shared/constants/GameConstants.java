@@ -84,6 +84,21 @@ public final class GameConstants {
     public static final float THROW_KNOCKBACK_SCALE = 1.6f;
 
     /**
+     * 投げ抜け（throw tech, Task 36）の猶予窓（フレーム数）。投げボタンを押すとこのフレーム数だけ「抜け可能」状態になり、
+     * その間に相手の投げを掴まれると投げ抜け（相互に弾かれ・ノーダメージ）になる。掴みの発生（startup+α）を跨げる長さにする。
+     */
+    public static final int THROW_TECH_WINDOW = 10;
+
+    /**
+     * 投げ抜け成立後の硬直フレーム数（Task 36）。両者がこの間だけ行動不能になり、{@link #THROW_TECH_PUSHBACK} で弾かれる。
+     * のけぞり（{@link #HITSTUN_FRAMES}）より短く、ノーダメージのため読み合いがすぐ再開する。
+     */
+    public static final int THROW_TECH_FRAMES = 14;
+
+    /** 投げ抜け時に両者へ与える相互 knockback の初速（px/frame）。互いに反対方向へ弾く（Task 36）。 */
+    public static final float THROW_TECH_PUSHBACK = KNOCKBACK_SPEED;
+
+    /**
      * ダメージ数値ポップアップの表示フレーム数（被弾 / ガード時に与ダメージ量を命中位置から浮かび上がらせる演出）。
      *
      * <p>命中位置からこのフレーム数だけ上昇しながら表示し、終盤でフェードアウトして消える。60fps 基準で
