@@ -288,7 +288,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
-- (Task 52) 5 体目キャラ `Assets/Characters/fighter005.json`（"Sora"・HP750・遠距離 zoner 型の青緑）＋プレースホルダ・スプライト `fighter005.png` を追加。`Character` の JSON 仕様は不変で、**コード変更なし・JSON 追加だけでキャラが増える**ことを再々検証（4 体目 fighter004 に続く 5 体目）。アーキタイプを差別化：通常技（`needle`/`lance`/`skewer`）は **hitboxWidth が 104/124/144 と長射程**でリーチ重視、必殺 `frost_shard`（飛び道具・`projectileSpeed 14.0` と高速）・投げ `spire_toss`（dmg100）、HP は低め（750）。**新キャラがコード変更なしで必殺技・投げ・既存戦闘機構をそのまま使える**ことをスクショで確認（236+A で frost_shard 発射／`skewer` の長い hitbox が 200px の間合いを抜いて 85 ダメージ）。撮影は `-x p1char=fighter005`。
+- (Task 52) 5 体目キャラ `Assets/Characters/fighter005.json`（"Sora"・HP750・遠距離 zoner 型の青緑）＋プレースホルダ・スプライト `fighter005.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・実行時はデータ資産（JSON＋プレースホルダ PNG）の追加だけでキャラが動作する**ことを再々検証（4 体目 fighter004 に続く 5 体目）。※本 PR には docs（README/CLAUDE/本書）・証跡スクショ等の補助ファイルも含むが、これらは実行時には不要（ランタイムに必要なのは JSON＋PNG の 2 ファイルのみ）。アーキタイプを差別化：通常技（`needle`/`lance`/`skewer`）は **hitboxWidth が 104/124/144 と長射程**でリーチ重視、必殺 `frost_shard`（飛び道具・`projectileSpeed 14.0` と高速）・投げ `spire_toss`（dmg100）、HP は低め（750）。**新キャラがコード変更なしで必殺技・投げ・既存戦闘機構をそのまま使える**ことをスクショで確認（236+A で frost_shard 発射／`skewer` の長い hitbox が 200px の間合いを抜いて 85 ダメージ）。撮影は `-x p1char=fighter005`。
 - (Bootstrap) 第一設計書の共通データ仕様に基づく初版ドラフトを作成。
 - (Task 6) `Shared/Types/Character` POJO を新設し、描画 / 当たり判定の基準となる `width` / `height` を追加（実装は id/name/hp/walkSpeed/jumpPower/width/height のサブセット。animations/moves/hitbox は Task 15 で正式化）。
 - (Task 11) `Shared/Types/Move` POJO を新設（id/command/damage/startup/active/recovery + hitbox 矩形）。`Character` に `normalAttack`（通常攻撃 1 技）を追加。MVP はコード生成で供給し、Task 15/16 で JSON の moves[] から供給する。
