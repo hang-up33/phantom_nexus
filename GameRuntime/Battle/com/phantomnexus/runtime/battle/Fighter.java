@@ -78,6 +78,17 @@ public class Fighter {
         if (guardBreakFrames > 0) {
             guardBreakFrames--;
         }
+        // ダウンの行動不能フレームを冒頭で減衰させる（Task 60・Codex 指摘）。減算を inert 分岐の中でなくここで行うことで、
+        // この後の guarding 算出・行動ゲート（canStartAction）と、同 tick で update の後に走る当たり判定の被弾ゲート
+        // （isKnockedDown）が**同一の post-decrement 値**を見るようにし、行動可能になるフレームと被弾可能になるフレームを揃える
+        // （ダウンが解ける最終フレームに「まだ動けないのに被弾だけ可能」な 1F の無防備窓ができるのを防ぐ）。
+        if (knockdownFrames > 0) {
+            knockdownFrames--;
+            // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
+            if (knockdownFrames == 0) {
+                comboCount = 0;
+            }
+        }
         // ガード判定：非のけぞり・非攻撃中に後退方向を保持しているか。接地でも滞空でも成立する（空中ガード・Task 59）。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30。しゃがみは接地時のみ）。低姿勢判定は crouching を併用。
@@ -93,14 +104,10 @@ public class Fighter {
         if (knockdownFrames > 0) {
             // ダウン（Task 60）：のけぞりと同じく行動不能だが、より長く・ダウン中は被弾無敵（起き攻め無し）。
             // hitstun より優先（ダウン技は通常のけぞりを上書きする）。knockback の滑りは hitstun と同じ式で減衰。
+            // カウンタの減算・コンボ終了は update 冒頭で済ませている（被弾ゲートとの整合・Task 60）。
             crouching = false;
             guarding = false;
             this.moveDir = 0;
-            knockdownFrames--;
-            // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
-            if (knockdownFrames == 0) {
-                comboCount = 0;
-            }
             x += velocityX;
             clampToStage();
             velocityX *= GameConstants.KNOCKBACK_FRICTION;
