@@ -119,6 +119,16 @@ public class Fighter {
                     aerialAttacking = !throwReq && !grounded;             // 空中で発動 → 空中攻撃フラグ（Task 32）
                     beginAttack(move);
                 }
+            } else if (attackButton != null && !throwReq && canChainInto(attackButton)) {
+                // チェーンキャンセル（Task 45）：命中した通常技を上位ボタンの通常技へ即キャンセルし、
+                // 硬直を待たずに繋いで連続ヒットにする。新技は接地の立ち通常技として開始する。
+                Move move = selectNormalMove(attackButton);
+                if (move != null) {
+                    crouchAttacking = false;
+                    aerialAttacking = false;
+                    throwing = false;
+                    beginAttack(move); // attackConnected/phase をリセット → 新技が改めて命中判定される
+                }
             }
 
             if (attackPhase != AttackPhase.NONE) {
@@ -313,6 +323,26 @@ public class Fighter {
     /** 新たな行動（攻撃 / 必殺技）を開始できる状態か（接地・非攻撃・非のけぞり）。 */
     public boolean canStartAction() {
         return grounded && attackPhase == AttackPhase.NONE && hitstunFrames <= 0;
+    }
+
+    /**
+     * 進行中の通常技を、より強いボタンの通常技へキャンセル（チェーンコンボ）できるか（Task 45）。
+     * 条件：接地中・進行中が通常技（必殺技/投げ不可）・その技が active か recovery・命中/ガードで接触済み
+     * （空振りキャンセル不可）・新ボタンの段位（{@code ordinal}）が現在より上（弱→中→強の一方向）。
+     * これにより、通常技の硬直を待たずに上位技へ繋いで連続ヒット（コンボ）を成立させられる。
+     */
+    public boolean canChainInto(AttackButton next) {
+        if (!grounded || next == null || currentMove == null || !attackConnected) {
+            return false;
+        }
+        if (attackPhase != AttackPhase.ACTIVE && attackPhase != AttackPhase.RECOVERY) {
+            return false;
+        }
+        AttackButton current = currentMove.getButton();
+        if (current == null) {
+            return false; // 必殺技 / 投げからはチェーンしない（通常技のみ）
+        }
+        return next.ordinal() > current.ordinal();
     }
 
     /** ボタン種別に対応する通常技を返す（見つからなければ null）。 */
