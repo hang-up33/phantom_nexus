@@ -121,6 +121,19 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
       "hitboxHeight": 56,
       "projectile": true,
       "projectileSpeed": 9.0
+    },
+    {
+      "id": "rising_dragon",
+      "command": "CHARGE_SHOT",
+      "damage": 110,
+      "startup": 4,
+      "active": 6,
+      "recovery": 30,
+      "invincibleFrames": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 60,
+      "hitboxWidth": 80,
+      "hitboxHeight": 150
     }
   ],
   "throwMove": {
