@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.battle;
 
 import com.phantomnexus.shared.types.AttackButton;
+import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Move;
 
 /**
@@ -17,7 +18,7 @@ import com.phantomnexus.shared.types.Move;
  * 判断は相手の観測可能な状態（{@link Fighter#isAttacking()} / {@link Fighter#isThrowing()} /
  * {@link Fighter#isGuarding()}）のみに基づき<b>乱数を使わない</b>（決定的＝入力リプレイと両立）。これにより
  * 「打撃＝ガード／ガード＝投げで崩す／投げ＝投げ抜け」の三すくみが CPU 戦でも成立する。さらに無敵対空（Task 55）・
- * 飛び込み（ジャンプ攻撃・Task 57）を備える（いずれも HARD のみ）。AI のしゃがみ系は将来拡張。
+ * 飛び込み（ジャンプ攻撃・Task 57）・<b>下段読みのしゃがみガード</b>（Task 63）を備える（いずれも HARD のみ）。
  *
  * <p>状態（クールダウン）を持つため 1 体につき 1 インスタンス。判定に用いる距離は中心間距離。
  */
@@ -29,7 +30,7 @@ public final class AiController {
      * <ul>
      *   <li>{@link #EASY}：反応なし。歩いて接近し間合いで通常攻撃するだけ（Task 21 の素の AI 相当）。</li>
      *   <li>{@link #NORMAL}：＋ <b>ガード反応 / 投げ崩し</b>（Task 37 の読み合い）。</li>
-     *   <li>{@link #HARD}：＋ <b>投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）</b>＝全反応。</li>
+     *   <li>{@link #HARD}：＋ <b>投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）/ 飛び込み（Task 57）/ 下段読みのしゃがみガード（Task 63）</b>＝全反応。</li>
      * </ul>
      */
     public enum Difficulty {
@@ -143,6 +144,7 @@ public final class AiController {
         boolean attack = false;
         boolean throwReq = false;
         boolean jumpReq = false;
+        boolean crouchGuard = false; // ガード反応時に下段読みでしゃがみガードへ切り替えるか（Task 63・HARD のみ）
 
         // 難易度（Task 56）でどの反応を解放するか。defends=ガード/投げ崩し（NORMAL 以上）、advanced=投げ抜け/ダッシュ/対空/飛び込み（HARD のみ）。
         boolean defends = difficulty != Difficulty.EASY;
@@ -200,6 +202,14 @@ public final class AiController {
                 self.cancelDash();
             }
             moveDir = backDir;
+            // 下段読み（Task 63・HARD のみ）：相手の打撃が下段なら しゃがみガードで対応する（立ちガードは下段に貫通される）。
+            // 下段は (a) 相手がしゃがみ攻撃中（isCrouchAttacking＝実行時の下段・Task 31）か、(b) 技の guardHeight が
+            // LOW（立ち下段＝Tetsu の low_sweep 等・Task 33）。crouchGuard を立てて update へ crouchHeld として渡す。
+            // 乱数なし＝相手の観測状態のみで決定的。NORMAL は従来どおり立ちガード一辺倒（下段に弱い）＝難易度差。
+            Move oppMove = opponent.getCurrentMove();
+            boolean opponentLow = opponent.isCrouchAttacking()
+                    || (oppMove != null && oppMove.getGuardHeight() == GuardHeight.LOW);
+            crouchGuard = advanced && opponentLow;
             dashTapStep = 0;
         } else if (defends && opponent.isGuarding() && opponent.isGrounded() && hasThrow
                 && distance <= THROW_RANGE && cooldown == 0 && self.canStartAction()) {
@@ -254,7 +264,7 @@ public final class AiController {
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
         }
-        self.update(moveDir, jumpReq, attack ? AttackButton.LIGHT : null, false, throwReq);
+        self.update(moveDir, jumpReq, attack ? AttackButton.LIGHT : null, crouchGuard, throwReq);
     }
 
     /**

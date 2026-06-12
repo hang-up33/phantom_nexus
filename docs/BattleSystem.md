@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -405,7 +405,7 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
-## 簡易 AI（Task 21 → Task 37 → Task 50 → Task 51 → Task 55 → Task 56 → Task 57）
+## 簡易 AI（Task 21 → Task 37 → Task 50 → Task 51 → Task 55 → Task 56 → Task 57 → Task 63）
 
 - `GameRuntime/Battle/AiController` が 1 体を状態ベースで操作する（人間の `PlayerInput` の差し替え）。Task 21 の方針は「近づいて、間合い（中心間 ≤ 150px）に入ったら通常攻撃」。攻撃後はクールダウン（45F）で連打を防ぐ。
 - Core は P2 を既定で AI 制御（**F2** でトグル、撮影は `ai=false` で無効化）。AI は `Fighter.update` を人間と同じ経路で呼ぶため、移動・攻撃・押し合い・被弾はすべて共通ロジックを通る。
@@ -465,7 +465,7 @@ Task 55 で AI が初めて**必殺技**を使う反応「無敵対空」を追�
 |---|---|---|
 | `EASY` | なし（接近＋間合いで通常攻撃のみ＝Task 21 の素の AI） | 守らず・崩さず、ひたすら接近して殴る。読み合いが無く倒しやすい |
 | `NORMAL` | ＋ ガード反応 / 投げ崩し（Task 37） | 打撃はガードし、ガード偏重には投げ。基本の三すくみの片側 |
-| `HARD` | ＋ 投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）/ 飛び込み（Task 57）＝**全反応** | 三すくみ完備＋素早い接近＋自分から飛び込み＋飛び込み迎撃。従来（Task 56 まで）の AI |
+| `HARD` | ＋ 投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）/ 飛び込み（Task 57）/ 下段読みしゃがみガード（Task 63）＝**全反応** | 三すくみ完備＋素早い接近＋自分から飛び込み＋飛び込み迎撃＋下段をしゃがみガード |
 
 - **既定は `HARD`**：全反応有効で、**Task 56 時点では Task 55 までの従来挙動と同一**。これにより難易度導入それ自体は**既存の入力リプレイの決定性・既存スクショレシピを変えない**（難易度を試合中に変えない＝per-frame リプレイログに難易度を持たせず、起動時固定でリプレイ format 不変）。※「HARD＝従来挙動」の同一性は**その時点まで**の意味で、以降 AI に新反応を足せば（例：Task 57 の飛び込み）HARD の試合展開は変わる（難易度ゲートの仕組み＝どの反応を解放するかは不変だが、HARD の中身は反応追加ごとに更新される）。AI-on リプレイの再現範囲は「入力リプレイ（記録 / 再生）」節を参照。
 - **設定**：撮影 / 起動時に `phantom.screenshot.aidiff=easy|normal|hard`（`-x aidiff=easy`）で差し替え（未指定は HARD）。HUD の操作ヒントに現在の難易度を表示（`[F2] P2 AI(hard)`）。メニュー / キーでの実行時切替は将来拡張（リプレイ format を変えずに済む範囲で）。
@@ -488,6 +488,15 @@ Task 57 で AI が自分から**前方ジャンプして空中攻撃を重ねる
 - **優先順**（空中時）：**飛び込み中（空中専用）が最優先**。地上時は従来どおり「無敵対空 ＞ 投げ抜け ＞ ガード ＞ 投げ崩し ＞ ダッシュ接近 ＞ 飛び込み開始 ＞ 歩き接近 ＞ 通常攻撃」。
 - **決定的**：難易度は起動時に固定。判断は従来どおり相手の観測状態・距離・所持技と難易度フラグのみで**乱数なし**。
 
+### 下段読みのしゃがみガード（Task 63）
+
+Task 63 で AI のガード反応（Task 37）に**高さ読み**を追加した。これまでの AI は打撃に対し**立ちガード一辺倒**で、下段（しゃがみ攻撃・`guardHeight:low` 技）には立ちガードが貫通されて被弾していた。本タスクで、相手の打撃が**下段**ならしゃがみガードで対応する。**HARD のみ**（`advanced`）＝NORMAL は従来どおり立ちガード（下段に弱い）が残り、難易度差になる。
+
+- **下段の判定**：相手の攻撃が下段かは (a) `opponent.isCrouchAttacking()`（しゃがみ中に出した通常技＝実行時の下段・Task 31）か、(b) `opponent.getCurrentMove().getGuardHeight() == GuardHeight.LOW`（立ち下段＝`guardHeight:low` の技・例 Tetsu の `low_sweep`・Task 33）。どちらかなら下段。
+- **配線**：ガード反応分岐（`opponentStriking && 中心間 ≤ GUARD_RANGE`）で `crouchGuard = advanced && opponentLow` を立て、`self.update(...)` の `crouchHeld` 引数として渡す（従来 false 固定）。`Fighter` 側は `crouchHeld + 後退方向保持`＝しゃがみガード（`isCrouchGuarding()`・Task 30）として既存処理がそのまま成立し、`Fighter`/Core・`GameConstants`・JSON は不変（AI に下段判定と配線を足しただけ）。
+- **効果**：下段はしゃがみガードのみ成立（立ちガード貫通）・上段（overhead）は立ちガードのみ成立（しゃがみガード貫通）という既存のガード高さ属性（Task 33）に AI が乗る。overhead/mid は従来どおり立ちガード（`crouchGuard=false`）。
+- **決定的**：判断は相手の観測状態（`isCrouchAttacking()` / 進行中の技の `guardHeight`）のみで**乱数なし**（入力リプレイと両立）。HARD の挙動が Task 62 までと変わる（下段をしゃがみガードするようになる）。
+
 ## しゃがみ（Task 25）
 
 - **入力**：DOWN キー押し続け（P1: S、P2: ↓）で発動。**接地中・非攻撃中・非のけぞり中**のみ遷移する。
@@ -496,7 +505,7 @@ Task 57 で AI が自分から**前方ジャンプして空中攻撃を重ねる
 - **攻撃・被弾による解除**：攻撃開始（立ち攻撃のみ）または `applyHit()` で `crouching = false` にリセットする。しゃがみ攻撃中は低姿勢を維持する（Task 28）。
 - **アニメーション**：`AnimationState.CROUCH`（2 フレームループ）、移動中は `CROUCH_WALK`（Task 29）、攻撃中は `CROUCH_ATTACK`（Task 28）。優先順は **のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**。
 - **プレースホルダ描画**：`GameRenderer` がしゃがみ中のキャラを `height / 3` の矩形で描く（スプライト導入後は専用コマに差し替え）。
-- **AI**：`AiController` は常に `crouchHeld=false` を渡す（AI はしゃがまない）。
+- **AI**：`AiController` は通常 `crouchHeld=false` を渡す。**例外として Task 63（HARD のみ）はガード反応時に下段読みで `crouchHeld=true` を渡す**が、これはしゃがみ**ガード**であり、しゃがみ**攻撃**は依然として発動しない（AI は攻撃ボタンを伴うしゃがみ入力をしない）。
 
 ---
 
@@ -519,7 +528,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - **ガードとの関係**：**後退方向**へのクロールは Task 30 でしゃがみガード（低姿勢ガード）になる。**前進方向**（相手側）へのクロールのみが純粋なしゃがみ移動として `CROUCH_WALK` に解決される。
 - **アニメーション**：`AnimationState.CROUCH_WALK`（2 フレームループ・8 tick/frame）で小刻みな低姿勢移動を可視化。`FighterAnimator.resolve()` で `isCrouchGuarding()==false`（＝前進クロール）かつ `isCrouchWalking()==true` の場合に選択される。
 - **`isWalking()` との分離**：`isWalking()` は `!crouching` を条件に含めたため、クロール中に `WALK` アニメに遷移しない。
-- **AI**：`AiController` は `crouchHeld=false` のままなのでクロールは行わない（影響なし）。
+- **AI**：`AiController` は通常 `crouchHeld=false` でクロールしない。Task 63（HARD のみ）でガード反応時に `crouchHeld=true` を渡すが、同時に**後退方向**を保持するためしゃがみ**ガード**（`CROUCH_GUARD`）になり、前進クロール（`CROUCH_WALK`）には解決されない。
 
 ---
 
@@ -536,7 +545,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | アニメーション | `AnimationState.CROUCH_GUARD`（単一ポーズ）。優先順: hitstun > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > **しゃがみガード** > しゃがみ移動 > しゃがみ > 立ちガード > 歩行 > 待機 |
 | 視覚 | 立ちガードと同じ半透明ブルーオーバーレイ。`GameRenderer` は `drawHeight`（しゃがみ時 `height/3`）に重ねるため自動で低姿勢になる（描画コード変更なし） |
 | 判定ヘルパ | `Fighter.isCrouchGuarding()`（`guarding && crouching`） |
-| AI | `AiController` は `crouchHeld=false` のままなのでしゃがみガードはしない |
+| AI | `AiController` は通常 `crouchHeld=false`。**Task 63（HARD のみ）はガード反応で相手の打撃が下段のとき `crouchHeld=true` を渡し、このしゃがみガードを能動的に使う**（NORMAL/EASY は立ちガードのまま＝下段に弱い） |
 
 ---
 
@@ -551,7 +560,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 当たる相手 | 立ち hurtbox（足元〜全高）にもしゃがみ hurtbox（足元〜`height/3` ≒ 80px）にも届く。これで Task 30 で観測できなかった「しゃがみガードの chip」が下段に対して実際に発生する |
 | ガード正誤 | Task 33 で高さ属性に統合。`resolveHit` は `effectiveAttackHeight(attacker)` が `low`（しゃがみ通常技）のとき **`blocked = defender.isCrouchGuarding()`**＝立ちガード不成立 → 通常ヒット（のけぞり）、しゃがみガードなら chip。中段（mid）は従来どおり立ち / しゃがみどちらでも成立。詳細は「ガード高さ属性（Task 33）」を参照 |
 | 飛び道具 | 中段扱い（`updateProjectiles` は従来どおり `isGuarding()` で chip 判定。下段飛び道具は未対応） |
-| AI | `AiController` は `crouchHeld=false` のままなので下段攻撃は出さない（影響なし） |
+| AI | `AiController` は下段攻撃を出さない（しゃがみ攻撃をしない）。Task 63（HARD のみ）で `crouchHeld=true` を渡すのは防御（しゃがみガード）目的であり、下段の**攻撃**側は依然 AI から発生しない |
 
 > 中段（立ち攻撃）は依然としてしゃがみ食らい判定（低い）に届かず空振りするため、「中段はしゃがみで回避／下段はしゃがみガードで防ぐ」という非対称が成立する。**その対となる「上段（overhead）＝立ちガード必須・しゃがみガード貫通」は Task 33 で高さ属性としてデータ化した**（下記参照）。
 
@@ -590,7 +599,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | ガード解決 | `resolveHit` で `defender.isGuarding()` 時に `low`→`isCrouchGuarding()`、`overhead`→`!isCrouchGuarding()`（＝立ちガード）、`mid`→常に成立。成立で chip、不成立で通常ヒット |
 | 例（Aoi=fighter001） | `heavy_slam` を `guardHeight:"overhead"` 化。hitbox を `offsetY 60 / height 90`（Y60–150 を占有）に下げ、立ち hurtbox（0–全高）にもしゃがみ hurtbox（0–`height/3`≒80px）にも届かせて、しゃがみガード貫通を実観測できるようにした |
 | 飛び道具 | 既定 `mid` 運用（`updateProjectiles` は `isGuarding()` で chip）。`guardHeight` 自体は specialMoves でも検証する |
-| AI | `AiController` は `crouchHeld=false` のままなのでしゃがみガードをせず、overhead の不成立分岐には入らない（影響なし） |
+| AI | `AiController` は通常 `crouchHeld=false`。Task 63（HARD のみ）の下段読みはガード反応で `crouchHeld=true` を渡すが、相手が下段のときに限る。overhead に対しては下段読みが成立しないため立ちガードのままで、overhead は正しく防げる（しゃがみガードで貫通される不成立分岐には自分から入らない） |
 
 > overhead が**しゃがみガードを貫通する**には、hitbox がしゃがみ hurtbox（上端≒80px）に届く必要がある（Task 30/31 で観測した「高い hitbox はしゃがみ相手に空振り」の裏返し）。そのため例示の `heavy_slam` は hitbox を下方向へ広げてある。属性（読み合いのルール）と hitbox 形状（届くか）は独立した設定で、両方を満たして初めて貫通が成立する。
 
@@ -659,6 +668,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 63) AI の下段読みしゃがみガードを追記。`AiController` のガード反応分岐（Task 37）に高さ読みを足し、相手の打撃が下段（`opponent.isCrouchAttacking()` か進行中の技の `getGuardHeight()==GuardHeight.LOW`）なら `crouchGuard = advanced && opponentLow` を立てて `self.update` の `crouchHeld`（従来 false 固定）として渡す。これで `Fighter` 既存のしゃがみガード（後退方向保持＋crouchHeld・Task 30）が成立し、下段を立ちガード貫通させず防げる。**HARD のみ**（NORMAL は従来どおり立ちガードで下段に弱い＝難易度差）。`AiController` に `GuardHeight` import と `crouchGuard` ローカル・下段判定を追加しただけで `Fighter`/Core・`GameConstants`・JSON は不変。乱数なし（決定的・入力リプレイと両立）だが HARD の挙動が Task 62 までと変わる（下段に対ししゃがみガードする）。「簡易 AI」節に「下段読みのしゃがみガード（Task 63）」サブ節を追加し、難易度 HARD 行を更新。
 - (Task 60) ダウン（knockdown）を追記。`Shared/Types/Move` に任意 boolean `knockdown`（既定 false・後方互換）を追加し、`GameConstants` に `KNOCKDOWN_FRAMES`(60)・`KNOCKDOWN_KNOCKBACK_SCALE`(1.4) を追加。`Fighter` に `knockdownFrames` フィールド・`applyKnockdown()`・`isKnockedDown()` を追加し、`update()` 冒頭に hitstun と並ぶ inert 分岐（ダウン優先・行動不能・knockback 減衰・起き上がり）を実装。`guarding` 算出に `knockdownFrames <= 0` を追加（ダウン中はガード不可）。`reset()` で `knockdownFrames=0`。`CollisionSystem.isHitting`/`hits` の無敵ゲートに `|| defender.isKnockedDown()` を追加（ダウン中は打撃・飛び道具とも被弾無敵＝起き攻め/OTG なし）。`PhantomNexusGame.resolveHit` が非ガード・`attacker.getCurrentMove().isKnockdown()` のとき `applyHit` の代わりに `applyKnockdown` を呼ぶ（投げ・飛び道具は対象外）。`FighterAnimator.resolve` がダウンを HITSTUN ポーズへ流用し、`GameRenderer.drawNameLabel` が `knockdown` ラベルを最優先で表示。`fighter001` の `heavy_slam` に `knockdown: true` を付与（データ駆動の実例）。乱数なし・リプレイ format 不変だが、ダウン技ヒットを含む既存リプレイは「のけぞり→ダウン」へ結果が変わり得る（戦闘仕様変更）。「ダウン（knockdown）（Task 60）」節・ステート一覧・冒頭サマリを追加。
 - (Task 59) 空中ガードを追記。`Fighter.guarding` の算出条件から `grounded` を外し、滞空中でも後退方向保持でガードが成立するようにした（接地ガード Task 27／しゃがみガード Task 30／ガードクラッシュ Task 43 の既存ロジックは不変・空中ガードもゲージ消費とクラッシュを共有）。ジャンプ成立フレームの `guarding=false`（旧「空中ガード不可」）を 2 箇所（通常ジャンプ・ダッシュジャンプ）から除去。`isAirGuarding()`（`guarding && !grounded`）を追加し、`GameRenderer.drawNameLabel` に `air_guard` ラベルを追加（描画は JUMP ポーズ＋既存の青オーバーレイを流用＝専用 `AnimationState` は追加しない）。空中ガードは立ち扱い（`crouching` は接地時のみ true）で、飛び道具（`updateProjectiles` は高さ判定なしで一律ガード可）と中段 / 上段を chip で凌ぎ、下段は防げない（下段 hitbox は滞空 hurtbox に通常届かない）。あわせて `AiController` の投げ崩し分岐に `opponent.isGrounded()` を追加（空中ガード相手は掴めない＝Task 35 の地上限定投げ・空中ガード導入前は `isGuarding()` が接地を含意したため**従来挙動に対し no-op**）。`resolveHit`/`applyGuard`・`CollisionSystem`・`GameConstants`・JSON スキーマは不変。判断に乱数を増やさず**リプレイ format も不変**だが、滞空中に後退を保持した展開を含む既存リプレイは「被弾→空中ガード」へ結果が変わり得る（戦闘仕様変更のため。AI-on リプレイの再現範囲は「入力リプレイ（記録 / 再生）」節を参照）。ガード節の表（空中ガード＝可）・`Fighter.guarding` 算出の記述・ステート一覧を更新。
 - (Bootstrap) 第一設計書の戦闘要素・MVP 条件に基づく初版ドラフトを作成。
