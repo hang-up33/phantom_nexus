@@ -505,7 +505,7 @@ Task 63 で AI のガード反応（Task 37）に**高さ読み**を追加した
 - **攻撃・被弾による解除**：攻撃開始（立ち攻撃のみ）または `applyHit()` で `crouching = false` にリセットする。しゃがみ攻撃中は低姿勢を維持する（Task 28）。
 - **アニメーション**：`AnimationState.CROUCH`（2 フレームループ）、移動中は `CROUCH_WALK`（Task 29）、攻撃中は `CROUCH_ATTACK`（Task 28）。優先順は **のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機**。
 - **プレースホルダ描画**：`GameRenderer` がしゃがみ中のキャラを `height / 3` の矩形で描く（スプライト導入後は専用コマに差し替え）。
-- **AI**：`AiController` は常に `crouchHeld=false` を渡す（AI はしゃがまない）。
+- **AI**：`AiController` は通常 `crouchHeld=false` を渡す。**例外として Task 63（HARD のみ）はガード反応時に下段読みで `crouchHeld=true` を渡す**が、これはしゃがみ**ガード**であり、しゃがみ**攻撃**は依然として発動しない（AI は攻撃ボタンを伴うしゃがみ入力をしない）。
 
 ---
 
@@ -528,7 +528,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - **ガードとの関係**：**後退方向**へのクロールは Task 30 でしゃがみガード（低姿勢ガード）になる。**前進方向**（相手側）へのクロールのみが純粋なしゃがみ移動として `CROUCH_WALK` に解決される。
 - **アニメーション**：`AnimationState.CROUCH_WALK`（2 フレームループ・8 tick/frame）で小刻みな低姿勢移動を可視化。`FighterAnimator.resolve()` で `isCrouchGuarding()==false`（＝前進クロール）かつ `isCrouchWalking()==true` の場合に選択される。
 - **`isWalking()` との分離**：`isWalking()` は `!crouching` を条件に含めたため、クロール中に `WALK` アニメに遷移しない。
-- **AI**：`AiController` は `crouchHeld=false` のままなのでクロールは行わない（影響なし）。
+- **AI**：`AiController` は通常 `crouchHeld=false` でクロールしない。Task 63（HARD のみ）でガード反応時に `crouchHeld=true` を渡すが、同時に**後退方向**を保持するためしゃがみ**ガード**（`CROUCH_GUARD`）になり、前進クロール（`CROUCH_WALK`）には解決されない。
 
 ---
 
@@ -545,7 +545,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | アニメーション | `AnimationState.CROUCH_GUARD`（単一ポーズ）。優先順: hitstun > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > **しゃがみガード** > しゃがみ移動 > しゃがみ > 立ちガード > 歩行 > 待機 |
 | 視覚 | 立ちガードと同じ半透明ブルーオーバーレイ。`GameRenderer` は `drawHeight`（しゃがみ時 `height/3`）に重ねるため自動で低姿勢になる（描画コード変更なし） |
 | 判定ヘルパ | `Fighter.isCrouchGuarding()`（`guarding && crouching`） |
-| AI | `AiController` は `crouchHeld=false` のままなのでしゃがみガードはしない |
+| AI | `AiController` は通常 `crouchHeld=false`。**Task 63（HARD のみ）はガード反応で相手の打撃が下段のとき `crouchHeld=true` を渡し、このしゃがみガードを能動的に使う**（NORMAL/EASY は立ちガードのまま＝下段に弱い） |
 
 ---
 
@@ -560,7 +560,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | 当たる相手 | 立ち hurtbox（足元〜全高）にもしゃがみ hurtbox（足元〜`height/3` ≒ 80px）にも届く。これで Task 30 で観測できなかった「しゃがみガードの chip」が下段に対して実際に発生する |
 | ガード正誤 | Task 33 で高さ属性に統合。`resolveHit` は `effectiveAttackHeight(attacker)` が `low`（しゃがみ通常技）のとき **`blocked = defender.isCrouchGuarding()`**＝立ちガード不成立 → 通常ヒット（のけぞり）、しゃがみガードなら chip。中段（mid）は従来どおり立ち / しゃがみどちらでも成立。詳細は「ガード高さ属性（Task 33）」を参照 |
 | 飛び道具 | 中段扱い（`updateProjectiles` は従来どおり `isGuarding()` で chip 判定。下段飛び道具は未対応） |
-| AI | `AiController` は `crouchHeld=false` のままなので下段攻撃は出さない（影響なし） |
+| AI | `AiController` は下段攻撃を出さない（しゃがみ攻撃をしない）。Task 63（HARD のみ）で `crouchHeld=true` を渡すのは防御（しゃがみガード）目的であり、下段の**攻撃**側は依然 AI から発生しない |
 
 > 中段（立ち攻撃）は依然としてしゃがみ食らい判定（低い）に届かず空振りするため、「中段はしゃがみで回避／下段はしゃがみガードで防ぐ」という非対称が成立する。**その対となる「上段（overhead）＝立ちガード必須・しゃがみガード貫通」は Task 33 で高さ属性としてデータ化した**（下記参照）。
 
@@ -599,7 +599,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 | ガード解決 | `resolveHit` で `defender.isGuarding()` 時に `low`→`isCrouchGuarding()`、`overhead`→`!isCrouchGuarding()`（＝立ちガード）、`mid`→常に成立。成立で chip、不成立で通常ヒット |
 | 例（Aoi=fighter001） | `heavy_slam` を `guardHeight:"overhead"` 化。hitbox を `offsetY 60 / height 90`（Y60–150 を占有）に下げ、立ち hurtbox（0–全高）にもしゃがみ hurtbox（0–`height/3`≒80px）にも届かせて、しゃがみガード貫通を実観測できるようにした |
 | 飛び道具 | 既定 `mid` 運用（`updateProjectiles` は `isGuarding()` で chip）。`guardHeight` 自体は specialMoves でも検証する |
-| AI | `AiController` は `crouchHeld=false` のままなのでしゃがみガードをせず、overhead の不成立分岐には入らない（影響なし） |
+| AI | `AiController` は通常 `crouchHeld=false`。Task 63（HARD のみ）の下段読みはガード反応で `crouchHeld=true` を渡すが、相手が下段のときに限る。overhead に対しては下段読みが成立しないため立ちガードのままで、overhead は正しく防げる（しゃがみガードで貫通される不成立分岐には自分から入らない） |
 
 > overhead が**しゃがみガードを貫通する**には、hitbox がしゃがみ hurtbox（上端≒80px）に届く必要がある（Task 30/31 で観測した「高い hitbox はしゃがみ相手に空振り」の裏返し）。そのため例示の `heavy_slam` は hitbox を下方向へ広げてある。属性（読み合いのルール）と hitbox 形状（届くか）は独立した設定で、両方を満たして初めて貫通が成立する。
 
