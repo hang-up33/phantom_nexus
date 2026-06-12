@@ -37,7 +37,7 @@ public class Fighter {
     private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
-    private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
+    private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
     private float superMeter; // 必殺技ゲージ（攻撃の当て / 被弾 / ガードで貯まり EX 必殺技で消費・Task 44）
@@ -77,11 +77,12 @@ public class Fighter {
         if (guardBreakFrames > 0) {
             guardBreakFrames--;
         }
-        // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
+        // ガード判定：非のけぞり・非攻撃中に後退方向を保持しているか。接地でも滞空でも成立する（空中ガード・Task 59）。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
-        // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30）。低姿勢判定は crouching を併用。
+        // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30。しゃがみは接地時のみ）。低姿勢判定は crouching を併用。
+        // 滞空中の後退保持は空中ガード（air guard）＝立ち扱い（crouching=false）で、飛び道具・中段/上段を chip で凌ぐ（Task 59）。
         int backDir = facingRight ? -1 : 1;
-        guarding = grounded && hitstunFrames <= 0 && attackPhase == AttackPhase.NONE
+        guarding = hitstunFrames <= 0 && attackPhase == AttackPhase.NONE
                    && moveDir != 0 && moveDir == backDir;
         // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43。ガード中は減る一方）。
         if (!guarding && guardBreakFrames <= 0 && guardGauge < GameConstants.GUARD_GAUGE_MAX) {
@@ -191,8 +192,8 @@ public class Fighter {
                 if (jumpPressed && grounded) {
                     velocityY = def.getJumpPower();
                     grounded = false;
-                    guarding = false;
                     dashFrames = 0; // ジャンプでダッシュをキャンセル（飛び込みへ）
+                    // 空中ガード可（Task 59）：後退保持なら滞空後も guarding を維持（前ジャンプは moveDir != backDir で自然に false）。
                 }
             } else {
                 crouching = false;
@@ -202,7 +203,7 @@ public class Fighter {
                 if (jumpPressed && grounded) {
                     velocityY = def.getJumpPower();
                     grounded = false;
-                    guarding = false; // 空中ガード不可：ジャンプ成立フレームでガードをクリア
+                    // 空中ガード可（Task 59）：後退保持なら滞空後も guarding を維持（前ジャンプは moveDir != backDir で自然に false）。
                 }
             }
         }
@@ -611,7 +612,7 @@ public class Fighter {
         return Math.max(1, Math.round(baseDamage * scale));
     }
 
-    /** ガード中か（後退方向保持・接地・非のけぞり・非攻撃）。立ち / しゃがみ両方を含む。 */
+    /** ガード中か（後退方向保持・非のけぞり・非攻撃）。立ち / しゃがみ / 空中いずれも含む（接地は不要・Task 59）。 */
     public boolean isGuarding() {
         return guarding;
     }
@@ -619,6 +620,11 @@ public class Fighter {
     /** しゃがみガード中か（ガード中 + 低姿勢を維持）（Task 30）。 */
     public boolean isCrouchGuarding() {
         return guarding && crouching;
+    }
+
+    /** 空中ガード中か（ガード中 + 滞空）（Task 59）。立ち扱いで飛び道具・中段/上段を防ぐ。 */
+    public boolean isAirGuarding() {
+        return guarding && !grounded;
     }
 
     /** ガードクラッシュ中か（ゲージが尽きてガード不能・行動不能の隙にある）（Task 43）。 */
