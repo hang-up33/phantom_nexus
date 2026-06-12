@@ -161,6 +161,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `walkSpeed` | float | ✅ | 歩行速度（px/frame） |
 | `jumpPower` | float | ✅ | ジャンプ初速（px/frame, 上向き正） |
 | `airJumps` | int | 任意 | 空中での追加ジャンプ回数（二段ジャンプ, Task 68）。省略時 `0`＝空中ジャンプなし（後方互換）。`1` で地上ジャンプ後に空中でもう一度跳べる（接地で回復）。負値は 0 に丸め |
+| `airDashes` | int | 任意 | 空中ダッシュの回数（air dash, Task 69）。省略時 `0`＝空中ダッシュなし（後方互換）。`1` で滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。負値は 0 に丸め |
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
 | `color` | float[3] | 任意 | 表示色 RGB（0..1）。`sprite` 未指定時のプレースホルダ矩形色（未設定なら描画側の既定色） |
@@ -330,6 +331,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 69) `Character` に任意フィールド **`airDashes`**（int・既定 0）を追加。空中ダッシュの回数（air dash・Task 69）で、`1` なら滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。省略時 0＝空中ダッシュなし（後方互換）。`getAirDashes()` が負値を 0 に丸める。例示として fighter004 Rai に `airDashes: 1` を付与（二段ジャンプ＋空中ダッシュ＝高機動ラッシュ型）。戦闘仕様は BattleSystem.md「空中ダッシュ（Task 69）」節を参照。
 - (Task 68) `Character` に任意フィールド **`airJumps`**（int・既定 0）を追加。空中での追加ジャンプ回数（二段ジャンプ・Task 68）で、`1` なら地上ジャンプ後に空中でもう一度跳べる（接地で回復）。省略時 0＝空中ジャンプなし（後方互換）。`getAirJumps()` が負値を 0 に丸める。例示として fighter004 Rai に `airJumps: 1` を付与（高速ラッシュ＋空中機動）。戦闘仕様は BattleSystem.md「二段ジャンプ（Task 68）」節を参照。
 - (Task 67) 8 体目キャラ `Assets/Characters/fighter008.json`（"Ren"・HP880・**ダッシュ起き攻め rushdown 型**の green）＋プレースホルダ・スプライト `fighter008.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・JSON＋PNG の追加だけでキャラが動作する**ことを再々々々々検証（7 体目 fighter007 に続く 8 体目）。アーキタイプを差別化：速い `walkSpeed5.8` で前進し、**`dashAttack`（Task 65）に `knockdown:true`（Task 60）を載せた `dash_blitz`**（ダッシュ突進でダウンを奪い起き攻めへ移行）を軸に、強攻撃 `rising_crush`・飛び道具 `gale_shot`（HADOUKEN）・投げ `collar_toss` を持つ攻め寄り。**新キャラが `dashAttack`（Task 65）・`knockdown`（Task 60）・飛び道具・投げといった既存機構を、技 JSON にフィールドを足すだけでコード変更なしに享受できる**ことをスクショで実証（Ren の `dash_blitz` 命中で相手 `knockdown`・80＝ダッシュ攻撃＋ダウンの複合がデータ駆動で成立）。撮影は `-x p1char=fighter008` / `-x p2char=fighter008`。
 - (Task 65) `Character` に任意フィールド **`dashAttack`**（`Move`）を追加。ダッシュ（二度押しステップ・Task 49）中に攻撃ボタンを押すと出る**突進打撃**で、省略時はそのキャラはダッシュ攻撃を持たず、ダッシュ中の攻撃は従来どおり通常技へキャンセルされる（後方互換）。`button` / `command` は不要（発動はダッシュ＋攻撃入力）だが、打撃なので `guardHeight`（既定 `mid`）は有効。`CharacterLoader.validateDashAttack` がフレーム値・hitbox・guardHeight を検証（`null` は許可）。発動するとダッシュの勢いを引き継ぐ前方突進（初速 `DASH_ATTACK_LUNGE_SPEED`=14px/frame・`KNOCKBACK_FRICTION` 減衰）が乗る。例示として fighter004 Rai に `dash_shoulder`（damage80・startup7・active5・前方 hitbox）を追加。「Move（`dashAttack` オブジェクト・Task 65）」節と `Character` フィールド表を追加。戦闘仕様は BattleSystem.md「ダッシュ攻撃（Task 65）」節を参照。

@@ -21,6 +21,7 @@ public class Fighter {
     private float velocityY;  // 垂直速度（px/frame）。上向きが正
     private boolean grounded = true;
     private int airJumpsRemaining; // 残りの空中ジャンプ回数（二段ジャンプ・接地で回復・Task 68）
+    private int airDashesRemaining; // 残りの空中ダッシュ回数（air dash・接地で回復・Task 69）
     private boolean facingRight;
     private int moveDir;      // 直近フレームに適用した左右移動方向（-1/0/+1）
     private int currentHp;    // 現在 HP
@@ -59,6 +60,7 @@ public class Fighter {
         this.facingRight = facingRight;
         this.currentHp = def.getHp();
         this.airJumpsRemaining = def.getAirJumps(); // 初期接地状態で満タン（Task 68）
+        this.airDashesRemaining = def.getAirDashes(); // 初期接地状態で満タン（Task 69）
     }
 
     /**
@@ -162,12 +164,17 @@ public class Fighter {
             }
             boolean dirEdge = moveDir != 0 && moveDir != prevMoveDir;
             if (dirEdge) {
-                boolean canDash = grounded && attackPhase == AttackPhase.NONE && !crouchHeld && dashFrames <= 0;
-                if (canDash && moveDir == dashTapDir && dashTapWindow > 0) {
-                    dashFrames = GameConstants.DASH_FRAMES; // 二度押し成立 → ダッシュ開始
+                boolean canGroundDash = grounded && attackPhase == AttackPhase.NONE && !crouchHeld && dashFrames <= 0;
+                // 空中ダッシュ（Task 69）：滞空中の二度押しで水平バースト。データ駆動（airDashes>0 のキャラのみ）。
+                boolean canAirDash = !grounded && attackPhase == AttackPhase.NONE && airDashesRemaining > 0 && dashFrames <= 0;
+                if ((canGroundDash || canAirDash) && moveDir == dashTapDir && dashTapWindow > 0) {
+                    dashFrames = GameConstants.DASH_FRAMES; // 二度押し成立 → ダッシュ開始（接地＝地上ステップ / 滞空＝空中ダッシュ）
                     dashDir = moveDir;
                     dashTapWindow = 0;
                     velocityX = 0f; // 残留 knockback を打ち消し、ダッシュ移動との二重加算を防ぐ
+                    if (canAirDash) {
+                        airDashesRemaining--; // 空中ダッシュ回数を消費（接地で回復・Task 69）
+                    }
                 } else {
                     dashTapDir = moveDir;                    // 1 度目の押下 → 受付窓をアーム
                     dashTapWindow = GameConstants.DASH_TAP_WINDOW;
@@ -268,6 +275,7 @@ public class Fighter {
             }
         }
 
+        boolean wasGrounded = grounded;
         velocityY -= GameConstants.GRAVITY;
         y += velocityY;
 
@@ -275,7 +283,11 @@ public class Fighter {
             y = GameConstants.GROUND_Y;
             velocityY = 0f;
             grounded = true;
-            airJumpsRemaining = def.getAirJumps(); // 接地で空中ジャンプ回数を回復（Task 68）
+            airJumpsRemaining = def.getAirJumps();   // 接地で空中ジャンプ回数を回復（Task 68）
+            airDashesRemaining = def.getAirDashes();  // 接地で空中ダッシュ回数を回復（Task 69）
+            if (!wasGrounded && dashFrames > 0) {
+                dashFrames = 0; // 着地で空中ダッシュを終了（地上ダッシュへ持ち越さない・Task 69）
+            }
         }
     }
 
@@ -287,6 +299,7 @@ public class Fighter {
         velocityX = 0f;
         grounded = true;
         airJumpsRemaining = def.getAirJumps(); // 空中ジャンプ回数をスポーン時に満タンへ（Task 68）
+        airDashesRemaining = def.getAirDashes(); // 空中ダッシュ回数をスポーン時に満タンへ（Task 69）
         facingRight = spawnFacingRight;
         moveDir = 0;
         currentHp = def.getHp();

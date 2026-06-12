@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68・69 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -75,6 +75,24 @@
 - **既存機構との両立**：空中攻撃（Task 32）・空中ガード（Task 59）はそのまま機能する（二段ジャンプは `velocityY` のみ操作し、滞空状態・横移動・ガード判定は不変）。
 - **決定性**：ジャンプ入力（立ち上がり）と接地状態・残り回数のみで決まり**乱数なし**（入力リプレイと両立）。`airJumps` はキャラ JSON のデータで、回数定数を増やさない。**リプレイ format 不変**だが、滞空中にジャンプ入力を含む既存リプレイで `airJumps>0` のキャラは「無視→二段ジャンプ」へ結果が変わり得る（戦闘仕様変更）。
 - **データ例**：fighter004 Rai に `airJumps: 1`（高速ラッシュ＋空中機動）。
+
+---
+
+## 空中ダッシュ（air dash）（Task 69）
+
+`Character.airDashes`（任意 int・既定 0）を持つキャラは、**滞空中に方向二度押し**で水平バーストダッシュ（前/後）できる。地上ダッシュ（Task 49）の二度押し検出・移動を**滞空でも許可**したもので、ダッシュ中も重力が掛かるため弧を描いて滑空する。データ駆動で、キャラ JSON に `airDashes` を足すだけで増やせる（持たないキャラ＝既定 0 は従来どおり空中ダッシュなし・後方互換）。
+
+| 項目 | 仕様 |
+|---|---|
+| 発動条件 | **空中**（`!grounded`）＋方向入力の二度押し（同方向タップが受付窓内）＋残り回数 `airDashesRemaining > 0` ＋非攻撃（`attackPhase==NONE`）＋ダッシュ非継続（`dashFrames<=0`） |
+| 効果 | 地上ダッシュと同じ `dashFrames`／`dashDir` を立て、`dashFrames>0` 分岐で `walkSpeed × DASH_SPEED_MULTIPLIER` の水平移動。重力は従来どおり毎フレーム適用＝水平バーストしつつ落下（弧）。残り回数を 1 消費 |
+| 回復 | 接地（着地）で `airDashesRemaining = def.getAirDashes()` に回復。`reset()`・コンストラクタでも満タン |
+| 終了 | 着地（`!wasGrounded` → 接地）で `dashFrames` を 0 にクリアし、地上ダッシュへ持ち越さない |
+
+- **実装（`Fighter.update` のダッシュ検出）**：地上ダッシュ可否 `canGroundDash`（`grounded && ...`）に加え `canAirDash`（`!grounded && airDashesRemaining > 0 && attackPhase==NONE && dashFrames<=0`）を併設し、`(canGroundDash || canAirDash) && moveDir==dashTapDir && dashTapWindow>0` で `dashFrames=DASH_FRAMES` を起動。空中ダッシュ成立時のみ `airDashesRemaining--`。既存の `dashFrames>0` 滑空分岐をそのまま流用（新しい移動分岐を増やさない）。
+- **既存機構との両立**：ダッシュ攻撃（Task 65）は `grounded && dashFrames>0` 条件なので**空中ダッシュ中は発動しない**（空中攻撃は通常どおり）。空中ガード（Task 59）・二段ジャンプ（Task 68）は不変（ダッシュ中は `guarding=false`＝ダッシュ優先・滑空分岐に入るため air jump は次フレーム以降）。
+- **決定性**：方向入力の二度押し（タップ窓）と接地状態・残り回数のみで決まり**乱数なし**（入力リプレイと両立）。`airDashes` はキャラ JSON のデータ。**リプレイ format 不変**だが、滞空中に方向二度押しを含む既存リプレイで `airDashes>0` のキャラは「空振り→空中ダッシュ」へ結果が変わり得る（戦闘仕様変更）。
+- **データ例**：fighter004 Rai に `airDashes: 1`（二段ジャンプ＋空中ダッシュ＝高機動ラッシュ型）。
 
 ---
 
@@ -738,6 +756,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 69) 空中ダッシュ（air dash）を追記。`Shared/Types/Character` に任意 int `airDashes`（既定 0・後方互換・`getAirDashes()` が負値→0）を追加。`Fighter` に `airDashesRemaining` フィールドを追加し、ダッシュ二度押し検出に `canAirDash`（`!grounded && airDashesRemaining>0 && attackPhase==NONE && dashFrames<=0`）を併設、成立で既存 `dashFrames`／`dashDir` を起動＋`airDashesRemaining--`。既存の `dashFrames>0` 滑空分岐をそのまま流用（重力継続＝弧を描く）。接地で `airDashesRemaining` 回復＋着地で `dashFrames` クリア（地上ダッシュへ持ち越さない）。`reset()`・コンストラクタで満タン。ダッシュ攻撃（Task 65・`grounded` 条件）は空中ダッシュ中非発動・空中ガード（Task 59）・二段ジャンプ（Task 68）は不変。データ駆動（`airDashes>0` のキャラのみ）・後方互換（既定 0）。例示として fighter004 Rai に `airDashes:1`。乱数なし・リプレイ format 不変だが、滞空中の方向二度押しを含む既存リプレイは `airDashes>0` キャラで結果が変わり得る（戦闘仕様変更）。「空中ダッシュ（air dash）（Task 69）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 68) 二段ジャンプ（air jump）を追記。`Shared/Types/Character` に任意 int `airJumps`（既定 0・後方互換・`getAirJumps()` が負値→0）を追加。`Fighter` に `airJumpsRemaining` フィールドを追加し、`update()` の空中分岐に `else if (jumpPressed && !grounded && airJumpsRemaining > 0)`（`velocityY=jumpPower` 上書き＋`airJumpsRemaining--`）を追加。着地ブロック・`reset()`・コンストラクタで `airJumpsRemaining = def.getAirJumps()` に回復。地上ジャンプは回数非消費。空中攻撃（Task 32）・空中ガード（Task 59）は不変。データ駆動（`airJumps>0` のキャラのみ）・後方互換（既定 0 は従来どおり地上ジャンプのみ）。例示として fighter004 Rai に `airJumps:1`。乱数なし・リプレイ format 不変だが、滞空中ジャンプ入力を含む既存リプレイは `airJumps>0` キャラで結果が変わり得る（戦闘仕様変更）。「二段ジャンプ（air jump）（Task 68）」節・ジャンプ節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 66) 受け身（ukemi・クイック起き上がり）を追記。`GameConstants` に `UKEMI_WINDOW`(12)・`UKEMI_RISE_FRAMES`(20) を追加。`Fighter` のダウン inert 分岐（Task 60）で `knockdownFrames` 減算前に経過フレームを算出し、`ukemiInput`（攻撃/ジャンプ/投げ）が `UKEMI_WINDOW` 以内かつ残りが `UKEMI_RISE_FRAMES` 超なら `knockdownFrames` を `UKEMI_RISE_FRAMES` に短縮して `ukemiRecovery` フラグを立てる。`isUkemiRecovering()` を追加し、`GameRenderer.drawNameLabel` がダウンラベルを `knockdown(ukemi)` に切替。`applyKnockdown`・`reset()` で `ukemiRecovery=false`。ダウン中無敵（Task 60）は短縮後も `knockdownFrames>0` の間そのまま効くので、受け身で縮めれば無敵も早く切れる＝トレードオフが自動成立（専用調整不要）。JSON 変更なし（グローバル機構）。乱数なし・リプレイ format 不変（受け身は通常の行動入力で記録済み）だが、ダウン直後に行動入力を含む既存リプレイは結果が変わり得る（戦闘仕様変更）。AI は現状ダウン中に入力しないため受け身しない（人間のみ・将来拡張）。「受け身（ukemi・クイック起き上がり）（Task 66）」節・ダウン節の起き上がり行・ステート一覧・冒頭サマリを追加。
 - (Task 65) ダッシュ攻撃を追記。`Shared/Types/Character` に任意 `dashAttack`（`Move`）を追加し、`GameConstants` に `DASH_ATTACK_LUNGE_SPEED`(14) を追加。`Fighter` の攻撃開始ブロックで「接地ダッシュ中（`dashFrames>0`）＋非しゃがみ＋攻撃＋`dashAttack` 所持」なら通常技でなく `def.getDashAttack()` を `beginAttack` し、`dashAttacking` フラグを立てて `velocityX = dashDir × DASH_ATTACK_LUNGE_SPEED`（既存 velocityX 適用＋減衰経路を流用＝前方突進）を与える（`beginAttack` が dashFrames を 0 にする前に `dashDir` を退避）。`isDashAttacking()` を追加し、攻撃終了・チェーン・`startSpecial` でフラグをクリア。`GameRenderer.drawNameLabel` に `dash_attack:<phase>` prefix を追加（ATTACK ポーズ流用）。`CharacterLoader.validateDashAttack`（任意・null 許可・フレーム/hitbox/guardHeight 検証）を追加。`dashAttack` は `button` を持たないためチェーン/特殊キャンセルの起点にはならない（committal）。例示として fighter004 Rai に `dash_shoulder`（dmg80）を追加。データ駆動（持つキャラだけ使える）・後方互換（持たないキャラはダッシュ中の攻撃が従来どおり通常技へキャンセル＝no-op）・乱数なし（突進初速/減衰も固定＝リプレイ format 不変）。「ダッシュ攻撃（Task 65）」節・ステート一覧・冒頭サマリを追加（DataFormat.md にもフィールド/Move 節を追加）。
