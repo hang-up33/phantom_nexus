@@ -1,0 +1,94 @@
+{
+  "id": "fighter005",
+  "name": "Sora",
+  "hp": 750,
+  "walkSpeed": 5.0,
+  "jumpPower": 12.0,
+  "width": 80,
+  "height": 220,
+  "color": [0.16, 0.67, 0.70],
+  "sprite": {
+    "path": "Characters/fighter005.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "needle",
+      "button": "light",
+      "damage": 30,
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 130,
+      "hitboxWidth": 104,
+      "hitboxHeight": 24
+    },
+    {
+      "id": "lance",
+      "button": "medium",
+      "damage": 55,
+      "startup": 8,
+      "active": 4,
+      "recovery": 16,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 124,
+      "hitboxHeight": 30
+    },
+    {
+      "id": "skewer",
+      "button": "heavy",
+      "damage": 85,
+      "startup": 12,
+      "active": 5,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 144,
+      "hitboxHeight": 36
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "frost_shard",
+      "command": "HADOUKEN",
+      "damage": 80,
+      "startup": 7,
+      "active": 3,
+      "recovery": 18,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 48,
+      "hitboxHeight": 48,
+      "projectile": true,
+      "projectileSpeed": 14.0
+    }
+  ],
+  "throwMove": {
+    "id": "spire_toss",
+    "damage": 100,
+    "startup": 4,
+    "active": 2,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 46,
+    "hitboxHeight": 140
+  }
+}
