@@ -4,6 +4,7 @@
   "hp": 800,
   "walkSpeed": 6.0,
   "jumpPower": 13.0,
+  "airJumps": 1,
   "width": 80,
   "height": 210,
   "color": [0.85, 0.78, 0.22],

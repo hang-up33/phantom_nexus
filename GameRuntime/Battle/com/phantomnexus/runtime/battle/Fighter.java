@@ -20,6 +20,7 @@ public class Fighter {
     private float y;          // 足元 Y。接地時は GROUND_Y、ジャンプ中は上昇
     private float velocityY;  // 垂直速度（px/frame）。上向きが正
     private boolean grounded = true;
+    private int airJumpsRemaining; // 残りの空中ジャンプ回数（二段ジャンプ・接地で回復・Task 68）
     private boolean facingRight;
     private int moveDir;      // 直近フレームに適用した左右移動方向（-1/0/+1）
     private int currentHp;    // 現在 HP
@@ -57,6 +58,7 @@ public class Fighter {
         this.y = GameConstants.GROUND_Y;
         this.facingRight = facingRight;
         this.currentHp = def.getHp();
+        this.airJumpsRemaining = def.getAirJumps(); // 初期接地状態で満タン（Task 68）
     }
 
     /**
@@ -257,6 +259,11 @@ public class Fighter {
                     velocityY = def.getJumpPower();
                     grounded = false;
                     // 空中ガード可（Task 59）：後退保持なら滞空後も guarding を維持（前ジャンプは moveDir != backDir で自然に false）。
+                } else if (jumpPressed && !grounded && airJumpsRemaining > 0) {
+                    // 二段ジャンプ（Task 68）：空中でジャンプ入力の立ち上がりがあれば、残り回数を消費して再度跳ぶ。
+                    // velocityY を上向き初速へ上書き（下降中でも再上昇）。回数は接地で回復する。データ駆動（airJumps>0 のキャラのみ）。
+                    velocityY = def.getJumpPower();
+                    airJumpsRemaining--;
                 }
             }
         }
@@ -268,6 +275,7 @@ public class Fighter {
             y = GameConstants.GROUND_Y;
             velocityY = 0f;
             grounded = true;
+            airJumpsRemaining = def.getAirJumps(); // 接地で空中ジャンプ回数を回復（Task 68）
         }
     }
 
@@ -278,6 +286,7 @@ public class Fighter {
         velocityY = 0f;
         velocityX = 0f;
         grounded = true;
+        airJumpsRemaining = def.getAirJumps(); // 空中ジャンプ回数をスポーン時に満タンへ（Task 68）
         facingRight = spawnFacingRight;
         moveDir = 0;
         currentHp = def.getHp();
