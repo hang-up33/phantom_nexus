@@ -315,9 +315,16 @@ public class Fighter {
      * @return 開始できたか（飛び道具の発射判定に使う）
      */
     public boolean startSpecial(Move move) {
-        if (!canStartAction() || move == null) {
+        // 新規発動（非攻撃中）に加え、命中した通常技からの特殊キャンセル（Task 47）でも開始できる。
+        if (move == null || !(canStartAction() || canSpecialCancel())) {
             return false;
         }
+        // しゃがみ通常技からの特殊キャンセル時に低姿勢フラグを引き継がないよう、開始前に姿勢フラグを落とす
+        // （必殺技は立ち扱い。クリアしないと crouchAttacking が残り必殺技の hurtbox/判定高さ=LOW に化ける・Task 47）。
+        // 新規発動（attackPhase==NONE）ではこれらは既に false なので no-op（チェーン開始経路と同じ作法）。
+        crouchAttacking = false;
+        aerialAttacking = false;
+        throwing = false;
         beginAttack(move);
         return true;
     }
@@ -328,23 +335,36 @@ public class Fighter {
     }
 
     /**
+     * 進行中の通常技がキャンセル可能な状態か（チェーンコンボ / 特殊キャンセルの共通前提・Task 45/47）。
+     * 接地中・進行中が**通常技**（必殺技/投げ不可）・その技が active か recovery・命中/ガードで接触済み
+     * （空振りキャンセル不可）。キャンセル先（上位通常技 or 必殺技）は呼び出し側で判定する。
+     */
+    private boolean isCancelableNormal() {
+        return grounded
+                && currentMove != null
+                && currentMove.getButton() != null // 通常技のみ（必殺技/投げからはキャンセルしない）
+                && attackConnected
+                && (attackPhase == AttackPhase.ACTIVE || attackPhase == AttackPhase.RECOVERY);
+    }
+
+    /**
      * 進行中の通常技を、より強いボタンの通常技へキャンセル（チェーンコンボ）できるか（Task 45）。
-     * 条件：接地中・進行中が通常技（必殺技/投げ不可）・その技が active か recovery・命中/ガードで接触済み
-     * （空振りキャンセル不可）・新ボタンの段位（{@code ordinal}）が現在より上（弱→中→強の一方向）。
+     * {@link #isCancelableNormal()} に加え、新ボタンの段位（{@code ordinal}）が現在より上（弱→中→強の一方向）。
      * これにより、通常技の硬直を待たずに上位技へ繋いで連続ヒット（コンボ）を成立させられる。
      */
     public boolean canChainInto(AttackButton next) {
-        if (!grounded || next == null || currentMove == null || !attackConnected) {
+        if (next == null || !isCancelableNormal()) {
             return false;
         }
-        if (attackPhase != AttackPhase.ACTIVE && attackPhase != AttackPhase.RECOVERY) {
-            return false;
-        }
-        AttackButton current = currentMove.getButton();
-        if (current == null) {
-            return false; // 必殺技 / 投げからはチェーンしない（通常技のみ）
-        }
-        return next.ordinal() > current.ordinal();
+        return next.ordinal() > currentMove.getButton().ordinal();
+    }
+
+    /**
+     * 進行中の通常技を必殺技でキャンセルできるか（特殊キャンセル・Task 47）。条件は {@link #isCancelableNormal()}
+     * のみ（必殺技側にボタン段位は無いので段位条件はない）。通常技 → 必殺技（飛び道具等）へ繋いでコンボを伸ばせる。
+     */
+    public boolean canSpecialCancel() {
+        return isCancelableNormal();
     }
 
     /** ボタン種別に対応する通常技を返す（見つからなければ null）。 */
