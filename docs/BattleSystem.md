@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜45 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜46 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -284,6 +284,24 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
+## コンボダメージ補正（ダメージスケーリング）（Task 46）
+
+コンボ（連続ヒット）が伸びるほど後続ヒットの**与ダメージを段階的に減衰**させる。チェーンコンボ（Task 45）と対になり、長いコンボのリターンを鈍らせて無限・即死コンボを抑える格闘ゲーム定番の補正。
+
+| 項目 | 仕様 |
+|---|---|
+| 補正開始 | 2 ヒット目から（1 ヒット目＝単発は等倍） |
+| 減衰量／ヒット | `GameConstants.COMBO_SCALE_STEP`（0.1＝1 ヒットごとに 10%減） |
+| 下限倍率 | `GameConstants.COMBO_SCALE_MIN`（0.3＝これ以上は減らない） |
+| 計算 | `scale(n) = n <= 1 ? 1.0 : max(MIN, 1 - (n-1)×STEP)`、与ダメージ = `max(1, round(base × scale))` |
+
+- **実装（`Fighter`）**：`scaledComboDamage(base)` を新設し、`applyHit` / `applyThrow` で `comboCount` 加算**後**に `applyDamage(scaledComboDamage(damage))` で適用する（`comboCount` は加算済みなので 1 ヒット目は等倍、2 ヒット目以降が減衰）。ガード（`applyGuard` の chip）は加算対象外なので補正されない。最低 1 ダメージは保証。
+- **表示との整合**：ダメージ数値ポップアップ（適用前後の HP 差・既出）が**そのまま補正後の値**を表示する（ポップアップ側の変更不要）。例：Aoi の弱→中→強チェーンが `50 / 72 / 104`（= 50, 80×0.9, 130×0.8）＝合計 226（補正前 260）。
+- **決定性**：倍率計算のみで乱数なし（入力リプレイと両立）。攻撃ステート・hitstun・knockback は不変で、与ダメージ量だけを補正する。
+- **データ**：補正パラメータは全キャラ共通の定数で持つ（JSON 変更なし）。技ごとの補正値（始動補正など）をデータ化するのは将来候補。
+
+---
+
 ## しゃがみ攻撃（Task 28）
 
 | 項目 | 仕様 |
@@ -538,3 +556,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 43) ガードゲージ／ガードクラッシュを追記。`Fighter` に `guardGauge`（float・既定 `GUARD_GAUGE_MAX`）/`guardBreakFrames` を追加。`applyGuard()` で攻撃力に応じてゲージを削り（`max(1, 攻撃力/GUARD_DRAIN_DIVISOR)`）、0 以下でガードクラッシュ（ゲージ満タン復帰＋`hitstunFrames`/`guardBreakFrames` を `GUARD_BREAK_FRAMES`＝40f にセット＝行動不能・ガード不能）。`update()` 先頭で `guardBreakFrames` 減衰、`guarding` 算出後に非ガード・非クラッシュなら回復（`GUARD_REGEN_PER_FRAME`）。`reset()`/`applyHit()`/`applyThrow()` でクリア。`isGuardBroken()`/`getGuardGauge()` を公開。クラッシュ中は `hitstunFrames > 0` で `guarding` が false になり `resolveHit` がフル `applyHit` を呼ぶ（専用の貫通分岐なし）。`GameRenderer` は HP バー直下にガードゲージバー（残量わずか＝橙警告）、崩された側頭上に `GUARD BREAK!`（画面端でも見切れない `drawCenteredClamped`）。状態ラベルは `guard_break` を hitstun より先に評価。ハードコード回避のため `GameRenderer` に `STATE_LABEL_GUARD_BREAK`/`TEXT_GUARD_BREAK` 定数を追加。`GameConstants` に `GUARD_GAUGE_MAX`/`GUARD_DRAIN_DIVISOR`/`GUARD_REGEN_PER_FRAME`/`GUARD_BREAK_FRAMES` を追加。乱数なし＝決定的。全キャラ共通の定数で持つ（JSON 変更なし）。「ガードゲージ／ガードクラッシュ（Task 43）」節を追加。
 - (Task 44) 必殺技ゲージ／EX 必殺技を追記。`Fighter` に `superMeter`（float）と `gainMeter`/`hasFullMeter`/`spendFullMeter`/`setMeter`/`getSuperMeter` を追加（`reset()` で 0）。Core は `resolveHit`/`updateProjectiles` の決着点で `awardMeter(attacker, defender, blocked)` を呼び、命中=攻撃側多め(`METER_GAIN_ON_HIT`)・防御側少なめ(`METER_GAIN_ON_TAKE`)・ガード=両者わずか(`METER_GAIN_ON_GUARD`)を**固定値（乱数なし）**で加算。必殺技（飛び道具）発動時に満タンなら `spendFullMeter()` して EX 発射（`spawnProjectile(f, move, ex=true)`：ダメージ `EX_DAMAGE_MULTIPLIER`(1.6)倍・判定/描画 `EX_PROJECTILE_SCALE`(1.5)倍）。`Projectile` に `ex` フラグを追加し描画で金色グロー＋大型に。`GameRenderer` は画面下端に必殺技ゲージバー（青／満タン金）を追加。`ScreenshotController.initialMeter()`（`p1meter`/`p2meter` オーバーライド）を追加し `build.gradle` 転送リストへ反映。`GameConstants` に `SUPER_METER_MAX`/`METER_GAIN_ON_HIT`/`METER_GAIN_ON_TAKE`/`METER_GAIN_ON_GUARD`/`EX_DAMAGE_MULTIPLIER`/`EX_PROJECTILE_SCALE` を追加。全キャラ共通の定数で持つ（JSON 変更なし）。「必殺技ゲージ／EX 必殺技（Task 44）」節を追加。
 - (Task 45) チェーンコンボ（通常技キャンセル）を追記。`Fighter.canChainInto(AttackButton)` を新設（接地・進行中が通常技・`ACTIVE`/`RECOVERY`・`attackConnected`・新ボタン段位 `ordinal` が現在より上）。`update()` の攻撃開始ブロックに `else if (canChainInto(...))` を足し、命中した通常技を上位ボタンの通常技へ `beginAttack` で即キャンセル（`attackConnected`/`attackPhase` リセット＝多段防止と両立）。硬直を飛ばすため上位技の active が hitstun 切れ前に届き、弱→中→強の 3 連ヒット（コンボカウンターが `3 HITS!`・例 Aoi で 50+80+130=260）が成立。チェーン順はボタン段位の全キャラ共通ルールで JSON 変更なし。乱数なし＝決定的（攻撃ステート/ダメージ/hitstun のロジックは不変で発動経路を 1 つ追加しただけ）。「チェーンコンボ（通常技キャンセル）（Task 45）」節を追加。
+- (Task 46) コンボダメージ補正（ダメージスケーリング）を追記。`Fighter.scaledComboDamage(base)` を新設し、`applyHit`/`applyThrow` で `comboCount` 加算後に `applyDamage(scaledComboDamage(damage))` で適用（1 ヒット目は等倍、2 ヒット目以降は `1 - (n-1)×COMBO_SCALE_STEP` を `COMBO_SCALE_MIN` で下限を打って乗算・最低 1 ダメージ保証）。ガードの chip は非対象。ダメージ数値ポップアップ（HP 差）が補正後の値を自動表示（例：Aoi チェーン 50/72/104＝合計 226、補正前 260）。`GameConstants` に `COMBO_SCALE_STEP`(0.1)/`COMBO_SCALE_MIN`(0.3) を追加。乱数なし＝決定的（攻撃ステート/hitstun/knockback は不変で与ダメージ量のみ補正）。全キャラ共通の定数で持つ（JSON 変更なし）。「コンボダメージ補正（ダメージスケーリング）（Task 46）」節を追加。

@@ -228,7 +228,8 @@ public class Fighter {
     public void applyHit(int damage, int hitstun, int knockbackDir) {
         // 連続ヒット計数（Task 39）：既に hitstun 中の被弾はコンボ継続（+1）、neutral からの被弾は新規コンボ（=1）。
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
-        applyDamage(damage);
+        // コンボダメージ補正（Task 46）：2 ヒット目以降は与ダメージを段階的に減衰させる（1 ヒット目は等倍）。
+        applyDamage(scaledComboDamage(damage));
         hitstunFrames = hitstun;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED;
         attackPhase = AttackPhase.NONE;
@@ -252,7 +253,8 @@ public class Fighter {
     public void applyThrow(int damage, int knockbackDir) {
         // 連続ヒット計数（Task 39）：hitstun 中の相手を掴んだら（空中コンボ等）コンボ継続、neutral からは新規。
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
-        applyDamage(damage);
+        // コンボダメージ補正（Task 46）：コンボ中の投げも 2 段目以降は減衰する（1 段目は等倍）。
+        applyDamage(scaledComboDamage(damage));
         hitstunFrames = GameConstants.THROW_HITSTUN_FRAMES;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * GameConstants.THROW_KNOCKBACK_SCALE;
         attackPhase = AttackPhase.NONE;
@@ -483,6 +485,21 @@ public class Fighter {
             return;
         }
         currentHp = Math.max(0, currentHp - amount);
+    }
+
+    /**
+     * コンボダメージ補正後の与ダメージを返す（Task 46）。現在の {@code comboCount}（このメソッドを呼ぶ前に
+     * 加算済み）に応じて、2 ヒット目以降は倍率を {@link GameConstants#COMBO_SCALE_STEP} ずつ下げる
+     * （{@link GameConstants#COMBO_SCALE_MIN} で下限）。1 ヒット目（または単発）は等倍。最低 1 ダメージは保証する。
+     * 補正は倍率のみで乱数を使わない（入力リプレイの決定性を保つ）。
+     */
+    private int scaledComboDamage(int baseDamage) {
+        if (baseDamage <= 0 || comboCount <= 1) {
+            return baseDamage;
+        }
+        float scale = Math.max(GameConstants.COMBO_SCALE_MIN,
+                1f - (comboCount - 1) * GameConstants.COMBO_SCALE_STEP);
+        return Math.max(1, Math.round(baseDamage * scale));
     }
 
     /** ガード中か（後退方向保持・接地・非のけぞり・非攻撃）。立ち / しゃがみ両方を含む。 */
