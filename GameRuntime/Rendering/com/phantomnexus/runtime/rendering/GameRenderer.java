@@ -49,6 +49,9 @@ public class GameRenderer {
     private static final Color SKY_BOTTOM_FALLBACK = new Color(0.14f, 0.16f, 0.24f, 1f);
     private static final Color P1_COLOR = new Color(0.30f, 0.55f, 0.92f, 1f);
     private static final Color P2_COLOR = new Color(0.92f, 0.42f, 0.36f, 1f);
+    // ミラーマッチ（同キャラ対戦）で P2 を識別するためのパレットスワップ乗算色（Task 62）。
+    // スプライト / 矩形のキャラ色に乗算して色相をずらし、左右どちらが自分かを一目で分かるようにする。
+    private static final Color MIRROR_P2_TINT = new Color(1f, 0.45f, 0.55f, 1f);
     private static final Color FACING_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
     private static final Color PIP_ON_COLOR = new Color(0.98f, 0.86f, 0.30f, 1f);
     private static final Color PIP_OFF_COLOR = new Color(0.35f, 0.36f, 0.42f, 1f);
@@ -134,6 +137,8 @@ public class GameRenderer {
     private final Color popupColor = new Color();
     // ヒットスパーク描画用のフェード色（毎フレームの再確保を避ける作業用バッファ。Task 38）。
     private final Color sparkColor = new Color();
+    // ミラーマッチの P2 パレット / 被弾フラッシュ合成用の作業色（毎フレームの再確保を避ける。Task 62）。
+    private final Color tintColor = new Color();
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -201,17 +206,21 @@ public class GameRenderer {
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
         shapes.end();
 
+        // ミラーマッチ（同キャラ対戦）なら P2 にパレットスワップを適用して識別する（Task 62）。
+        // 別キャラ対戦では false ＝従来どおりの見た目（既存スクショ / レシピに回帰しない）。
+        boolean mirror = p1.getDef().getId().equals(p2.getDef().getId());
+
         // --- パス 2: キャラクターのスプライト（テクスチャ描画。Task 34）---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-        drawFighterSprite(p1, anim1);
-        drawFighterSprite(p2, anim2);
+        drawFighterSprite(p1, anim1, false);
+        drawFighterSprite(p2, anim2, mirror);
         batch.end();
 
         // --- パス 3: オーバーレイ（矩形フォールバック / ガード / 攻撃 strike / 接触 / 飛び道具 / HP）---
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawFighterOverlay(p1, anim1, P1_COLOR);
-        drawFighterOverlay(p2, anim2, P2_COLOR);
+        drawFighterOverlay(p1, anim1, P1_COLOR, false);
+        drawFighterOverlay(p2, anim2, P2_COLOR, mirror);
         // 飛び道具（必殺技の弾）。
         drawProjectiles(projectiles);
         // ヒットスパーク（命中位置で拡大＋フェードする火花。Task 38）。
@@ -465,7 +474,7 @@ public class GameRenderer {
      * （→行）・フレーム（→列）に対応する領域を引き、向きが左なら水平反転、しゃがみ中は高さを縮め、
      * のけぞり中は赤みを乗せる。位置は矩形版と同じく中心 X 基準・足元 Y + 縦ボブ。
      */
-    private void drawFighterSprite(Fighter f, FighterAnimator anim) {
+    private void drawFighterSprite(Fighter f, FighterAnimator anim, boolean paletteSwap) {
         Character d = f.getDef();
         TextureRegion region = sprites.region(d, anim.getState(), anim.getFrameIndex());
         if (region == null) {
@@ -479,12 +488,23 @@ public class GameRenderer {
         if (region.isFlipX() != faceLeft) {
             region.flip(true, false);
         }
-        // のけぞり中は赤みを乗せて被弾を可視化（矩形版の hitstunFlash に相当）。
-        if (f.isInHitstun()) {
-            batch.setColor(1f, 0.55f, 0.55f, 1f);
+        // 描画色：ミラーマッチ P2 のパレットスワップ（乗算）＋ のけぞり中の赤み（被弾フラッシュ）を合成する。
+        // 既定（非ミラー・非のけぞり）は白＝無加工で従来どおり。
+        boolean tinted = paletteSwap || f.isInHitstun();
+        if (tinted) {
+            tintColor.set(Color.WHITE);
+            if (paletteSwap) {
+                tintColor.mul(MIRROR_P2_TINT);
+            }
+            if (f.isInHitstun()) {
+                tintColor.mul(1f, 0.55f, 0.55f, 1f); // 矩形版の hitstunFlash に相当
+            }
+            batch.setColor(tintColor);
         }
         batch.draw(region, left, bottom, d.getWidth(), drawHeight);
-        batch.setColor(Color.WHITE);
+        if (tinted) {
+            batch.setColor(Color.WHITE);
+        }
     }
 
     /**
@@ -494,7 +514,7 @@ public class GameRenderer {
      * ここで描く（後方互換）。スプライト描画済みのキャラは本体矩形を省き、ガードオーバーレイ・攻撃 strike・
      * フレームピップのみを重ねる（これらは矩形 / スプライトの双方に共通の可視化）。
      */
-    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback) {
+    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback, boolean paletteSwap) {
         Character d = f.getDef();
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
@@ -504,6 +524,10 @@ public class GameRenderer {
         if (!sprites.isReady(d)) {
             // スプライト未指定 / 欠落：従来のプレースホルダ矩形（キャラ色 / 被弾フラッシュ）+ 向きマーカー。
             Color color = characterColor(d, fallback);
+            if (paletteSwap) {
+                // ミラーマッチ P2：矩形版でも色を乗算してスプライト版と同じくパレットをずらす（Task 62）。
+                color = tintColor.set(color).mul(MIRROR_P2_TINT);
+            }
             shapes.setColor(f.isInHitstun() ? hitstunFlash(color) : color);
             shapes.rect(left, bottom, d.getWidth(), drawHeight);
             float markerY = bottom + drawHeight - MARKER_SIZE - 12f;
