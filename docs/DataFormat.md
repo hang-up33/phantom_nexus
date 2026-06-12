@@ -243,18 +243,28 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ---
 
-## Stage（MVP 正式版・Task 17）
+## Stage（MVP 正式版・Task 17 / Task 40）
 
 1 ステージ = 1 JSON（`Assets/Stages/<id>.json`）。`Shared/Types/Stage` へデシリアライズ（`StageLoader`）。
 地面の高さ（物理基準）は `Shared/Constants.GROUND_Y` 固定で、本型は**見た目（背景）のみ**を担う（MVP）。
+**ステージは加算式**で、コードを変えず JSON を追加するだけで増やせる（Task 40 で検証）。現状の収録ステージ：
+
+| ID | 表示名 | 雰囲気 |
+|---|---|---|
+| `stage001`（既定） | Twilight Arena | 紫の夕暮れ |
+| `stage002` | Verdant Glade | 青空＋緑地（Task 40） |
+
+読み込むステージは既定で `stage001`。撮影時は **`phantom.screenshot.stage=<id>`（`-x stage=<id>`）** でオーバーライドできる（背景の撮り分け用。`PhantomNexusGame` が `ScreenshotController.stageId()` 経由で選択）。
+
+サンプル（`Assets/Stages/stage002.json`）：
 
 ```json
 {
-  "id": "stage001",
-  "name": "Twilight Arena",
-  "skyTop": [0.07, 0.08, 0.18],
-  "skyBottom": [0.42, 0.28, 0.40],
-  "groundColor": [0.16, 0.14, 0.20]
+  "id": "stage002",
+  "name": "Verdant Glade",
+  "skyTop": [0.18, 0.46, 0.78],
+  "skyBottom": [0.62, 0.82, 0.94],
+  "groundColor": [0.16, 0.40, 0.22]
 }
 ```
 
@@ -294,3 +304,4 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 - (refactor) `guardHeight` の正準値を `Shared/Types/GuardHeight` enum（`OVERHEAD`/`MID`/`LOW`）に集約。散在していた文字列リテラルと `CharacterLoader.VALID_GUARD_HEIGHTS` セットを廃し、解釈・既定・検証を `GuardHeight.fromToken(String)` に一元化した。**JSON 形式（小文字トークン `overhead`/`mid`/`low`・未指定は `mid`）は不変・後方互換**で、本書のフィールド仕様に変更はない（内部実装のみのリファクタ）。
 - (Task 35) `Character` に **投げ技 `throwMove`**（任意・`Move` 型）を追加。ガード不能の近接掴みで、`button`/`command`/`guardHeight` を持たない（専用の投げボタンで起動しガードを無視する）。`CharacterLoader.validateThrowMove()` が id / フレーム / hitbox 寸法のみ検証（button/command/guardHeight は検証しない）。未指定の旧 JSON はフィールド初期化子（`null`）により投げを持たない（後方互換）。`AnimationState` に `throw` ラベルを追加。`InputAction.THROW`（P1=T / P2=Numpad0）を追加。fighter001（`shoulder_throw`・dmg150）/ fighter002（`arm_toss`・dmg130）に `throwMove` と sprite `throw` 行を追加。
 - (refactor) `button` の正準値を `Shared/Types/AttackButton` enum（`LIGHT`/`MEDIUM`/`HEAVY`）に集約（`GuardHeight` と同パターン）。散在していた文字列リテラル（Core のボタン構築・`Fighter.selectNormalMove` の equalsIgnoreCase 照合・`CharacterLoader.VALID_BUTTONS` セット・`AiController` の `"light"` 直書き）を廃し、解釈・検証を `AttackButton.fromToken(String)` に一元化した。`guardHeight`（任意）と異なり `button` は必須のため `fromToken` は未指定で `null` を返し、ローダの必須チェックが弾く。**JSON 形式（小文字トークン `light`/`medium`/`heavy`・必須）は不変・後方互換**で、本書のフィールド仕様に変更はない（内部実装のみのリファクタ）。
+- (Task 40) 第2ステージ `Assets/Stages/stage002.json`（"Verdant Glade"・青空＋緑地）を追加。Stage の JSON 仕様（`id`/`name`/`skyTop`/`skyBottom`/`groundColor`）は不変で、**コード変更なし・JSON 追加だけでステージが増える**ことを検証（Task 22 のキャラ版に相当するステージ版）。読み込むステージは既定 `stage001`、撮影時は `phantom.screenshot.stage=<id>`（`-x stage=<id>`）でオーバーライド可能（`PhantomNexusGame` が `ScreenshotController.stageId()` 経由で選択）。
