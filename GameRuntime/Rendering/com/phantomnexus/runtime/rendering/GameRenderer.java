@@ -69,6 +69,9 @@ public class GameRenderer {
     // ヒットスパーク（Task 38）：通常ヒット=暖色（白寄りの黄）/ ガード=寒色（青）。放射スポーク数と寸法。
     private static final Color SPARK_HIT_COLOR = new Color(1f, 0.95f, 0.55f, 1f);
     private static final Color SPARK_GUARD_COLOR = new Color(0.60f, 0.85f, 1f, 1f);
+    // コンボカウンター（Task 39）の文字色（鮮やかなオレンジ）と表示倍率。
+    private static final Color COMBO_COLOR = new Color(1f, 0.62f, 0.18f, 1f);
+    private static final float COMBO_SCALE = 1.7f;
     private static final int SPARK_SPOKES = 8;        // 放射スポーク本数
     private static final float SPARK_CORE_RADIUS = 9f; // 中心コア（縮小していく）の初期半径
     private static final float SPARK_REACH = 34f;      // スポーク先端が到達する最大距離
@@ -214,6 +217,9 @@ public class GameRenderer {
         drawHpLabels(p2, false);
         drawNameLabel(p1, anim1);
         drawNameLabel(p2, anim2);
+        // コンボカウンター（連続ヒット中の相手の頭上に "N HITS!"。Task 39）。
+        drawComboCounter(p1);
+        drawComboCounter(p2);
         // ダメージ数値ポップアップ（命中位置から上昇＋終盤フェード。HIT=黄 / CHIP=青）。
         drawDamagePopups(popups);
         if (!stageName.isEmpty()) {
@@ -608,6 +614,24 @@ public class GameRenderer {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
         }
         drawCentered(stateLabel, centerX, top + 12f);
+    }
+
+    /**
+     * 連続ヒット中（{@code comboCount >= 2}）のファイターの頭上に "N HITS!" を表示する（Task 39）。
+     * テキストパス（{@link SpriteBatch}）内で呼び、フォントの色・倍率は最後に既定（白・等倍）へ戻す。
+     */
+    private void drawComboCounter(Fighter f) {
+        int combo = f.getComboCount();
+        if (combo < 2) {
+            return;
+        }
+        float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
+        float y = f.getY() + displayHeight + 58f; // 名前ラベル（+30）のさらに上
+        font.getData().setScale(COMBO_SCALE);
+        font.setColor(COMBO_COLOR);
+        drawCentered(combo + " HITS!", f.getX(), y);
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
     }
 
     /** 指定文字列を中心 X（{@code centerX}）・ベースライン Y（{@code y}）に水平センタリングで描く。 */

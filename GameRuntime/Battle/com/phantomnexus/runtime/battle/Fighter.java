@@ -35,6 +35,7 @@ public class Fighter {
     private boolean throwing;          // 投げ（ガード不能の掴み）を発動中か（Task 35）
     private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
+    private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
@@ -73,6 +74,10 @@ public class Fighter {
             crouching = false;
             this.moveDir = 0;
             hitstunFrames--;
+            // hitstun から復帰した瞬間にコンボを終了（次の被弾は新規コンボ＝1 から数え直す）（Task 39）。
+            if (hitstunFrames == 0) {
+                comboCount = 0;
+            }
             x += velocityX;
             clampToStage();
             velocityX *= GameConstants.KNOCKBACK_FRICTION;
@@ -167,6 +172,7 @@ public class Fighter {
         throwing = false;
         throwTechWindow = 0;
         throwTechFrames = 0;
+        comboCount = 0;
         guarding = false;
     }
 
@@ -184,6 +190,8 @@ public class Fighter {
      * 被弾を適用する（HP 減算・のけぞり遷移・knockback）。攻撃中だった場合は中断する。
      */
     public void applyHit(int damage, int hitstun, int knockbackDir) {
+        // 連続ヒット計数（Task 39）：既に hitstun 中の被弾はコンボ継続（+1）、neutral からの被弾は新規コンボ（=1）。
+        comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
         applyDamage(damage);
         hitstunFrames = hitstun;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED;
@@ -205,6 +213,8 @@ public class Fighter {
      * ガードは無視される（成立判定は呼び出し側で済ませ、本メソッドは常にフルダメージを適用する）。進行中の攻撃は中断する。
      */
     public void applyThrow(int damage, int knockbackDir) {
+        // 連続ヒット計数（Task 39）：hitstun 中の相手を掴んだら（空中コンボ等）コンボ継続、neutral からは新規。
+        comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
         applyDamage(damage);
         hitstunFrames = GameConstants.THROW_HITSTUN_FRAMES;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * GameConstants.THROW_KNOCKBACK_SCALE;
@@ -238,6 +248,7 @@ public class Fighter {
      * 進行中の投げ / 攻撃は中断する。ダメージ・のけぞりは無し（hitstun と同じ移動・行動拘束を {@link #throwTechFrames} で再利用）。
      */
     public void applyThrowTech(int pushDir) {
+        comboCount = 0; // 投げ抜けは仕切り直し（コンボではない）（Task 39）
         velocityX = pushDir * GameConstants.THROW_TECH_PUSHBACK;
         hitstunFrames = GameConstants.THROW_TECH_FRAMES; // 行動拘束・knockback 減衰の既存ロジックを流用（ダメージは無し）
         throwTechFrames = GameConstants.THROW_TECH_FRAMES; // 表示用（label を "tech" にする）
@@ -481,5 +492,10 @@ public class Fighter {
 
     public int getHitstunFrames() {
         return hitstunFrames;
+    }
+
+    /** 現在このファイターが受けている連続ヒット数（コンボ数）。hitstun が切れると 0 に戻る（Task 39）。 */
+    public int getComboCount() {
+        return comboCount;
     }
 }
