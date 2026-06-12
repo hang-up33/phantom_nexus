@@ -201,9 +201,11 @@ public final class AiController {
             }
             moveDir = backDir;
             dashTapStep = 0;
-        } else if (defends && opponent.isGuarding() && hasThrow && distance <= THROW_RANGE
-                && cooldown == 0 && self.canStartAction()) {
+        } else if (defends && opponent.isGuarding() && opponent.isGrounded() && hasThrow
+                && distance <= THROW_RANGE && cooldown == 0 && self.canStartAction()) {
             // 投げ崩し：ガード偏重の相手をガード不能の投げで崩す（打撃は防がれるため）。
+            // 空中ガード（Task 59）の相手は掴めない（投げは地上のみ・Task 35）ので opponent.isGrounded() で除外する。
+            // 空中ガード導入前は isGuarding() が接地を含意していたため、この追加条件は従来挙動に対して no-op。
             throwReq = true;
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;

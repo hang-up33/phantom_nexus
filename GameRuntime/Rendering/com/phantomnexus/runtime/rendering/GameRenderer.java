@@ -716,6 +716,9 @@ public class GameRenderer {
         } else if (f.isDashing()) {
             // ダッシュ（二度押しステップ・Task 49）。歩行アニメを流用しつつラベルで識別する。
             stateLabel = "dash";
+        } else if (f.isAirGuarding()) {
+            // 空中ガード（Task 59）。滞空のため JUMP ポーズを流用しつつ、青オーバーレイとこのラベルで識別する。
+            stateLabel = "air_guard";
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
         }

@@ -21,6 +21,7 @@
 ## ステート（MVP）
 
 `idle / walk / jump / jump_attack(空中攻撃) / attack / throw(投げ) / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
+空中ガード（Task 59）は専用の `AnimationState` を持たず JUMP ポーズ＋青オーバーレイを流用し、ラベル `air_guard` で識別する。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
 アニメーション状態の導出優先順（`FighterAnimator.resolve()` が単一の真実。優先順が変わるタスクでは本リストを更新する。旧タスク節の優先順は当時存在した状態のみの短縮表記を含むが、順序は本リストと矛盾しない）：
@@ -219,12 +220,12 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 | 後退方向 | `facingRight=true` → LEFT（moveDir=-1）、`facingRight=false` → RIGHT（moveDir=+1） |
 | chip ダメージ | `Math.max(1, attackDamage / 10)` |
 | knockback | 通常の 30%（のけぞりなし、微小後退のみ） |
-| 空中ガード | 不可（接地中のみ） |
+| 空中ガード | **可（Task 59。滞空中の後退方向保持で成立。立ち扱い＝`crouching=false`）** |
 | しゃがみガード | 可（Task 30。しゃがみ中の後退方向保持で低姿勢ガード） |
 | 中段 / 下段 | 中段（立ち攻撃）はどちらのガードでも防げる。下段（しゃがみ攻撃, Task 31）は**しゃがみガードでのみ**防げ、立ちガードでは通常ヒットになる |
 | 視覚 | 半透明ブルーオーバーレイ（`GameRenderer.GUARD_COLOR`）。しゃがみ時は低姿勢（`height/3`）の高さで重なる |
 
-- **`Fighter.guarding`** フィールドを毎 `update()` の先頭で算出する（接地 + 非のけぞり + 非攻撃 + 後退方向入力）。
+- **`Fighter.guarding`** フィールドを毎 `update()` の先頭で算出する（非のけぞり + 非攻撃 + 後退方向入力。**接地 / 滞空いずれでも成立**＝空中ガード・Task 59）。滞空中の成立は `isAirGuarding()`（`guarding && !grounded`）で識別し、ラベルは `air_guard`（描画は JUMP ポーズ＋青オーバーレイを流用）。空中ガードは立ち扱い（`crouching` は接地時のみ true）なので、飛び道具（高さ判定なしで一律ガード可）と中段 / 上段を防ぎ、下段（しゃがみ攻撃）は防げない（が下段 hitbox は滞空中の hurtbox に通常届かない）。
 - **`Fighter.applyGuard(attackDamage, knockbackDir)`** — chip ダメージ適用と微小 knockback を行う。のけぞりカウンタは変更しない。
 - **`PhantomNexusGame.resolveHit()`** および **`updateProjectiles()`** で `defender.isGuarding()` を確認し、ガード中は `applyHit()` の代わりに `applyGuard()` を呼ぶ。下段に対する立ちガードの不成立は Task 31 で `resolveHit()` に追加（下段判定節を参照）。
 - **`AnimationState.GUARD`** と **`FighterAnimator.resolve()`** への GUARD 優先度（のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機）を追加。
@@ -633,6 +634,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 59) 空中ガードを追記。`Fighter.guarding` の算出条件から `grounded` を外し、滞空中でも後退方向保持でガードが成立するようにした（接地ガード Task 27／しゃがみガード Task 30／ガードクラッシュ Task 43 の既存ロジックは不変・空中ガードもゲージ消費とクラッシュを共有）。ジャンプ成立フレームの `guarding=false`（旧「空中ガード不可」）を 2 箇所（通常ジャンプ・ダッシュジャンプ）から除去。`isAirGuarding()`（`guarding && !grounded`）を追加し、`GameRenderer.drawNameLabel` に `air_guard` ラベルを追加（描画は JUMP ポーズ＋既存の青オーバーレイを流用＝専用 `AnimationState` は追加しない）。空中ガードは立ち扱い（`crouching` は接地時のみ true）で、飛び道具（`updateProjectiles` は高さ判定なしで一律ガード可）と中段 / 上段を chip で凌ぎ、下段は防げない（下段 hitbox は滞空 hurtbox に通常届かない）。あわせて `AiController` の投げ崩し分岐に `opponent.isGrounded()` を追加（空中ガード相手は掴めない＝Task 35 の地上限定投げ・空中ガード導入前は `isGuarding()` が接地を含意したため**従来挙動に対し no-op**）。`resolveHit`/`applyGuard`・`CollisionSystem`・`GameConstants`・JSON スキーマは不変。判断に乱数を増やさず**リプレイ format も不変**だが、滞空中に後退を保持した展開を含む既存リプレイは「被弾→空中ガード」へ結果が変わり得る（戦闘仕様変更のため。AI-on リプレイの再現範囲は「入力リプレイ（記録 / 再生）」節を参照）。ガード節の表（空中ガード＝可）・`Fighter.guarding` 算出の記述・ステート一覧を更新。
 - (Bootstrap) 第一設計書の戦闘要素・MVP 条件に基づく初版ドラフトを作成。
 - (Task 7) `GameRuntime/Battle/Fighter` を新設し、左右移動・画面端クランプ・相手方向への向き更新を追記。
 - (Task 8) ジャンプ / 重力（立ち上がりエッジ発動・接地判定・空中横移動）を追記。`Fighter.update` をジャンプ入力受け取りへ拡張、`Shared/Constants.GRAVITY` を追加。
