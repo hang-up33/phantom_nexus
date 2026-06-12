@@ -612,7 +612,7 @@ public class Fighter {
         return Math.max(1, Math.round(baseDamage * scale));
     }
 
-    /** ガード中か（後退方向保持・接地・非のけぞり・非攻撃）。立ち / しゃがみ両方を含む。 */
+    /** ガード中か（後退方向保持・非のけぞり・非攻撃）。立ち / しゃがみ / 空中いずれも含む（接地は不要・Task 59）。 */
     public boolean isGuarding() {
         return guarding;
     }
