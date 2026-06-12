@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42・43 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュまで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -228,6 +228,25 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **`Fighter.applyGuard(attackDamage, knockbackDir)`** — chip ダメージ適用と微小 knockback を行う。のけぞりカウンタは変更しない。
 - **`PhantomNexusGame.resolveHit()`** および **`updateProjectiles()`** で `defender.isGuarding()` を確認し、ガード中は `applyHit()` の代わりに `applyGuard()` を呼ぶ。下段に対する立ちガードの不成立は Task 31 で `resolveHit()` に追加（下段判定節を参照）。
 - **`AnimationState.GUARD`** と **`FighterAnimator.resolve()`** への GUARD 優先度（のけぞり > しゃがみ攻撃 > 空中攻撃 > 攻撃 > 空中 > しゃがみガード > しゃがみ移動 > しゃがみ > ガード > 歩行 > 待機）を追加。
+
+---
+
+## ガードゲージ／ガードクラッシュ（Task 43）
+
+ガードは無制限に安全ではない。各ファイターは**ガードゲージ**を持ち、ガード成立（chip 被弾）のたびに攻撃力に応じて減る。0 になると**ガードクラッシュ**＝一定フレームのガード不能・行動不能の隙が生じ、攻撃側のフル確定反撃を許す。「ガードで固める」択に対する崩しの読み合いを成立させる。
+
+| 項目 | 仕様 |
+|---|---|
+| ゲージ最大 | `GameConstants.GUARD_GAUGE_MAX`（100） |
+| 減少量／ガード | `Math.max(1, 攻撃力 / GUARD_DRAIN_DIVISOR)`（除数 4。例：中攻撃 80 で 20 減＝5 回で崩壊） |
+| 回復 | 非ガード・非クラッシュ時に毎フレーム `GUARD_REGEN_PER_FRAME`（0.4）回復（約 250f≒4 秒で満タン）。ガード中は減る一方 |
+| クラッシュ | ゲージ 0 で `GUARD_BREAK_FRAMES`（40f≒0.67 秒）の行動不能。崩した一撃自体は chip のみ（防御は成立）で、**続く攻撃がフル確定**になる |
+
+- **実装（hitstun 流用 + 表示フラグ）**：投げ抜け（Task 36）と同じパターン。`Fighter.applyGuard()` でゲージを削り、0 以下なら `guardGauge` を満タンに戻して `guardBreakFrames` と `hitstunFrames` を `GUARD_BREAK_FRAMES` にセット（既存の行動拘束・knockback 減衰ロジックを流用・ダメージ無し）。`isGuardBroken()` は `guardBreakFrames > 0`。`getGuardGauge()` を HUD に公開。
+- **回復**：`update()` 先頭で `guardBreakFrames` を減衰。`guarding` 算出後、非ガード・非クラッシュなら `guardGauge` を回復。`reset()` でゲージ満タン・クラッシュ解除。`applyHit()`/`applyThrow()` は `guardBreakFrames` をクリア（クラッシュ硬直中にフル被弾したらラベルをのけぞりへ更新・表示 desync 防止）。
+- **ガード不能化**：クラッシュ中は `hitstunFrames > 0` のため次フレームの `guarding` 算出が false になり、`resolveHit()` は `applyHit()`（フル）を呼ぶ＝続く攻撃が確定する。
+- **描画**：HP バー直下に細いガードゲージバー（残量わずか＝橙で警告）。崩された側の頭上に `"GUARD BREAK!"`（赤・画面端でも見切れないよう `drawCenteredClamped` でクランプ）。状態ラベルは `guard_break` を hitstun より先に評価（hitstun 流用のため順序を誤ると "hitstun" に化ける）。
+- **データ**：現状はゲージ仕様を全キャラ共通の定数で持つ（JSON 変更なし）。キャラごとのガード耐久差が要れば将来 `Character` へ移す候補。
 
 ---
 

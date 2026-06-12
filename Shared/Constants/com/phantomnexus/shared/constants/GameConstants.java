@@ -122,6 +122,28 @@ public final class GameConstants {
     public static final int ROUND_INTRO_FRAMES = 90;
 
     /**
+     * ガードゲージの最大値（Task 43）。ガード成立（chip 被弾）のたびに攻撃力に応じて減り、0 になると
+     * ガードクラッシュ（{@link #GUARD_BREAK_FRAMES} の行動不能＋ガード不能）。非ガード時は毎フレーム
+     * {@link #GUARD_REGEN_PER_FRAME} 回復する。連続ガードは安全ではない＝崩しの読み合いを成立させる。
+     */
+    public static final float GUARD_GAUGE_MAX = 100f;
+
+    /**
+     * ガード 1 回あたりのゲージ減少量の除数（Task 43）。減少量 = {@code max(1, 攻撃力 / GUARD_DRAIN_DIVISOR)}。
+     * 強い技ほど大きく削る（例：80 ダメージの中攻撃で 20 減＝5 回ガードで崩れる）。
+     */
+    public static final int GUARD_DRAIN_DIVISOR = 4;
+
+    /** 非ガード時のガードゲージ回復量（フレームあたり・Task 43）。約 250f（≒4 秒）で満タンに戻る。 */
+    public static final float GUARD_REGEN_PER_FRAME = 0.4f;
+
+    /**
+     * ガードクラッシュ時の行動不能フレーム数（Task 43）。ゲージが尽きると防御側はこのフレーム数だけ
+     * ガード不能・行動不能になり（hitstun を流用）、攻撃側のフル確定反撃を許す。60fps 基準で約 0.67 秒。
+     */
+    public static final int GUARD_BREAK_FRAMES = 40;
+
+    /**
      * ラウンド開始イントロのうち末尾の "FIGHT!" を表示するフレーム数（Task 42）。{@link #ROUND_INTRO_FRAMES}
      * の残りがこの値以下になったら "ROUND N" から "FIGHT!" 表示へ切り替える。60fps 基準で約 0.5 秒。
      */
