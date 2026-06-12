@@ -338,6 +338,12 @@ public class Fighter {
         guardBreakFrames = 0;
         guarding = false;
         dashFrames = 0;
+        // ダッシュ二度押しの受付状態もクリア（Task 60・CodeRabbit 指摘）。ダウン中は dash 検出ブロック（else 側）が
+        // 走らず dashTapWindow が減衰しないため、被弾前にアームされた 1 回目のタップが 60F 温存され、起き上がり後の
+        // 最初の方向入力で暴発ダッシュになる。窓・方向・前フレーム方向をニュートラルへ戻して保留タップを破棄する。
+        dashTapWindow = 0;
+        dashTapDir = 0;
+        prevMoveDir = 0;
     }
 
     /**
