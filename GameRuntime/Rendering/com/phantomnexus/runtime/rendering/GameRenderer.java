@@ -107,6 +107,8 @@ public class GameRenderer {
     private static final Color GUARD_BAR_LOW = new Color(0.98f, 0.55f, 0.20f, 1f); // 残量わずか＝橙で警告
     private static final Color GUARD_BREAK_COLOR = new Color(1f, 0.30f, 0.26f, 1f); // "GUARD BREAK!" の赤
     private static final float GUARD_BREAK_SCALE = 1.5f;
+    private static final String STATE_LABEL_GUARD_BREAK = "guard_break"; // 名前下の状態ラベル（ハードコード回避）
+    private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
@@ -666,7 +668,7 @@ public class GameRenderer {
             stateLabel = "tech";
         } else if (f.isGuardBroken()) {
             // ガードクラッシュも hitstun を流用するため、ラベルは guard_break を hitstun より先に表示する（Task 43）。
-            stateLabel = "guard_break";
+            stateLabel = STATE_LABEL_GUARD_BREAK;
         } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
@@ -710,7 +712,7 @@ public class GameRenderer {
         float y = f.getY() + displayHeight + 58f;
         font.getData().setScale(GUARD_BREAK_SCALE);
         font.setColor(GUARD_BREAK_COLOR);
-        drawCenteredClamped("GUARD BREAK!", f.getX(), y, 12f); // 画面端でも見切れないようクランプ
+        drawCenteredClamped(TEXT_GUARD_BREAK, f.getX(), y, 12f); // 画面端でも見切れないようクランプ
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
