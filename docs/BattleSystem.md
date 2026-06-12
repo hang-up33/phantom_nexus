@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜38 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）まで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンターまで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -136,6 +136,17 @@
 - **種別 / 色**：通常ヒット（`HIT`）は暖色（白寄りの黄）、ガード成立（`GUARD`）は寒色（青）で色分け（`GameRenderer.SPARK_HIT_COLOR`/`SPARK_GUARD_COLOR`）。
 - **アニメーション**：`GameConstants.HIT_SPARK_FRAMES`（既定 12f ≒ 0.2 秒）かけて、放射スポーク（8 本の三角形）が外へ伸び・中心コアが縮み・全体が線形フェードする。決着 / ラウンド間でも aging を継続する（KO を決めた一撃の火花が最後まで弾ける）ため、`update()` 冒頭の凍結ガードより前で進める（ポップアップと同じ）。
 - **状態管理**：`PhantomNexusGame` が一覧を保持し、毎フレーム寿命を進めて期限切れを除去・ラウンドリセットでクリア。描画はオーバーレイパス（`ShapeRenderer.Filled`、`triangle`/`circle`）で行う（ブレンドは有効化済み）。Task 12 の単フレーム接触マーカー（白矩形）とは別に、命中後も数フレーム残る火花として重ねる。
+
+---
+
+## コンボカウンター（Task 39）
+
+被弾側が **hitstun 中にさらに被弾**したら連続ヒット（コンボ）として数え、相手の頭上に `N HITS!` を表示する。
+
+- **計数（`Fighter`）**：`comboCount` フィールドを持ち、`applyHit` / `applyThrow` の冒頭で「適用前の `hitstunFrames > 0` なら継続（+1）、neutral からの被弾なら新規（=1）」と判定する。hitstun が **0 に戻った瞬間**（`update()` の hitstun 分岐で `hitstunFrames == 0`）に `comboCount = 0` へリセット。`applyThrowTech`（投げ抜け＝仕切り直し）と `reset()` でも 0。ガード（`applyGuard`）は被弾ではないので加算しない。
+- **真のコンボのみ数える**：hitstun が切れてから当たった追撃は「リセット」であってコンボではない（`comboCount` は 1 に戻る）。本エンジンでは技の硬直（recovery）とのけぞり（`HITSTUN_FRAMES`=18）の関係で、**復帰が hitstun より遅い技の連打はコンボにならない**（例：Aoi の `light` は active4+recovery10+次 startup5 = 19 > 18 でリセット、Akane の `quick_jab` は 3+8+4 = 15 < 18 でコンボ成立）。
+- **表示（`GameRenderer`）**：`comboCount >= 2` のとき、被弾側ファイターの頭上に `N HITS!`（オレンジ・拡大）を描く。テキストパス（`SpriteBatch`）でフォント色・倍率を使い、描画後に既定（白・等倍）へ戻す（ポップアップと同じ作法）。
+- **決定性**：乱数なし（被弾と hitstun のみで決まる）＝入力リプレイと両立。`Fighter`/Core の戦闘ロジック自体（ダメージ・hitstun）は不変で、計数フィールドと表示を足しただけ。
 
 ### 実装（Task 13）
 
@@ -455,3 +466,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 36) 投げ抜け（throw tech）を追記。`Fighter` に `throwTechWindow`（投げボタン押下でアームする猶予窓）・`throwTechFrames`（抜け後の表示/硬直）フィールドと `armThrowTech()`/`canTechThrow()`/`applyThrowTech(pushDir)`/`isThrowTeched()` を追加。`PhantomNexusGame.updateFighterInput` で投げボタン押下（接地）時に `armThrowTech()`、`resolveHit` の投げ成立分岐に「被掴み側が `canTechThrow()` なら両者へ `applyThrowTech` でノーダメージ相互 knockback」を追加。`GameRenderer.drawNameLabel` は `isThrowTeched()` を hitstun より優先して `tech` 表示。`GameConstants` に `THROW_TECH_WINDOW`（10）/`THROW_TECH_FRAMES`（14）/`THROW_TECH_PUSHBACK` を追加。硬直は `hitstunFrames` を流用（新規 `AnimationState` は足さず HITSTUN ポーズを再利用）。`applyHit`/`applyThrow`/`applyThrowTech` で `guarding` を即解除し単一集約状態を一貫させる（CodeRabbit 指摘）。「投げ抜け（Task 36）」節を追加。
 - (Task 37) AI 読み合い反応を追記。`AiController.control` に「相手が打撃中ならガード（後退方向保持）」「相手がガード中なら投げで崩す（`throwReq=true`）」の 2 反応を追加（優先順：ガード ＞ 投げ ＞ 接近 ＞ 攻撃）。判断は相手の観測状態（`isAttacking`/`isThrowing`/`isGuarding`）＋距離のみで**乱数なし＝決定的**（入力リプレイと両立）。`GUARD_RANGE`(200)/`THROW_RANGE`(130) 定数を追加。`Fighter`/Core の戦闘ロジックは不変（AI の判断分岐のみ）。簡易 AI（Task 21）節に「読み合い反応（Task 37）」サブ節を追加。
 - (Task 38) ヒットスパークを追記。`GameRuntime/Battle/HitSpark`（種別・原点・寿命を持つ POJO）を新設し、`resolveHit`（ヒット/ガード/投げ/投げ抜け）・`updateProjectiles` でダメージポップアップと同位置に生成（通常ヒット=黄/白・ガード=青）。`GameConstants.HIT_SPARK_FRAMES`（12）を追加。`GameRenderer.renderScene` に `sparks` 引数を追加しオーバーレイパス（`ShapeRenderer.Filled`）で放射スポーク＋縮小コアを拡大＋フェード描画。`PhantomNexusGame` が一覧を保持・毎フレーム更新（凍結ガード前）・ラウンドリセットでクリア。純粋な演出で戦闘結果には影響しない（`DamagePopup` と同じパターン）。「ヒットスパーク（Task 38）」節を追加。
+- (Task 39) コンボカウンターを追記。`Fighter` に `comboCount` フィールド・`getComboCount()` を追加し、`applyHit`/`applyThrow` の冒頭で hitstun 継続なら +1・neutral からは =1 と計数。`update()` の hitstun 復帰（`hitstunFrames == 0`）・`applyThrowTech`・`reset()` で 0 にリセット。`GameRenderer` は `comboCount >= 2` の被弾側頭上に `N HITS!`（オレンジ・拡大）を描画（描画後に色/倍率を既定へ復帰）。戦闘ロジック（ダメージ・hitstun）は不変で計数フィールド＋表示のみ追加。乱数なし＝決定的。「コンボカウンター（Task 39）」節を追加。
