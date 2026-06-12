@@ -36,7 +36,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 
 1 キャラ = 1 JSON ファイル（`Assets/Characters/<id>.json`、UTF-8）。LibGDX `Json` が POJO（`Shared/Types/Character`）へ
 フィールド名一致でデシリアライズする（Task 16）。Task 24 で技定義を **配列（`normalMoves[]` / `specialMoves[]`）** に拡張。
-実サンプルは `Assets/Characters/fighter001.json`（Aoi）/ `fighter002.json`（Akane）/ `fighter003.json`（Tetsu）/ `fighter004.json`（Rai）。
+実サンプルは `Assets/Characters/fighter001.json`（Aoi）/ `fighter002.json`（Akane）/ `fighter003.json`（Tetsu）/ `fighter004.json`（Rai）/ `fighter005.json`（Sora・遠距離 zoner 型：長い射程の通常技と高速飛び道具・低 HP）。
 撮影時は **`phantom.screenshot.p1char=<id>` / `p2char=<id>`（`-x p1char=<id>` / `-x p2char=<id>`）** で読み込むキャラを差し替えられる（新キャラの撮り分け用。`PhantomNexusGame` が `ScreenshotController.charId(player, fallback)` 経由で選択。`stageId(fallback)` のキャラ版）。
 
 ```json
@@ -288,6 +288,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 52) 5 体目キャラ `Assets/Characters/fighter005.json`（"Sora"・HP750・遠距離 zoner 型の青緑）＋プレースホルダ・スプライト `fighter005.png` を追加。`Character` の JSON 仕様は不変で、**コード変更なし・JSON 追加だけでキャラが増える**ことを再々検証（4 体目 fighter004 に続く 5 体目）。アーキタイプを差別化：通常技（`needle`/`lance`/`skewer`）は **hitboxWidth が 104/124/144 と長射程**でリーチ重視、必殺 `frost_shard`（飛び道具・`projectileSpeed 14.0` と高速）・投げ `spire_toss`（dmg100）、HP は低め（750）。**新キャラがコード変更なしで必殺技・投げ・既存戦闘機構をそのまま使える**ことをスクショで確認（236+A で frost_shard 発射／`skewer` の長い hitbox が 200px の間合いを抜いて 85 ダメージ）。撮影は `-x p1char=fighter005`。
 - (Bootstrap) 第一設計書の共通データ仕様に基づく初版ドラフトを作成。
 - (Task 6) `Shared/Types/Character` POJO を新設し、描画 / 当たり判定の基準となる `width` / `height` を追加（実装は id/name/hp/walkSpeed/jumpPower/width/height のサブセット。animations/moves/hitbox は Task 15 で正式化）。
 - (Task 11) `Shared/Types/Move` POJO を新設（id/command/damage/startup/active/recovery + hitbox 矩形）。`Character` に `normalAttack`（通常攻撃 1 技）を追加。MVP はコード生成で供給し、Task 15/16 で JSON の moves[] から供給する。
