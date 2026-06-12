@@ -125,7 +125,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         debugOverlay.setEnabled(screenshot.debugEnabled());
         // P2 の AI（Task 21）。既定 ON・F2 でトグル。撮影時は ai=false で人間（静止）に切替可能。
         p2AiEnabled = screenshot.aiEnabled(true);
-        controlsHint = "P1 " + p1Input.describe() + "   [F1] hitboxes  [F2] P2 AI";
+        // AI 難易度（Task 56）。既定 HARD（全反応＝従来挙動）。撮影時は aidiff=easy/normal/hard で差し替え。
+        // 未指定（null）なら setDifficulty が無視して既定 HARD を保つ＝既存リプレイ/レシピの決定性を保つ。
+        p2Ai.setDifficulty(AiController.Difficulty.fromToken(screenshot.aiDifficulty(null)));
+        controlsHint = "P1 " + p1Input.describe() + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")";
         // 入力リプレイ（記録 / 再生）。phantom.replay.* 指定時のみ有効。通常起動には無影響。
         replay = new ReplayController();
         if (replay.isRecording()) {
@@ -509,6 +512,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     }
 
     /** 各ファイターの座標・向き・接地状態（＋検出コマンド）を 1 行で返す（動作確認用 HUD）。 */
+    /** 現在の AI 難易度ラベル（小文字・HUD 表示用・Task 56）。 */
+    private String aiDifficultyLabel() {
+        return p2Ai.getDifficulty().name().toLowerCase();
+    }
+
     private String statusLine() {
         return String.format(
                 "%s x=%.0f y=%.0f %s%s%s    %s x=%.0f y=%.0f %s%s%s",

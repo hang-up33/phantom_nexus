@@ -39,6 +39,9 @@ import java.util.List;
  *       書式 {@code start-end:tok+tok;...}。例：波動拳 {@code 1-12:p1.down;8-18:p1.down+p1.right;19-26:p1.right;22-22:p1.attack}。</li>
  *   <li>{@code phantom.screenshot.ai} — {@code false} で P2 の AI を無効化（人間=静止）。
  *       コマンド/飛び道具の撮影で P2 を動かしたくない時に使う。既定 ON。</li>
+ *   <li>{@code phantom.screenshot.aidiff} — P2 AI 難易度（{@code easy} / {@code normal} / {@code hard}・Task 56）。
+ *       他のプロパティと違い<b>撮影モードに依らず通常起動でも有効</b>（ゲームプレイ設定）。既定 HARD。
+ *       生トークンを返し解決は呼び手（{@code AiController.Difficulty.fromToken}）が行う。</li>
  * </ul>
  */
 public final class ScreenshotController {
@@ -230,6 +233,19 @@ public final class ScreenshotController {
         }
         String key = player == 2 ? "phantom.screenshot.p2char" : "phantom.screenshot.p1char";
         String v = trimToNull(System.getProperty(key));
+        return v != null ? v : fallback;
+    }
+
+    /**
+     * P2 の AI 難易度トークン（{@code easy} / {@code normal} / {@code hard}）のオーバーライド（Task 56）。
+     * <b>撮影モードに依らず常に読む</b>点が他のオーバーライド（{@code charId}/{@code stageId} 等は撮影時のみ）と異なる
+     * ——難易度は「撮影レシピ」ではなく<b>ゲームプレイ設定</b>で、通常起動（{@code gradle run -Dphantom.screenshot.aidiff=hard}）
+     * でも効かせたいため（CodeRabbit 指摘）。未指定時は {@code fallback}（生トークンを返し、解決は呼び手＝Core が
+     * {@code AiController.Difficulty.fromToken} で行う＝Debug→Battle 依存を作らない）。プロパティ名は転送リスト統一のため
+     * {@code phantom.screenshot.} 名前空間のままだが、実体は撮影専用ではない（実行時メニュー化までの暫定設定窓口）。
+     */
+    public String aiDifficulty(String fallback) {
+        String v = trimToNull(System.getProperty("phantom.screenshot.aidiff"));
         return v != null ? v : fallback;
     }
 
