@@ -50,6 +50,7 @@ public class Fighter {
     private int prevMoveDir;   // 前フレームの移動入力方向（ダッシュの二度押しエッジ検出用・Task 49）
     private int dashTapDir;    // 直近に押した方向（二度押し判定用・Task 49）
     private int dashTapWindow; // 二度押し受付の残りフレーム（毎フレーム減衰・Task 49）
+    private boolean dashTapGrounded; // 1 度目のタップをアームした時の接地状態（空中ダッシュは空中アーム窓のみ消費・Task 69）
     private int dashFrames;    // ダッシュ継続の残りフレーム（>0 でダッシュ中・Task 49）
     private int dashDir;       // ダッシュ方向（-1=左 / +1=右・Task 49）
 
@@ -166,7 +167,10 @@ public class Fighter {
             if (dirEdge) {
                 boolean canGroundDash = grounded && attackPhase == AttackPhase.NONE && !crouchHeld && dashFrames <= 0;
                 // 空中ダッシュ（Task 69）：滞空中の二度押しで水平バースト。データ駆動（airDashes>0 のキャラのみ）。
-                boolean canAirDash = !grounded && attackPhase == AttackPhase.NONE && airDashesRemaining > 0 && dashFrames <= 0;
+                // !dashTapGrounded：1 度目のタップも空中でアームされた窓のみ消費する（地上アーム窓の流用を防ぐ＝
+                // 「地上で 1 度押し→ジャンプ→空中で 1 度押し」で発動しない。仕様は滞空中の二度押し・Codex 指摘）。
+                boolean canAirDash = !grounded && attackPhase == AttackPhase.NONE && airDashesRemaining > 0
+                        && dashFrames <= 0 && !dashTapGrounded;
                 if ((canGroundDash || canAirDash) && moveDir == dashTapDir && dashTapWindow > 0) {
                     dashFrames = GameConstants.DASH_FRAMES; // 二度押し成立 → ダッシュ開始（接地＝地上ステップ / 滞空＝空中ダッシュ）
                     dashDir = moveDir;
@@ -178,6 +182,7 @@ public class Fighter {
                 } else {
                     dashTapDir = moveDir;                    // 1 度目の押下 → 受付窓をアーム
                     dashTapWindow = GameConstants.DASH_TAP_WINDOW;
+                    dashTapGrounded = grounded;              // アーム時の接地状態を記録（空中ダッシュ判定用・Task 69）
                 }
             }
             prevMoveDir = moveDir;
@@ -326,6 +331,7 @@ public class Fighter {
         prevMoveDir = 0;
         dashTapDir = 0;
         dashTapWindow = 0;
+        dashTapGrounded = false;
         dashFrames = 0;
         dashDir = 0;
     }
@@ -407,6 +413,7 @@ public class Fighter {
         // 最初の方向入力で暴発ダッシュになる。窓・方向・前フレーム方向をニュートラルへ戻して保留タップを破棄する。
         dashTapWindow = 0;
         dashTapDir = 0;
+        dashTapGrounded = false;
         prevMoveDir = 0;
     }
 
