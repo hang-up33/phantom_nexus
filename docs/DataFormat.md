@@ -37,7 +37,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 1 キャラ = 1 JSON ファイル（`Assets/Characters/<id>.json`、UTF-8）。LibGDX `Json` が POJO（`Shared/Types/Character`）へ
 フィールド名一致でデシリアライズする（Task 16）。Task 24 で技定義を **配列（`normalMoves[]` / `specialMoves[]`）** に拡張。
 実サンプルは `Assets/Characters/fighter001.json`（Aoi）/ `fighter002.json`（Akane）/ `fighter003.json`（Tetsu）。
-撮影時は **`phantom.screenshot.p1char=<id>` / `p2char=<id>`（`-x p1char=<id>` / `-x p2char=<id>`）** で読み込むキャラを差し替えられる（新キャラの撮り分け用。`PhantomNexusGame` が `ScreenshotController.charId()` 経由で選択。`stageId()` のキャラ版）。
+撮影時は **`phantom.screenshot.p1char=<id>` / `p2char=<id>`（`-x p1char=<id>` / `-x p2char=<id>`）** で読み込むキャラを差し替えられる（新キャラの撮り分け用。`PhantomNexusGame` が `ScreenshotController.charId(player, fallback)` 経由で選択。`stageId(fallback)` のキャラ版）。
 
 ```json
 {

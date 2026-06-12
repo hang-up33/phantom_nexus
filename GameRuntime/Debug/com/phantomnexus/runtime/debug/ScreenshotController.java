@@ -215,7 +215,7 @@ public final class ScreenshotController {
         if (!isEnabled()) {
             return fallback;
         }
-        String key = player == 1 ? "phantom.screenshot.p1char" : "phantom.screenshot.p2char";
+        String key = player == 2 ? "phantom.screenshot.p2char" : "phantom.screenshot.p1char";
         String v = trimToNull(System.getProperty(key));
         return v != null ? v : fallback;
     }
