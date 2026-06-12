@@ -99,6 +99,16 @@ public class GameRenderer {
     private static final float HP_BAR_MARGIN = 40f;
     private static final float HP_BAR_TOP = 60f;
     private static final float HP_FRAME_THICKNESS = 3f;
+    // ガードゲージ（HP バー直下の細バー・Task 43）。HP バーと同じ左右アンカーで減る方向に塗る。
+    private static final float GUARD_BAR_HEIGHT = 7f;
+    private static final float GUARD_BAR_GAP = 5f; // HP バー枠下端からの隙間
+    private static final Color GUARD_BAR_BACK = new Color(0.10f, 0.12f, 0.16f, 1f);
+    private static final Color GUARD_BAR_FILL = new Color(0.35f, 0.72f, 1f, 1f);  // 通常＝水色（ガード色と同系）
+    private static final Color GUARD_BAR_LOW = new Color(0.98f, 0.55f, 0.20f, 1f); // 残量わずか＝橙で警告
+    private static final Color GUARD_BREAK_COLOR = new Color(1f, 0.30f, 0.26f, 1f); // "GUARD BREAK!" の赤
+    private static final float GUARD_BREAK_SCALE = 1.5f;
+    private static final String STATE_LABEL_GUARD_BREAK = "guard_break"; // 名前下の状態ラベル（ハードコード回避）
+    private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
     private final ShapeRenderer shapes;
@@ -200,6 +210,9 @@ public class GameRenderer {
         // HP ゲージ（HUD 上端）。P1 は左から、P2 は右から減る方向に塗る。
         drawHpBar(p1, true);
         drawHpBar(p2, false);
+        // ガードゲージ（HP バーの直下の細バー。ガードで減り、尽きるとガードクラッシュ。Task 43）。
+        drawGuardGauge(p1, true);
+        drawGuardGauge(p2, false);
         // 勝利ラウンド数を示すドット（HP バー内側端の下）。金色=獲得、暗色=未獲得。
         drawWinDots(round);
         shapes.end();
@@ -223,6 +236,9 @@ public class GameRenderer {
         // コンボカウンター（連続ヒット中の相手の頭上に "N HITS!"。Task 39）。
         drawComboCounter(p1);
         drawComboCounter(p2);
+        // ガードクラッシュ表示（崩された側の頭上に "GUARD BREAK!"。Task 43）。
+        drawGuardBreakLabel(p1);
+        drawGuardBreakLabel(p2);
         // ダメージ数値ポップアップ（命中位置から上昇＋終盤フェード。HIT=黄 / CHIP=青）。
         drawDamagePopups(popups);
         if (!stageName.isEmpty()) {
@@ -357,6 +373,27 @@ public class GameRenderer {
         float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
         shapes.setColor(hpFillColor(ratio));
         shapes.rect(fillLeft, barBottom, fillWidth, HP_BAR_HEIGHT);
+    }
+
+    /**
+     * ガードゲージを 1 本描く（Task 43）。HP バーの直下に細く配置し、HP と同じ左右アンカーで
+     * 中央側から減る方向に塗る。残量が少ないと橙で警告する。ガードクラッシュの予兆を可視化する。
+     */
+    private void drawGuardGauge(Fighter f, boolean leftAnchored) {
+        float top = GameConstants.WORLD_HEIGHT - HP_BAR_TOP;
+        float barBottom = top - HP_BAR_HEIGHT;
+        float gaugeTop = barBottom - HP_FRAME_THICKNESS - GUARD_BAR_GAP;
+        float gaugeBottom = gaugeTop - GUARD_BAR_HEIGHT;
+        float outerLeft = leftAnchored
+                ? HP_BAR_MARGIN
+                : GameConstants.WORLD_WIDTH - HP_BAR_MARGIN - HP_BAR_WIDTH;
+        shapes.setColor(GUARD_BAR_BACK);
+        shapes.rect(outerLeft, gaugeBottom, HP_BAR_WIDTH, GUARD_BAR_HEIGHT);
+        float ratio = Math.max(0f, Math.min(1f, f.getGuardGauge() / GameConstants.GUARD_GAUGE_MAX));
+        float fillWidth = HP_BAR_WIDTH * ratio;
+        float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
+        shapes.setColor(ratio <= 0.30f ? GUARD_BAR_LOW : GUARD_BAR_FILL);
+        shapes.rect(fillLeft, gaugeBottom, fillWidth, GUARD_BAR_HEIGHT);
     }
 
     /** 残量割合に応じた HP フィル色（高=緑 / 中=黄 / 低=赤）。 */
@@ -629,6 +666,9 @@ public class GameRenderer {
         if (f.isThrowTeched()) {
             // 投げ抜けの硬直は hitstun フレームを流用するため、ラベルは tech を優先表示する（Task 36）。
             stateLabel = "tech";
+        } else if (f.isGuardBroken()) {
+            // ガードクラッシュも hitstun を流用するため、ラベルは guard_break を hitstun より先に表示する（Task 43）。
+            stateLabel = STATE_LABEL_GUARD_BREAK;
         } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
@@ -660,10 +700,39 @@ public class GameRenderer {
         font.getData().setScale(1.0f);
     }
 
+    /**
+     * ガードクラッシュ中（{@link Fighter#isGuardBroken()}）のファイターの頭上に "GUARD BREAK!" を表示する（Task 43）。
+     * テキストパス内で呼び、フォントの色・倍率は最後に既定（白・等倍）へ戻す（共有状態リーク防止）。
+     */
+    private void drawGuardBreakLabel(Fighter f) {
+        if (!f.isGuardBroken()) {
+            return;
+        }
+        float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
+        float y = f.getY() + displayHeight + 58f;
+        font.getData().setScale(GUARD_BREAK_SCALE);
+        font.setColor(GUARD_BREAK_COLOR);
+        drawCenteredClamped(TEXT_GUARD_BREAK, f.getX(), y, 12f); // 画面端でも見切れないようクランプ
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+    }
+
     /** 指定文字列を中心 X（{@code centerX}）・ベースライン Y（{@code y}）に水平センタリングで描く。 */
     private void drawCentered(String text, float centerX, float y) {
         layout.setText(font, text);
         font.draw(batch, layout, centerX - layout.width / 2f, y);
+    }
+
+    /**
+     * センタリング描画だが、左端 X が画面内（左右 {@code margin} 余白）に収まるようクランプする。
+     * 画面端のファイター頭上に出すフローティングラベル（"GUARD BREAK!" 等）が画面外で見切れるのを防ぐ。
+     */
+    private void drawCenteredClamped(String text, float centerX, float y, float margin) {
+        layout.setText(font, text);
+        float left = centerX - layout.width / 2f;
+        float maxLeft = GameConstants.WORLD_WIDTH - margin - layout.width;
+        left = Math.max(margin, Math.min(left, maxLeft));
+        font.draw(batch, layout, left, y);
     }
 
     /** ウィンドウリサイズ時にビューポートを追従させる。 */

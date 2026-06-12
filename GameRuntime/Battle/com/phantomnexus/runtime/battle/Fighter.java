@@ -37,6 +37,8 @@ public class Fighter {
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
+    private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
+    private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -64,12 +66,21 @@ public class Fighter {
         if (throwTechFrames > 0) {
             throwTechFrames--;
         }
+        // ガードクラッシュの表示/拘束フレームを減衰（Task 43。拘束自体は hitstunFrames が担う）。
+        if (guardBreakFrames > 0) {
+            guardBreakFrames--;
+        }
         // ガード判定：接地・非のけぞり・非攻撃中に後退方向を保持しているか。
         // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30）。低姿勢判定は crouching を併用。
         int backDir = facingRight ? -1 : 1;
         guarding = grounded && hitstunFrames <= 0 && attackPhase == AttackPhase.NONE
                    && moveDir != 0 && moveDir == backDir;
+        // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43。ガード中は減る一方）。
+        if (!guarding && guardBreakFrames <= 0 && guardGauge < GameConstants.GUARD_GAUGE_MAX) {
+            guardGauge = Math.min(GameConstants.GUARD_GAUGE_MAX,
+                                  guardGauge + GameConstants.GUARD_REGEN_PER_FRAME);
+        }
         if (hitstunFrames > 0) {
             crouching = false;
             this.moveDir = 0;
@@ -174,6 +185,8 @@ public class Fighter {
         throwTechFrames = 0;
         comboCount = 0;
         guarding = false;
+        guardGauge = GameConstants.GUARD_GAUGE_MAX;
+        guardBreakFrames = 0;
     }
 
     /**
@@ -184,6 +197,17 @@ public class Fighter {
         int chip = Math.max(1, attackDamage / 10);
         applyDamage(chip);
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.3f;
+        // ガードゲージを攻撃力に応じて削る。0 以下でガードクラッシュ（Task 43）。
+        guardGauge -= Math.max(1, attackDamage / GameConstants.GUARD_DRAIN_DIVISOR);
+        if (guardGauge <= 0f) {
+            // 崩し成立：ゲージを満タンに戻し、行動不能＋ガード不能（hitstun を流用）にする。
+            // この「崩した一撃」自体は chip のみ（防御は成立）で、続く攻撃がフル確定になる。
+            guardGauge = GameConstants.GUARD_GAUGE_MAX;
+            guardBreakFrames = GameConstants.GUARD_BREAK_FRAMES;
+            hitstunFrames = GameConstants.GUARD_BREAK_FRAMES;
+            guarding = false;
+            velocityX = 0f; // クラッシュはその場硬直（軽 knockback を打ち消す）
+        }
     }
 
     /**
@@ -204,6 +228,7 @@ public class Fighter {
         throwing = false;
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に被弾したらラベルをのけぞりへ戻す（表示 desync 防止・Task 36）
+        guardBreakFrames = 0; // ガードクラッシュ硬直中にフル被弾したらラベルをのけぞりへ戻す（Task 43）
         guarding = false;    // 被弾で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
     }
 
@@ -227,6 +252,7 @@ public class Fighter {
         throwing = false;
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に投げで上書きされたらラベルをのけぞりへ戻す（Task 36）
+        guardBreakFrames = 0; // ガードクラッシュ硬直中に投げで上書きされたらラベルを更新（Task 43）
         guarding = false;    // 投げ（ガード不能）で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
     }
 
@@ -435,6 +461,16 @@ public class Fighter {
     /** しゃがみガード中か（ガード中 + 低姿勢を維持）（Task 30）。 */
     public boolean isCrouchGuarding() {
         return guarding && crouching;
+    }
+
+    /** ガードクラッシュ中か（ゲージが尽きてガード不能・行動不能の隙にある）（Task 43）。 */
+    public boolean isGuardBroken() {
+        return guardBreakFrames > 0;
+    }
+
+    /** 現在のガードゲージ量（0〜{@link GameConstants#GUARD_GAUGE_MAX}）。HUD ゲージ表示に使用（Task 43）。 */
+    public float getGuardGauge() {
+        return guardGauge;
     }
 
     public boolean isKO() {
