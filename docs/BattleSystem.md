@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 10〜14・20・21・24〜33・35〜39・42・43 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュまで実装済み**の現状を反映している。
+> 本書は Task 10〜14・20・21・24〜33・35〜39・42〜44 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -247,6 +247,28 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **ガード不能化**：クラッシュ中は `hitstunFrames > 0` のため次フレームの `guarding` 算出が false になり、`resolveHit()` は `applyHit()`（フル）を呼ぶ＝続く攻撃が確定する。
 - **描画**：HP バー直下に細いガードゲージバー（残量わずか＝橙で警告）。崩された側の頭上に `"GUARD BREAK!"`（赤・画面端でも見切れないよう `drawCenteredClamped` でクランプ）。状態ラベルは `guard_break` を hitstun より先に評価（hitstun 流用のため順序を誤ると "hitstun" に化ける）。
 - **データ**：現状はゲージ仕様を全キャラ共通の定数で持つ（JSON 変更なし）。キャラごとのガード耐久差が要れば将来 `Character` へ移す候補。
+
+---
+
+## 必殺技ゲージ／EX 必殺技（Task 44）
+
+ガードゲージ（防御リソース）と対になる**攻撃リソース**。各ファイターは**必殺技ゲージ（スーパーメーター）**を持ち、攻撃を当てる / 受ける / ガードで貯まる。満タンで必殺技（飛び道具）を撃つと**ゲージを消費して EX 版**（ダメージ増・大型弾）になる。リスクを取って攻めた見返り（攻撃で多く貯まる）を強力な一撃に変換する読み合い。
+
+| 項目 | 仕様 |
+|---|---|
+| メーター最大 | `GameConstants.SUPER_METER_MAX`（100） |
+| 増加（攻撃側が当てる） | `METER_GAIN_ON_HIT`（14） |
+| 増加（防御側が受ける） | `METER_GAIN_ON_TAKE`（8。攻めるより少ない） |
+| 増加（ガード成立・攻防両者） | `METER_GAIN_ON_GUARD`（5） |
+| EX ダメージ倍率 | `EX_DAMAGE_MULTIPLIER`（1.6×。例：波動拳 120 → 192） |
+| EX 弾の拡大率 | `EX_PROJECTILE_SCALE`（1.5×。判定・描画とも大型化） |
+
+- **メーター（`Fighter`）**：`superMeter`（float）に `gainMeter(amount)`（MAX で頭打ち）/ `hasFullMeter()` / `spendFullMeter()`（0 に）/ `setMeter(value)`（撮影・初期化用）/ `getSuperMeter()`。`reset()` で 0（ラウンドごとにリセット）。
+- **メーター蓄積（Core）**：`resolveHit`（打撃ヒット / ガード / 投げ）・`updateProjectiles`（飛び道具ヒット / ガード）の決着点で `awardMeter(attacker, defender, blocked)` を呼ぶ。命中は攻撃側が多く・防御側が少なく、ガードは両者わずか。**固定値のみで乱数なし**（入力リプレイの決定性を保つ）。投げ抜けはノーダメージのため蓄積しない。
+- **EX 発動（Core）**：必殺技（飛び道具）の発動時に `f.hasFullMeter()` なら `f.spendFullMeter()` して `spawnProjectile(f, move, ex=true)`。EX 弾は `damage = round(damage × EX_DAMAGE_MULTIPLIER)`・判定/描画を `EX_PROJECTILE_SCALE` 倍。`Projectile` に `ex` フラグを足し描画で金色グロー＋大型に。打撃必殺技の EX は現状対象外（全キャラの必殺技が飛び道具のため。将来候補）。
+- **描画**：画面下端に必殺技ゲージバー（蓄積中=青 / 満タン=金＝EX 可の合図）。EX 飛び道具は金色グロー（通常は青）で大型。
+- **撮影**：`ScreenshotController.initialMeter(player, fallback)` で初期メーターをオーバーライド可能（`-x p1meter=100` / `p2meter=`）。EX の見え方を貯め直しなしで撮る用。
+- **データ**：現状はメーター仕様を全キャラ共通の定数で持つ（JSON 変更なし）。EX をキャラ固有技（`specialMoves[]` の `ex` 変種）としてデータ化するのは将来候補。
 
 ---
 
@@ -502,3 +524,4 @@ Task 24 で技定義を 1 件から配列に拡張した。
 - (Task 39) コンボカウンターを追記。`Fighter` に `comboCount` フィールド・`getComboCount()` を追加し、`applyHit`/`applyThrow` の冒頭で hitstun 継続なら +1・neutral からは =1 と計数。`update()` の hitstun 復帰（`hitstunFrames == 0`）・`applyThrowTech`・`reset()` で 0 にリセット。`GameRenderer` は `comboCount >= 2` の被弾側頭上に `N HITS!`（オレンジ・拡大）を描画（描画後に色/倍率を既定へ復帰）。戦闘ロジック（ダメージ・hitstun）は不変で計数フィールド＋表示のみ追加。乱数なし＝決定的。「コンボカウンター（Task 39）」節を追加。
 - (Task 42) ラウンド開始イントロを追記。`RoundManager` に `introCountdown`/`introFrames`（コンストラクタ引数・既定 `GameConstants.ROUND_INTRO_FRAMES`＝90f、`0` で無効）を追加し、`update()` 冒頭で `introCountdown > 0` の間は戦闘・タイマー・勝敗判定を凍結してカウントのみ進める。`isRoundIntro()`/`isFightFlash()`（末尾 `FIGHT_FLASH_FRAMES`＝30f）/`getIntroCountdown()` を公開。Core の戦闘ガードを `!isBetweenRounds() && !isRoundIntro()` に拡張。`GameRenderer.drawRoundIntroBanner`（"ROUND N"=白 / "FIGHT!"=赤・拡大、描画後に既定へ復帰）を追加。撮影モードは `ScreenshotController.roundIntroEnabled()` で既定スキップ（`intro=true` で有効化）＝既存スクショレシピの後方互換。リプレイは記録/再生とも同一イントロ長で決定的。「ラウンド開始イントロ（Task 42）」節を追加。
 - (Task 43) ガードゲージ／ガードクラッシュを追記。`Fighter` に `guardGauge`（float・既定 `GUARD_GAUGE_MAX`）/`guardBreakFrames` を追加。`applyGuard()` で攻撃力に応じてゲージを削り（`max(1, 攻撃力/GUARD_DRAIN_DIVISOR)`）、0 以下でガードクラッシュ（ゲージ満タン復帰＋`hitstunFrames`/`guardBreakFrames` を `GUARD_BREAK_FRAMES`＝40f にセット＝行動不能・ガード不能）。`update()` 先頭で `guardBreakFrames` 減衰、`guarding` 算出後に非ガード・非クラッシュなら回復（`GUARD_REGEN_PER_FRAME`）。`reset()`/`applyHit()`/`applyThrow()` でクリア。`isGuardBroken()`/`getGuardGauge()` を公開。クラッシュ中は `hitstunFrames > 0` で `guarding` が false になり `resolveHit` がフル `applyHit` を呼ぶ（専用の貫通分岐なし）。`GameRenderer` は HP バー直下にガードゲージバー（残量わずか＝橙警告）、崩された側頭上に `GUARD BREAK!`（画面端でも見切れない `drawCenteredClamped`）。状態ラベルは `guard_break` を hitstun より先に評価。ハードコード回避のため `GameRenderer` に `STATE_LABEL_GUARD_BREAK`/`TEXT_GUARD_BREAK` 定数を追加。`GameConstants` に `GUARD_GAUGE_MAX`/`GUARD_DRAIN_DIVISOR`/`GUARD_REGEN_PER_FRAME`/`GUARD_BREAK_FRAMES` を追加。乱数なし＝決定的。全キャラ共通の定数で持つ（JSON 変更なし）。「ガードゲージ／ガードクラッシュ（Task 43）」節を追加。
+- (Task 44) 必殺技ゲージ／EX 必殺技を追記。`Fighter` に `superMeter`（float）と `gainMeter`/`hasFullMeter`/`spendFullMeter`/`setMeter`/`getSuperMeter` を追加（`reset()` で 0）。Core は `resolveHit`/`updateProjectiles` の決着点で `awardMeter(attacker, defender, blocked)` を呼び、命中=攻撃側多め(`METER_GAIN_ON_HIT`)・防御側少なめ(`METER_GAIN_ON_TAKE`)・ガード=両者わずか(`METER_GAIN_ON_GUARD`)を**固定値（乱数なし）**で加算。必殺技（飛び道具）発動時に満タンなら `spendFullMeter()` して EX 発射（`spawnProjectile(f, move, ex=true)`：ダメージ `EX_DAMAGE_MULTIPLIER`(1.6)倍・判定/描画 `EX_PROJECTILE_SCALE`(1.5)倍）。`Projectile` に `ex` フラグを追加し描画で金色グロー＋大型に。`GameRenderer` は画面下端に必殺技ゲージバー（青／満タン金）を追加。`ScreenshotController.initialMeter()`（`p1meter`/`p2meter` オーバーライド）を追加し `build.gradle` 転送リストへ反映。`GameConstants` に `SUPER_METER_MAX`/`METER_GAIN_ON_HIT`/`METER_GAIN_ON_TAKE`/`METER_GAIN_ON_GUARD`/`EX_DAMAGE_MULTIPLIER`/`EX_PROJECTILE_SCALE` を追加。全キャラ共通の定数で持つ（JSON 変更なし）。「必殺技ゲージ／EX 必殺技（Task 44）」節を追加。

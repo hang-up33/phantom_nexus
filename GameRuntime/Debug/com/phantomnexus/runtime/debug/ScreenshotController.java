@@ -233,6 +233,20 @@ public final class ScreenshotController {
         return v != null ? v : fallback;
     }
 
+    /**
+     * 指定プレイヤーの初期必殺技ゲージ量の撮影用オーバーライド（Task 44）。撮影モードで
+     * {@code p1meter=<値>} / {@code p2meter=<値>} 指定時のみ返す（未指定 / 通常起動は {@code fallback}）。
+     * EX 必殺技（メーター満タンで強化）の見え方を貯め直しなしで撮るために使う（例：{@code -x p1meter=100}）。
+     */
+    public float initialMeter(int player, float fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String key = player == 2 ? "phantom.screenshot.p2meter" : "phantom.screenshot.p1meter";
+        Float v = parseFloatOrNull(System.getProperty(key));
+        return v != null ? v : fallback;
+    }
+
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
         addTokens(spec, p1Hold, p2Hold);

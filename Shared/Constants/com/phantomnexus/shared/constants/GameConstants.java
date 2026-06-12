@@ -148,4 +148,26 @@ public final class GameConstants {
      * の残りがこの値以下になったら "ROUND N" から "FIGHT!" 表示へ切り替える。60fps 基準で約 0.5 秒。
      */
     public static final int FIGHT_FLASH_FRAMES = 30;
+
+    /**
+     * 必殺技ゲージ（スーパーメーター・Task 44）の最大値。攻撃を当てる / 受ける / ガードで貯まり、
+     * 満タンで必殺技（飛び道具）を撃つと消費して EX 版（{@link #EX_DAMAGE_MULTIPLIER} 倍・大型）になる。
+     * ガードゲージ（防御リソース）と対になる攻撃リソース。乱数なしで貯まる（入力リプレイと両立）。
+     */
+    public static final float SUPER_METER_MAX = 100f;
+
+    /** 攻撃を当てた側（攻撃側）のメーター増加量（Task 44）。 */
+    public static final float METER_GAIN_ON_HIT = 14f;
+
+    /** 攻撃を受けた側（防御側）のメーター増加量（Task 44）。攻めるより受けるほうが少なく貯まる。 */
+    public static final float METER_GAIN_ON_TAKE = 8f;
+
+    /** ガード成立時に攻防両者へ入るメーター増加量（Task 44）。 */
+    public static final float METER_GAIN_ON_GUARD = 5f;
+
+    /** EX 必殺技のダメージ倍率（Task 44）。満タンのメーターを消費して撃つと通常の {@code damage} に乗算される。 */
+    public static final float EX_DAMAGE_MULTIPLIER = 1.6f;
+
+    /** EX 飛び道具の見た目・判定の拡大率（Task 44）。判定矩形・描画ともこの倍率で大型化する。 */
+    public static final float EX_PROJECTILE_SCALE = 1.5f;
 }

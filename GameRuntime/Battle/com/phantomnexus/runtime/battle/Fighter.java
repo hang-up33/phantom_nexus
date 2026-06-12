@@ -39,6 +39,7 @@ public class Fighter {
     private boolean guarding;  // 接地中・後退方向保持でガード中か（Task 27）
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
+    private float superMeter; // 必殺技ゲージ（攻撃の当て / 被弾 / ガードで貯まり EX 必殺技で消費・Task 44）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -187,6 +188,7 @@ public class Fighter {
         guarding = false;
         guardGauge = GameConstants.GUARD_GAUGE_MAX;
         guardBreakFrames = 0;
+        superMeter = 0f;
     }
 
     /**
@@ -471,6 +473,31 @@ public class Fighter {
     /** 現在のガードゲージ量（0〜{@link GameConstants#GUARD_GAUGE_MAX}）。HUD ゲージ表示に使用（Task 43）。 */
     public float getGuardGauge() {
         return guardGauge;
+    }
+
+    /** 必殺技ゲージを加算する（{@link GameConstants#SUPER_METER_MAX} で頭打ち）（Task 44）。 */
+    public void gainMeter(float amount) {
+        superMeter = Math.min(GameConstants.SUPER_METER_MAX, superMeter + amount);
+    }
+
+    /** 必殺技ゲージが満タンか（EX 必殺技を撃てるか）（Task 44）。 */
+    public boolean hasFullMeter() {
+        return superMeter >= GameConstants.SUPER_METER_MAX;
+    }
+
+    /** 満タンの必殺技ゲージを消費する（EX 発動時に呼ぶ。0 にする）（Task 44）。 */
+    public void spendFullMeter() {
+        superMeter = 0f;
+    }
+
+    /** 撮影 / 初期化用にゲージ量を直接設定する（0〜MAX にクランプ）（Task 44）。 */
+    public void setMeter(float value) {
+        superMeter = Math.max(0f, Math.min(GameConstants.SUPER_METER_MAX, value));
+    }
+
+    /** 現在の必殺技ゲージ量（0〜{@link GameConstants#SUPER_METER_MAX}）。HUD ゲージ表示に使用（Task 44）。 */
+    public float getSuperMeter() {
+        return superMeter;
     }
 
     public boolean isKO() {

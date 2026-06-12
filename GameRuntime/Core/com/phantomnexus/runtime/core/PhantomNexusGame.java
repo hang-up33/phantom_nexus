@@ -105,6 +105,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         spawnX2 = screenshot.spawnX(2, GameConstants.P2_SPAWN_X);
         fighter1 = new Fighter(aoi, spawnX1, true);
         fighter2 = new Fighter(akane, spawnX2, false);
+        // 撮影時は初期必殺技ゲージをオーバーライド可能（EX 必殺技の見え方を貯め直しなしで撮る用。Task 44）。
+        fighter1.setMeter(screenshot.initialMeter(1, 0f));
+        fighter2.setMeter(screenshot.initialMeter(2, 0f));
         // アニメーション状態機械（Task 9）。各ファイターの実行時状態から idle/walk/jump を導出する。
         animator1 = new FighterAnimator();
         animator2 = new FighterAnimator();
@@ -316,8 +319,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
             Move special = findSpecialMove(f.getDef(), cmd);
             if (special != null && f.startSpecial(special)) {
+                // 飛び道具の必殺技を、メーター満タンなら EX（消費して強化）で撃つ（Task 44）。
+                boolean ex = special.isProjectile() && f.hasFullMeter();
+                if (ex) {
+                    f.spendFullMeter();
+                }
                 if (special.isProjectile()) {
-                    spawnProjectile(f, special);
+                    spawnProjectile(f, special, ex);
                 }
                 attackButton = null;
             }
@@ -341,20 +349,29 @@ public class PhantomNexusGame extends ApplicationAdapter {
         return null;
     }
 
-    /** 必殺技（飛び道具）の弾を発射者の前方に生成する（Task 20/24）。 */
-    private void spawnProjectile(Fighter f, Move move) {
+    /**
+     * 必殺技（飛び道具）の弾を発射者の前方に生成する（Task 20/24）。
+     * {@code ex} 指定時はメーター消費の EX 版＝ダメージ {@link GameConstants#EX_DAMAGE_MULTIPLIER} 倍・
+     * 判定/描画 {@link GameConstants#EX_PROJECTILE_SCALE} 倍の大型弾になる（Task 44）。
+     */
+    private void spawnProjectile(Fighter f, Move move, boolean ex) {
         if (move == null || !move.isProjectile()) {
             return;
         }
         Character d = f.getDef();
+        float scale = ex ? GameConstants.EX_PROJECTILE_SCALE : 1f;
+        float width = move.getHitboxWidth() * scale;
+        float height = move.getHitboxHeight() * scale;
+        int damage = ex
+                ? Math.round(move.getDamage() * GameConstants.EX_DAMAGE_MULTIPLIER)
+                : move.getDamage();
         float front = f.isFacingRight() ? f.getX() + d.getWidth() / 2f : f.getX() - d.getWidth() / 2f;
         float spawnX = f.isFacingRight()
-                ? front + move.getHitboxOffsetX() + move.getHitboxWidth() / 2f
-                : front - move.getHitboxOffsetX() - move.getHitboxWidth() / 2f;
+                ? front + move.getHitboxOffsetX() + width / 2f
+                : front - move.getHitboxOffsetX() - width / 2f;
         float spawnY = f.getY() + move.getHitboxOffsetY();
         float vx = (f.isFacingRight() ? 1f : -1f) * move.getProjectileSpeed();
-        projectiles.add(new Projectile(spawnX, spawnY, vx, move.getHitboxWidth(), move.getHitboxHeight(),
-                move.getDamage(), f));
+        projectiles.add(new Projectile(spawnX, spawnY, vx, width, height, damage, f, ex));
     }
 
     /** 飛び道具を 1 フレーム進め、相手命中で被弾適用、命中 / 画面外で消滅させる（Task 20）。 */
@@ -375,6 +392,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 float sparkY = target.getY() + target.getDef().getHeight() / 2f;
                 spawnDamagePopup(before - target.getCurrentHp(), blocked, p.getX(), sparkY);
                 spawnHitSpark(blocked, p.getX(), sparkY);
+                awardMeter(p.getOwner(), target, blocked);
                 p.kill();
             }
             if (!p.isAlive()) {
@@ -414,6 +432,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
             spawnDamagePopup(before - defender.getCurrentHp(), false,
                     hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
             spawnHitSpark(false, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+            // 投げ成立はフルダメージの攻撃なので、通常ヒットと同様にメーターを貯める（ダメージ＝メーターの一貫性）。
+            // 非加算はノーダメージの outcome のみ（投げ抜け＝上の return / 空中 whiff＝markAttackConnected で先に return）。
+            awardMeter(attacker, defender, false);
             return;
         }
         // ガード高さ属性（Task 33）で成立可否を決める：
@@ -445,6 +466,21 @@ public class PhantomNexusGame extends ApplicationAdapter {
         float sparkY = hb.getY() + hb.getHeight() / 2f;
         spawnDamagePopup(before - defender.getCurrentHp(), blocked, sparkX, sparkY);
         spawnHitSpark(blocked, sparkX, sparkY);
+        awardMeter(attacker, defender, blocked);
+    }
+
+    /**
+     * 攻撃の決着で攻防両者の必殺技ゲージを貯める（Task 44）。命中は攻撃側が多く・防御側が少なく、
+     * ガードは両者わずかに貯まる。固定値のみで乱数なし（入力リプレイの決定性を保つ）。
+     */
+    private static void awardMeter(Fighter attacker, Fighter defender, boolean blocked) {
+        if (blocked) {
+            attacker.gainMeter(GameConstants.METER_GAIN_ON_GUARD);
+            defender.gainMeter(GameConstants.METER_GAIN_ON_GUARD);
+        } else {
+            attacker.gainMeter(GameConstants.METER_GAIN_ON_HIT);
+            defender.gainMeter(GameConstants.METER_GAIN_ON_TAKE);
+        }
     }
 
     /**

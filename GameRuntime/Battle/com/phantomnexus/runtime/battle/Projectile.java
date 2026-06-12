@@ -20,9 +20,14 @@ public final class Projectile {
     private final float height;
     private final int damage;
     private final Fighter owner; // 発射者（自分には当たらない）
+    private final boolean ex;    // EX 必殺技（メーター消費の強化版）か（描画の大型化・色変えに使用・Task 44）
     private boolean alive = true;
 
     public Projectile(float x, float y, float vx, float width, float height, int damage, Fighter owner) {
+        this(x, y, vx, width, height, damage, owner, false);
+    }
+
+    public Projectile(float x, float y, float vx, float width, float height, int damage, Fighter owner, boolean ex) {
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -30,6 +35,7 @@ public final class Projectile {
         this.height = height;
         this.damage = damage;
         this.owner = owner;
+        this.ex = ex;
     }
 
     /** 1 フレーム進める。画面外に出たら消滅する。 */
@@ -76,5 +82,10 @@ public final class Projectile {
 
     public int getDamage() {
         return damage;
+    }
+
+    /** EX 必殺技（メーター消費の強化版飛び道具）か（Task 44）。描画の大型化・色変えに使う。 */
+    public boolean isEx() {
+        return ex;
     }
 }
