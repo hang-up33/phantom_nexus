@@ -519,6 +519,18 @@ public class Fighter {
         return dashFrames > 0;
     }
 
+    /**
+     * 進行中のダッシュを即時キャンセルする（残りフレームを 0 に）（Task 50）。
+     *
+     * <p>ダッシュ中は {@code update()} が {@code guarding=false} を強制するため、ダッシュ接近中の AI は
+     * {@code GUARD_RANGE} 内で相手の打撃を検知してもガードに移れない。防御を優先したいときにこのフックで
+     * 自分のダッシュを中断し、同フレームの後退入力をガードとして成立させる（攻撃/被弾による既存のキャンセルと同じく
+     * 単に {@code dashFrames} を 0 にするだけで、次の {@code update()} から歩行/ガード分岐へ戻る）。
+     */
+    public void cancelDash() {
+        dashFrames = 0;
+    }
+
     /** しゃがみ移動中か（低速クロール）（Task 29）。 */
     public boolean isCrouchWalking() {
         return crouching && grounded && moveDir != 0;

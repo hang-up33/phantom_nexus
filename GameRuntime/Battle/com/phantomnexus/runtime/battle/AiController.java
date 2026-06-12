@@ -74,6 +74,12 @@ public final class AiController {
 
         if (opponentStriking && distance <= GUARD_RANGE && self.canStartAction()) {
             // ガード反応：相手の打撃に合わせて後退方向を保持し、ガードで chip に抑える。
+            // ダッシュ接近中（dashFrames>0 で guarding が抑止される）に GUARD_RANGE 内で相手の打撃を検知したら、
+            // 自分のダッシュをキャンセルしてガードを優先する（Task 50 / Codex 指摘）。ダッシュは AI 自身の選択なので
+            // 防御のために中断してよく、これで「打撃にはガード」(Task 37) の保証が接近中も成立する。
+            if (self.isDashing()) {
+                self.cancelDash();
+            }
             moveDir = backDir;
             dashTapStep = 0;
         } else if (opponent.isGuarding() && hasThrow && distance <= THROW_RANGE
