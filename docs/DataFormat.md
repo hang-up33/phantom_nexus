@@ -167,6 +167,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `normalMoves` | Move[] | ✅ | 通常技配列（1 件以上）。各技の `button` で弱/中/強を区別 |
 | `specialMoves` | Move[] | 任意 | 必殺技配列（省略可）。各技の `command` でコマンド種別を指定 |
 | `throwMove` | Move | 任意 | 投げ技（ガード不能の近接掴み, Task 35）。省略時はそのキャラは投げを持たない（後方互換）。`button` / `command` / `guardHeight` は不要 |
+| `dashAttack` | Move | 任意 | ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃, Task 65）。省略時はそのキャラはダッシュ攻撃を持たず、ダッシュ中の攻撃は従来どおり通常技へキャンセルされる（後方互換）。`button` / `command` は不要（発動はダッシュ＋攻撃入力）。打撃なので `guardHeight`（既定 `mid`）は有効 |
 
 ### Sprite（`sprite` オブジェクト・Task 34）
 
@@ -250,6 +251,29 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 > 投げは空中の相手を掴めない（相手がジャンプ中なら不成立 = 隙）。`button`/`command`/`guardHeight` を持たない点が `normalMoves`/`specialMoves` との違い。
 
+### Move（`dashAttack` オブジェクト・Task 65）
+
+ダッシュ攻撃（**ダッシュ中の攻撃で出る突進打撃**）の定義。`Move` を再利用する。`button` では選択されず（発動は
+ダッシュ＝二度押しステップ・Task 49 の最中に攻撃ボタンを押すこと）ため **`button` / `command` は不要**だが、
+通常の打撃と同じ当たり判定なので **`guardHeight`（既定 `mid`）は有効**。発動するとダッシュの勢いを引き継ぐ前方への突進
+（初速 `DASH_ATTACK_LUNGE_SPEED`＝14px/frame・`KNOCKBACK_FRICTION` で減衰）が乗り、攻撃しながら踏み込む。
+
+| フィールド | 型 | 必須 | 意味 |
+|---|---|---|---|
+| `id` | string | ✅ | 技 ID |
+| `guardHeight` | string | 任意 | ガード高さ属性（`overhead`/`mid`/`low`、既定 `mid`） |
+| `damage` | int | ✅ | ダメージ |
+| `startup` | int | ✅ | 発生フレーム |
+| `active` | int | ✅ | 持続フレーム |
+| `recovery` | int | ✅ | 硬直フレーム |
+| `hitboxOffsetX` | float | ✅ | hitbox の前方オフセット（px。突進なので前方に取ると届きやすい） |
+| `hitboxOffsetY` | float | ✅ | hitbox の足元からの高さ（px） |
+| `hitboxWidth` | float | ✅ | hitbox 横幅（px） |
+| `hitboxHeight` | float | ✅ | hitbox 高さ（px） |
+
+> ダッシュ攻撃はダッシュ中の攻撃入力でのみ発動し、通常技のチェーン/特殊キャンセル元にはならない（`button` を持たないため）。
+> 例：fighter004 Rai の `dash_shoulder`（damage 80・startup 7・active 5・前方 hitbox）。
+
 ### キー割当（Task 24 / Task 35）
 
 | ボタン | P1 | P2 |
@@ -305,6 +329,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 65) `Character` に任意フィールド **`dashAttack`**（`Move`）を追加。ダッシュ（二度押しステップ・Task 49）中に攻撃ボタンを押すと出る**突進打撃**で、省略時はそのキャラはダッシュ攻撃を持たず、ダッシュ中の攻撃は従来どおり通常技へキャンセルされる（後方互換）。`button` / `command` は不要（発動はダッシュ＋攻撃入力）だが、打撃なので `guardHeight`（既定 `mid`）は有効。`CharacterLoader.validateDashAttack` がフレーム値・hitbox・guardHeight を検証（`null` は許可）。発動するとダッシュの勢いを引き継ぐ前方突進（初速 `DASH_ATTACK_LUNGE_SPEED`=14px/frame・`KNOCKBACK_FRICTION` 減衰）が乗る。例示として fighter004 Rai に `dash_shoulder`（damage80・startup7・active5・前方 hitbox）を追加。「Move（`dashAttack` オブジェクト・Task 65）」節と `Character` フィールド表を追加。戦闘仕様は BattleSystem.md「ダッシュ攻撃（Task 65）」節を参照。
 - (Task 61) 7 体目キャラ `Assets/Characters/fighter007.json`（"Kaede"・HP950・**飛び道具＋ knockdown heavy・無敵リバーサルなしの footsies 型**の magenta）＋プレースホルダ・スプライト `fighter007.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・JSON＋PNG の追加だけでキャラが動作する**ことを再々々々検証（6 体目 fighter006 に続く 7 体目）。アーキタイプを差別化：中リーチの通常技（`jab`/`poke`/`roundhouse`）でスペース管理する footsies 型、強攻撃 `roundhouse` に **`knockdown: true`**（Task 60）を付けて非ガードヒットでダウンを奪う＝**新キャラの技に knockdown フラグを足すだけでダウン技が増える**データ駆動の実例、飛び道具 `wind_shot`（HADOUKEN・`projectileSpeed 12.0`）を持つが**無敵リバーサルは持たない**（飛び道具持ちで初の「リバーサルなし」＝neutral/spacing 偏重）。**新キャラがコード変更なしで飛び道具・投げ・ダウン（Task 60）等の既存機構をそのまま使える**ことをスクショで確認（`roundhouse` 非ガードヒットで相手 `knockdown`・115／236+A で `wind_shot` 発射）。撮影は `-x p1char=fighter007` / `-x p2char=fighter007`。
 - (Task 60) ダウン（knockdown）を追記。`Move` に任意 boolean `knockdown`（既定 false・後方互換）を追加：`true` の技を**非ガード**でヒットさせると相手をダウンさせる（通常のけぞりの代わり・`KNOCKDOWN_FRAMES`(60) 行動不能・ダウン中は被弾無敵＝OTG なし）。旧 JSON はキー無しで false＝通常のけぞり（`invincibleFrames` と同じフィールド初期化子による後方互換）。`CharacterLoader` は任意 boolean のため追加検証不要。例示として `fighter001` の `heavy_slam`（overhead 強攻撃）に `knockdown: true` を付与（非ガードヒットでダウン＝強攻撃の見返り）。戦闘仕様は BattleSystem.md「ダウン（knockdown）（Task 60）」節を参照。飛び道具のダウンは将来対応。`Move` の normal/special 両フィールド表に `knockdown` を追加。
 - (Task 58) 6 体目キャラ `Assets/Characters/fighter006.json`（"Iwao"・HP1200・**飛び道具を持たない純グラップラー型**の crimson）＋プレースホルダ・スプライト `fighter006.png` を追加。`Character` の JSON 仕様は不変で、**ソースコード（Java）は無改変・JSON＋PNG の追加だけでキャラが動作する**ことを再々々検証（5 体目 fighter005 に続く 6 体目）。アーキタイプを差別化：最高 HP1200・最遅 `walkSpeed3.0`・低ジャンプで重量級、通常技（`hammer_jab`/`shoulder_ram`/`ground_pound`）は短リーチ高火力、投げ `back_breaker` は**ロスター最大の dmg175**、`specialMoves` は無敵リバーサル `rising_hammer`（`CHARGE_SHOT`・`invincibleFrames:10`・dmg115）**1 件のみ**＝**飛び道具（`projectile`）を 1 つも持たない初のキャラ**（既存 5 体は全員 HADOUKEN 飛び道具持ち）。`specialMoves` は任意・CHARGE_SHOT 非飛び道具技は既存検証を通る（rising_talon と同型）ため**ローダ無改修**で成立。**新キャラが飛び道具を持たなくても、データ駆動 AI の無敵対空（Task 55）が `rising_hammer` を無改修で対空に使い、投げ崩し（Task 37）・投げ抜け（Task 51）等の既存反応もそのまま効く**ことをスクショで確認（P1 Iwao の `back_breaker` で 175・AI(P2)Iwao の `rising_hammer` 対空で飛び込みを 115 で迎撃）。撮影は `-x p1char=fighter006` / `-x p2char=fighter006`。

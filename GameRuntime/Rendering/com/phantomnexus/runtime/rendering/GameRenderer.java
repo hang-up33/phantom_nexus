@@ -738,6 +738,7 @@ public class GameRenderer {
         } else if (f.isAttacking()) {
             String prefix = f.isThrowing() ? "throw"
                     : f.isSpecialActive() ? "special"
+                    : f.isDashAttacking() ? "dash_attack"
                     : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
             stateLabel = prefix + ":" + f.getAttackPhase().name().toLowerCase();
         } else if (f.isDashing()) {

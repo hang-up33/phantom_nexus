@@ -90,5 +90,17 @@
     "hitboxOffsetY": 40,
     "hitboxWidth": 48,
     "hitboxHeight": 140
+  },
+  "dashAttack": {
+    "id": "dash_shoulder",
+    "guardHeight": "mid",
+    "damage": 80,
+    "startup": 7,
+    "active": 5,
+    "recovery": 16,
+    "hitboxOffsetX": 30,
+    "hitboxOffsetY": 95,
+    "hitboxWidth": 100,
+    "hitboxHeight": 60
   }
 }

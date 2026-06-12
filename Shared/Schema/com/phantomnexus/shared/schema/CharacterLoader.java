@@ -171,6 +171,31 @@ public final class CharacterLoader {
 
         // 投げ技（Task 35・任意）。未設定なら検証しない（投げを持たないキャラ）。
         validateThrowMove(c.getThrowMove(), "throwMove", src);
+
+        // ダッシュ攻撃（Task 65・任意）。未設定なら検証しない（ダッシュ攻撃を持たないキャラ）。
+        validateDashAttack(c.getDashAttack(), "dashAttack", src);
+    }
+
+    /**
+     * ダッシュ攻撃の検証（Task 65・任意フィールド）。{@code null}（未指定）は許可。
+     * ダッシュ中の攻撃入力で出る打撃で、button では選択されない（発動はダッシュ＋攻撃）ため button は検証しない。
+     * フレーム値・hitbox 矩形に加え、打撃なので {@code guardHeight}（overhead/mid/low・既定 mid）を検証する。
+     */
+    private static void validateDashAttack(Move m, String field, String src) {
+        if (m == null) {
+            return;
+        }
+        requireText(m.getId(), field + ".id", src);
+        requireNonNegative(m.getDamage(), field + ".damage", src);
+        requireNonNegative(m.getStartup(), field + ".startup", src);
+        requireNonNegative(m.getActive(), field + ".active", src);
+        requireNonNegative(m.getRecovery(), field + ".recovery", src);
+        if (m.getTotalFrames() <= 0) {
+            throw new SchemaException(field + " の startup+active+recovery は 1 以上が必要 (" + src + ")");
+        }
+        requirePositive(m.getHitboxWidth(), field + ".hitboxWidth", src);
+        requirePositive(m.getHitboxHeight(), field + ".hitboxHeight", src);
+        requireValidGuardHeight(m.getGuardHeightToken(), field + ".guardHeight", src);
     }
 
     /**

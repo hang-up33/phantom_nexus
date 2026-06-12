@@ -35,6 +35,7 @@ public class Fighter {
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
     private boolean aerialAttacking;  // 空中で開始した攻撃（Task 32）
     private boolean throwing;          // 投げ（ガード不能の掴み）を発動中か（Task 35）
+    private boolean dashAttacking;     // ダッシュ中に開始した突進攻撃を発動中か（Task 65）
     private boolean exAttack;           // 進行中の技が EX 版か（メーター消費・打撃のダメージ強化・Task 54）
     private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
@@ -170,12 +171,23 @@ public class Fighter {
                     && (grounded ? (!crouchHeld || crouching) : true)) {
                 // 投げ（Task 35）は throwReq で起動する地上・立ち専用のガード不能掴み。
                 // 通常技 / 空中攻撃 / しゃがみ攻撃のいずれにも分類せず、専用フラグ throwing を立てる。
-                Move move = throwReq ? (grounded ? def.getThrowMove() : null) : selectNormalMove(attackButton);
+                // ダッシュ攻撃（Task 65）：接地ダッシュ中の攻撃で、キャラが dashAttack を持つなら通常技でなく突進技を出す。
+                boolean dashAtk = !throwReq && grounded && !crouchHeld
+                        && dashFrames > 0 && def.getDashAttack() != null;
+                Move move = throwReq ? (grounded ? def.getThrowMove() : null)
+                        : dashAtk ? def.getDashAttack()
+                        : selectNormalMove(attackButton);
                 if (move != null) {
                     throwing = throwReq;
-                    crouchAttacking = !throwReq && grounded && crouching; // しゃがみ中に発動 → 下段攻撃フラグ（投げ / 空中は不可）
+                    dashAttacking = dashAtk;                              // ダッシュ突進攻撃フラグ（Task 65）
+                    crouchAttacking = !throwReq && !dashAtk && grounded && crouching; // しゃがみ中に発動 → 下段攻撃フラグ（投げ / ダッシュ / 空中は不可）
                     aerialAttacking = !throwReq && !grounded;             // 空中で発動 → 空中攻撃フラグ（Task 32）
+                    int lungeDir = dashDir;                               // beginAttack が dashFrames を 0 にする前に方向を退避
                     beginAttack(move);
+                    if (dashAtk) {
+                        // ダッシュの勢いを引き継ぐ突進：velocityX に前方初速を与える（既存の velocityX 適用＋減衰経路を流用）。
+                        velocityX = lungeDir * GameConstants.DASH_ATTACK_LUNGE_SPEED;
+                    }
                 }
             } else if (attackButton != null && !throwReq && canChainInto(attackButton)) {
                 // チェーンキャンセル（Task 45）：命中した通常技を上位ボタンの通常技へ即キャンセルし、
@@ -185,6 +197,7 @@ public class Fighter {
                     crouchAttacking = false;
                     aerialAttacking = false;
                     throwing = false;
+                    dashAttacking = false;
                     beginAttack(move); // attackConnected/phase をリセット → 新技が改めて命中判定される
                 }
             }
@@ -199,6 +212,7 @@ public class Fighter {
                     crouchAttacking = false; // 攻撃終了でフラグクリア
                     aerialAttacking = false; // 空中攻撃も終了でクリア
                     throwing = false;        // 投げも終了でクリア（Task 35）
+                    dashAttacking = false;   // ダッシュ攻撃も終了でクリア（Task 65）
                     if (!crouchHeld) {
                         crouching = false; // DOWN を離していれば攻撃終了と同フレームに姿勢解除
                     }
@@ -267,6 +281,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        dashAttacking = false;
         throwTechWindow = 0;
         throwTechFrames = 0;
         comboCount = 0;
@@ -319,6 +334,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        dashAttacking = false;
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に被弾したらラベルをのけぞりへ戻す（表示 desync 防止・Task 36）
         guardBreakFrames = 0; // ガードクラッシュ硬直中にフル被弾したらラベルをのけぞりへ戻す（Task 43）
@@ -345,6 +361,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        dashAttacking = false;
         throwTechWindow = 0;
         throwTechFrames = 0;
         guardBreakFrames = 0;
@@ -377,6 +394,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        dashAttacking = false;
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に投げで上書きされたらラベルをのけぞりへ戻す（Task 36）
         guardBreakFrames = 0; // ガードクラッシュ硬直中に投げで上書きされたらラベルを更新（Task 43）
@@ -414,6 +432,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        dashAttacking = false;
         guarding = false; // 投げ抜けで neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;   // 投げ抜けでダッシュをキャンセル（Task 49）
     }
@@ -453,6 +472,7 @@ public class Fighter {
         crouchAttacking = false;
         aerialAttacking = false;
         throwing = false;
+        dashAttacking = false;
         beginAttack(move);    // beginAttack が exAttack=false にリセットするので、その後に EX を立てる。
         exAttack = ex;        // 打撃必殺技なら CollisionSystem.activeHitbox がダメージを EX 倍にする（Task 54）。
         return true;
@@ -640,6 +660,11 @@ public class Fighter {
     /** 投げ（ガード不能の掴み）を発動中か（Task 35）。攻撃ステート中かつ投げ技として開始したもの。 */
     public boolean isThrowing() {
         return throwing;
+    }
+
+    /** ダッシュ攻撃（突進攻撃）を発動中か（Task 65）。攻撃ステート中かつダッシュ中に開始したもの。 */
+    public boolean isDashAttacking() {
+        return dashAttacking;
     }
 
     public int getCurrentHp() {
