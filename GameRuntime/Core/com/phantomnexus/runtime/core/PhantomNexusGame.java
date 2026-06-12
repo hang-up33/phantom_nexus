@@ -185,6 +185,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
             updateFighterInput(fighter1, p1Input, history1, 1);
             if (p2AiEnabled) {
                 p2Ai.control(fighter2, fighter1);
+                // AI が飛び道具牽制（Task 64）でこのフレームに必殺技を発射していたら弾を生成する。
+                // AI は updateFighterInput を通らないため、打撃必殺技（対空）と違い飛び道具は弾生成だけ Core が担う。
+                Move aiProjectile = p2Ai.consumePendingProjectile();
+                if (aiProjectile != null) {
+                    spawnProjectile(fighter2, aiProjectile, false);
+                }
             } else {
                 updateFighterInput(fighter2, p2Input, history2, 2);
             }

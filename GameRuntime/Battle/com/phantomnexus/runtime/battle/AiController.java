@@ -18,7 +18,8 @@ import com.phantomnexus.shared.types.Move;
  * 判断は相手の観測可能な状態（{@link Fighter#isAttacking()} / {@link Fighter#isThrowing()} /
  * {@link Fighter#isGuarding()}）のみに基づき<b>乱数を使わない</b>（決定的＝入力リプレイと両立）。これにより
  * 「打撃＝ガード／ガード＝投げで崩す／投げ＝投げ抜け」の三すくみが CPU 戦でも成立する。さらに無敵対空（Task 55）・
- * 飛び込み（ジャンプ攻撃・Task 57）・<b>下段読みのしゃがみガード</b>（Task 63）を備える（いずれも HARD のみ）。
+ * 飛び込み（ジャンプ攻撃・Task 57）・<b>下段読みのしゃがみガード</b>（Task 63）・<b>飛び道具牽制</b>（zoner・Task 64）を
+ * 備える（いずれも HARD のみ）。
  *
  * <p>状態（クールダウン）を持つため 1 体につき 1 インスタンス。判定に用いる距離は中心間距離。
  */
@@ -30,7 +31,7 @@ public final class AiController {
      * <ul>
      *   <li>{@link #EASY}：反応なし。歩いて接近し間合いで通常攻撃するだけ（Task 21 の素の AI 相当）。</li>
      *   <li>{@link #NORMAL}：＋ <b>ガード反応 / 投げ崩し</b>（Task 37 の読み合い）。</li>
-     *   <li>{@link #HARD}：＋ <b>投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）/ 飛び込み（Task 57）/ 下段読みのしゃがみガード（Task 63）</b>＝全反応。</li>
+     *   <li>{@link #HARD}：＋ <b>投げ抜け（Task 51）/ ダッシュ接近（Task 50）/ 無敵対空（Task 55）/ 飛び込み（Task 57）/ 下段読みのしゃがみガード（Task 63）/ 飛び道具牽制（Task 64）</b>＝全反応。</li>
      * </ul>
      */
     public enum Difficulty {
@@ -95,12 +96,31 @@ public final class AiController {
      * 成立するため、AI 側で 0=1 度目押下 → 1=ニュートラル（離す）→ 2=2 度目押下（発動）の 3 フレームを生成する。
      */
     private int dashTapStep;
+    /**
+     * AI がこのフレームに発射した飛び道具技（Task 64）。AI は Core の {@code updateFighterInput} を経由しないため、
+     * 飛び道具の<b>弾生成だけ</b>は Core が {@link #control} 後に {@link #consumePendingProjectile()} を読んで
+     * {@code spawnProjectile} する（打撃必殺技＝対空・Task 55 は Core 不要だが、飛び道具は弾生成のため Core 連携が要る）。
+     * 読み取りで {@code null} に戻す（1 フレーム 1 発）。
+     */
+    private Move pendingProjectile;
 
-    /** ラウンド間リセット（クールダウン・ダッシュ進行を消去して次ラウンド開始時の行動可否を初期化する）。 */
+    /** ラウンド間リセット（クールダウン・ダッシュ進行・保留中の弾を消去して次ラウンド開始時の行動可否を初期化する）。 */
     public void reset() {
         cooldown = 0;
         dashTapStep = 0;
         jumpingIn = false;
+        pendingProjectile = null;
+    }
+
+    /**
+     * このフレームに AI が発射した飛び道具技を返し、内部状態をクリアする（Task 64）。Core が {@link #control} 直後に呼び、
+     * 非 {@code null} なら {@code spawnProjectile} で弾を生成する（AI が飛び道具を撃たなかったフレームは {@code null}）。
+     * 1 フレーム 1 発（読み取りで消費）。
+     */
+    public Move consumePendingProjectile() {
+        Move m = pendingProjectile;
+        pendingProjectile = null;
+        return m;
     }
 
     /** 難易度を設定する（Task 56）。{@code null} は無視（既定 {@link Difficulty#HARD} を保つ）。 */
@@ -120,9 +140,10 @@ public final class AiController {
      *
      * <p>優先順：<b>無敵対空 ＞ 投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃</b>。相手の状態に反応する反応群を
      * 距離ベースの行動（接近 / 攻撃）より優先する。落ちてくる相手（空中）への無敵対空（Task 55）を最優先に置く。
-     * 各反応は{@link #difficulty 難易度}（Task 56）で解放段階が決まる：対空 / 投げ抜け / ダッシュ接近 / 飛び込み（Task 57）は HARD のみ、
-     * ガード反応 / 投げ崩しは NORMAL 以上。EASY は反応なし（接近＋通常攻撃のみ）。解放されない反応は分岐をスキップし、
-     * 下位の接近 / 攻撃へ自然にフォールスルーする。飛び込み（ジャンプ攻撃）中は空中の振る舞い（ドリフト＋空中攻撃）を
+     * 各反応は{@link #difficulty 難易度}（Task 56）で解放段階が決まる：対空 / 投げ抜け / ダッシュ接近 / 飛び込み（Task 57）/
+     * 飛び道具牽制（Task 64）は HARD のみ、ガード反応 / 投げ崩しは NORMAL 以上。EASY は反応なし（接近＋通常攻撃のみ）。
+     * 解放されない反応は分岐をスキップし、下位の接近 / 攻撃へ自然にフォールスルーする。遠距離は飛び道具牽制（持っていれば）→
+     * クールダウン中はダッシュ接近、の順で評価する。飛び込み（ジャンプ攻撃）中は空中の振る舞い（ドリフト＋空中攻撃）を
      * 最優先の専用分岐が一手に引き受ける（地上反応は接地時のみ成立するため空中では自然に無効）。
      *
      * @param self     操作対象のファイター
@@ -137,6 +158,8 @@ public final class AiController {
         int towardDir = dx >= 0 ? 1 : -1; // 相手の方向
         int backDir = -towardDir;          // 後退（ガード）方向
         boolean hasThrow = self.getDef().getThrowMove() != null;
+        // 牽制に使える飛び道具（Task 64）。無ければ null＝そのキャラは AI 飛び道具を撃たない（grappler/charge 専用キャラ）。
+        Move projectile = findProjectileMove(self);
         // 相手が打撃中か（投げはガード不能なのでガード反応の対象外）。
         boolean opponentStriking = opponent.isAttacking() && !opponent.isThrowing();
 
@@ -219,6 +242,19 @@ public final class AiController {
             throwReq = true;
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
+        } else if (advanced && projectile != null && distance > DASH_APPROACH_RANGE
+                && self.isGrounded() && opponent.isGrounded()
+                && cooldown == 0 && self.canStartAction()) {
+            // 飛び道具牽制（zoner・Task 64・HARD のみ）：遠距離の接地した相手へ飛び道具を撃って牽制する。
+            // AI はコマンド検出（updateFighterInput）を通らないので startSpecial を直接呼び、弾生成だけ Core に委ねる
+            // （control() 後に consumePendingProjectile() を読んで spawnProjectile する）。打撃必殺技＝対空（Task 55）と違い
+            // 飛び道具は弾生成のため Core 連携が要る唯一の必殺技。クールダウン中は下のダッシュ接近へフォールスルー＝
+            // 撃ちつ詰めつの zoner 行動になる。乱数なし＝決定的（距離・接地・所持技・クールダウンのみ）。
+            if (self.startSpecial(projectile)) {
+                pendingProjectile = projectile;
+                cooldown = ATTACK_COOLDOWN;
+            }
+            dashTapStep = 0;
         } else if (advanced && distance > DASH_APPROACH_RANGE && self.canStartAction()) {
             // 遠距離：ダッシュ（二度押し前ステップ）で素早く間合いを詰める（Task 50。HARD のみ／他は下の歩き接近）。
             // Fighter のダッシュ検出（同方向押下エッジ×2 が受付窓内）に合わせ、押下→離す→押下の 3 フレームを生成する。
@@ -279,6 +315,24 @@ public final class AiController {
         }
         for (Move m : specials) {
             if (m != null && !m.isProjectile() && m.getInvincibleFrames() > 0) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 牽制に使える<b>飛び道具</b>（{@code projectile} な必殺技）を {@code specialMoves[]} から探す（Task 64）。
+     * 無ければ {@code null}（そのキャラは AI 飛び道具を撃たない＝grappler/charge 専用キャラはこの反応をスキップ）。
+     * データ駆動：キャラ JSON に飛び道具技がある（{@code HADOUKEN} など）キャラだけが AI 牽制で弾を撃つ。
+     */
+    private static Move findProjectileMove(Fighter self) {
+        Move[] specials = self.getDef().getSpecialMoves();
+        if (specials == null) {
+            return null;
+        }
+        for (Move m : specials) {
+            if (m != null && m.isProjectile()) {
                 return m;
             }
         }
