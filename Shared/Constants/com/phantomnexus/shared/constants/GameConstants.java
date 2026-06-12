@@ -180,4 +180,16 @@ public final class GameConstants {
 
     /** コンボダメージ補正の最小倍率（Task 46）。これ以上は減らない下限（与ダメージが 0 にならないよう保証）。 */
     public static final float COMBO_SCALE_MIN = 0.3f;
+
+    /**
+     * ダッシュ（二度押しステップ・Task 49）の二度押し受付窓（フレーム数）。同じ方向の押下が前回の押下から
+     * このフレーム数以内なら「二度押し」と見なしてダッシュを開始する。60fps 基準で 0.2 秒。
+     */
+    public static final int DASH_TAP_WINDOW = 12;
+
+    /** ダッシュの継続フレーム数（Task 49）。この間は通常歩行より速く前進/後退し、攻撃/被弾でキャンセルされる。 */
+    public static final int DASH_FRAMES = 12;
+
+    /** ダッシュ速度の倍率（Task 49）。ダッシュ中の移動量 = `walkSpeed × DASH_SPEED_MULTIPLIER`。 */
+    public static final float DASH_SPEED_MULTIPLIER = 2.4f;
 }

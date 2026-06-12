@@ -40,6 +40,11 @@ public class Fighter {
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
     private float superMeter; // 必殺技ゲージ（攻撃の当て / 被弾 / ガードで貯まり EX 必殺技で消費・Task 44）
+    private int prevMoveDir;   // 前フレームの移動入力方向（ダッシュの二度押しエッジ検出用・Task 49）
+    private int dashTapDir;    // 直近に押した方向（二度押し判定用・Task 49）
+    private int dashTapWindow; // 二度押し受付の残りフレーム（毎フレーム減衰・Task 49）
+    private int dashFrames;    // ダッシュ継続の残りフレーム（>0 でダッシュ中・Task 49）
+    private int dashDir;       // ダッシュ方向（-1=左 / +1=右・Task 49）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -106,6 +111,29 @@ public class Fighter {
                     velocityX = 0f;
                 }
             }
+            // ダッシュ（二度押しステップ・Task 49）：方向入力の立ち上がりエッジを検出し、直近の同方向タップが
+            // 受付窓内なら短いダッシュを開始する（接地・非攻撃・非しゃがみのみ）。窓は毎フレーム減衰。
+            if (dashTapWindow > 0) {
+                dashTapWindow--;
+            }
+            boolean dirEdge = moveDir != 0 && moveDir != prevMoveDir;
+            if (dirEdge) {
+                boolean canDash = grounded && attackPhase == AttackPhase.NONE && !crouchHeld && dashFrames <= 0;
+                if (canDash && moveDir == dashTapDir && dashTapWindow > 0) {
+                    dashFrames = GameConstants.DASH_FRAMES; // 二度押し成立 → ダッシュ開始
+                    dashDir = moveDir;
+                    dashTapWindow = 0;
+                    velocityX = 0f; // 残留 knockback を打ち消し、ダッシュ移動との二重加算を防ぐ
+                } else {
+                    dashTapDir = moveDir;                    // 1 度目の押下 → 受付窓をアーム
+                    dashTapWindow = GameConstants.DASH_TAP_WINDOW;
+                }
+            }
+            prevMoveDir = moveDir;
+            // ダッシュ中（特にバックステップ）は後退方向保持と被るためガードを抑止する。
+            if (dashFrames > 0) {
+                guarding = false;
+            }
             // 攻撃の発動：接地時はしゃがみ遷移フレーム（crouchHeld かつ未しゃがみ）を除いて可。
             // 空中では空中攻撃（Task 32）として発動可（しゃがみ条件は無視）。
             if (attackPhase == AttackPhase.NONE && (attackButton != null || throwReq)
@@ -147,10 +175,24 @@ public class Fighter {
                 }
             } else if (crouchHeld && grounded) {
                 crouching = true;
+                dashFrames = 0;                             // しゃがみでダッシュをキャンセル（凍結回避・Task 49）
                 this.moveDir = moveDir;                     // 低速クロール：方向を記録
                 x += moveDir * def.getWalkSpeed() * 0.5f;  // 通常の半速で移動
                 clampToStage();
                 // ジャンプ入力は無視
+            } else if (dashFrames > 0) {
+                // ダッシュ中（Task 49）：通常歩行より速く確定移動する（方向を離しても継続）。ジャンプでキャンセル可。
+                crouching = false;
+                dashFrames--;
+                this.moveDir = dashDir;
+                x += dashDir * def.getWalkSpeed() * GameConstants.DASH_SPEED_MULTIPLIER;
+                clampToStage();
+                if (jumpPressed && grounded) {
+                    velocityY = def.getJumpPower();
+                    grounded = false;
+                    guarding = false;
+                    dashFrames = 0; // ジャンプでダッシュをキャンセル（飛び込みへ）
+                }
             } else {
                 crouching = false;
                 this.moveDir = moveDir;
@@ -199,6 +241,11 @@ public class Fighter {
         guardGauge = GameConstants.GUARD_GAUGE_MAX;
         guardBreakFrames = 0;
         superMeter = 0f;
+        prevMoveDir = 0;
+        dashTapDir = 0;
+        dashTapWindow = 0;
+        dashFrames = 0;
+        dashDir = 0;
     }
 
     /**
@@ -243,6 +290,7 @@ public class Fighter {
         throwTechFrames = 0; // 投げ抜け硬直中に被弾したらラベルをのけぞりへ戻す（表示 desync 防止・Task 36）
         guardBreakFrames = 0; // ガードクラッシュ硬直中にフル被弾したらラベルをのけぞりへ戻す（Task 43）
         guarding = false;    // 被弾で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
+        dashFrames = 0;      // 被弾でダッシュをキャンセル（Task 49）
     }
 
     /**
@@ -268,6 +316,7 @@ public class Fighter {
         throwTechFrames = 0; // 投げ抜け硬直中に投げで上書きされたらラベルをのけぞりへ戻す（Task 36）
         guardBreakFrames = 0; // ガードクラッシュ硬直中に投げで上書きされたらラベルを更新（Task 43）
         guarding = false;    // 投げ（ガード不能）で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
+        dashFrames = 0;      // 投げ被弾でダッシュをキャンセル（Task 49）
     }
 
     /**
@@ -301,6 +350,7 @@ public class Fighter {
         aerialAttacking = false;
         throwing = false;
         guarding = false; // 投げ抜けで neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
+        dashFrames = 0;   // 投げ抜けでダッシュをキャンセル（Task 49）
     }
 
     /** 投げ抜けの硬直中か（表示ラベルを "tech" にするための判定）（Task 36）。 */
@@ -388,6 +438,7 @@ public class Fighter {
         attackFrame = 0;
         attackConnected = false;
         guarding = false; // 攻撃開始フレームにガード状態を残さない（同フレームの被弾が誤って applyGuard になるのを防ぐ）
+        dashFrames = 0;   // 攻撃でダッシュをキャンセル（ダッシュ攻撃は通常攻撃として出る・Task 49）
     }
 
     /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
@@ -461,6 +512,11 @@ public class Fighter {
 
     public boolean isWalking() {
         return grounded && moveDir != 0 && !crouching;
+    }
+
+    /** ダッシュ（二度押しステップ）中か（Task 49）。 */
+    public boolean isDashing() {
+        return dashFrames > 0;
     }
 
     /** しゃがみ移動中か（低速クロール）（Task 29）。 */

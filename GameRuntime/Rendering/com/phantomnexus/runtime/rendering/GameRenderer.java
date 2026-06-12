@@ -708,6 +708,9 @@ public class GameRenderer {
                     : f.isSpecialActive() ? "special"
                     : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
             stateLabel = prefix + ":" + f.getAttackPhase().name().toLowerCase();
+        } else if (f.isDashing()) {
+            // ダッシュ（二度押しステップ・Task 49）。歩行アニメを流用しつつラベルで識別する。
+            stateLabel = "dash";
         } else {
             stateLabel = anim.getState().label() + " f" + anim.getFrameIndex();
         }
