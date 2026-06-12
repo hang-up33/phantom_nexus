@@ -16,7 +16,8 @@ import com.phantomnexus.shared.types.Move;
  * </ul>
  * 判断は相手の観測可能な状態（{@link Fighter#isAttacking()} / {@link Fighter#isThrowing()} /
  * {@link Fighter#isGuarding()}）のみに基づき<b>乱数を使わない</b>（決定的＝入力リプレイと両立）。これにより
- * 「打撃＝ガード／ガード＝投げで崩す／投げ＝投げ抜け」の三すくみが CPU 戦でも成立する。AI のジャンプ・必殺技・しゃがみ系は将来拡張。
+ * 「打撃＝ガード／ガード＝投げで崩す／投げ＝投げ抜け」の三すくみが CPU 戦でも成立する。さらに無敵対空（Task 55）・
+ * 飛び込み（ジャンプ攻撃・Task 57）を備える（いずれも HARD のみ）。AI のしゃがみ系は将来拡張。
  *
  * <p>状態（クールダウン）を持つため 1 体につき 1 インスタンス。判定に用いる距離は中心間距離。
  */
@@ -71,8 +72,18 @@ public final class AiController {
      * 無敵打撃必殺技を持つキャラのみ発動。対空 hitbox（縦長）が届く水平間合いに合わせる。
      */
     private static final float ANTI_AIR_RANGE = 170f;
+    /**
+     * 飛び込み（ジャンプ攻撃・Task 57）で空中から攻撃を出す水平間合い（中心間, px）。下降中にこの距離まで詰めたら
+     * 空中攻撃（Task 32）を出す。jump_attack の hitbox が相手に届く近さに合わせる。
+     */
+    private static final float JUMP_IN_ATTACK_RANGE = 130f;
 
     private int cooldown;
+    /**
+     * 飛び込み（ジャンプ攻撃・Task 57）を実行中か。地上から踏み切った瞬間に立て、着地で下ろす。空中の間は
+     * 相手へ向かってドリフトし、下降中に間合いへ入ったら空中攻撃を出す（HARD のみ）。
+     */
+    private boolean jumpingIn;
     /**
      * 難易度（Task 56）。既定 {@link Difficulty#HARD}＝全反応有効で、Task 55 までの従来挙動と同一
      * （入力リプレイの決定性・既存スクショレシピを保つため既定は HARD）。
@@ -88,6 +99,7 @@ public final class AiController {
     public void reset() {
         cooldown = 0;
         dashTapStep = 0;
+        jumpingIn = false;
     }
 
     /** 難易度を設定する（Task 56）。{@code null} は無視（既定 {@link Difficulty#HARD} を保つ）。 */
@@ -107,9 +119,10 @@ public final class AiController {
      *
      * <p>優先順：<b>無敵対空 ＞ 投げ抜け反応 ＞ ガード反応 ＞ 投げ崩し ＞ 接近 ＞ 通常攻撃</b>。相手の状態に反応する反応群を
      * 距離ベースの行動（接近 / 攻撃）より優先する。落ちてくる相手（空中）への無敵対空（Task 55）を最優先に置く。
-     * 各反応は{@link #difficulty 難易度}（Task 56）で解放段階が決まる：対空 / 投げ抜け / ダッシュ接近は HARD のみ、
+     * 各反応は{@link #difficulty 難易度}（Task 56）で解放段階が決まる：対空 / 投げ抜け / ダッシュ接近 / 飛び込み（Task 57）は HARD のみ、
      * ガード反応 / 投げ崩しは NORMAL 以上。EASY は反応なし（接近＋通常攻撃のみ）。解放されない反応は分岐をスキップし、
-     * 下位の接近 / 攻撃へ自然にフォールスルーする。
+     * 下位の接近 / 攻撃へ自然にフォールスルーする。飛び込み（ジャンプ攻撃）中は空中の振る舞い（ドリフト＋空中攻撃）を
+     * 最優先の専用分岐が一手に引き受ける（地上反応は接地時のみ成立するため空中では自然に無効）。
      *
      * @param self     操作対象のファイター
      * @param opponent 相手（距離 / 状態判定の基準）
@@ -129,10 +142,16 @@ public final class AiController {
         int moveDir = 0;
         boolean attack = false;
         boolean throwReq = false;
+        boolean jumpReq = false;
 
-        // 難易度（Task 56）でどの反応を解放するか。defends=ガード/投げ崩し（NORMAL 以上）、advanced=投げ抜け/ダッシュ/対空（HARD のみ）。
+        // 難易度（Task 56）でどの反応を解放するか。defends=ガード/投げ崩し（NORMAL 以上）、advanced=投げ抜け/ダッシュ/対空/飛び込み（HARD のみ）。
         boolean defends = difficulty != Difficulty.EASY;
         boolean advanced = difficulty == Difficulty.HARD;
+
+        // 飛び込み（Task 57）の状態管理：着地したら解除（地上行動へ戻す）。AI は飛び込み以外で空中に行かない。
+        if (self.isGrounded()) {
+            jumpingIn = false;
+        }
 
         // 無敵打撃必殺技（リバーサル・Task 53）を持つなら対空に使える。落ちてくる相手をこれで迎撃する。
         Move antiAir = findAntiAirMove(self);
@@ -140,7 +159,17 @@ public final class AiController {
                 && opponent.getVelocityY() <= 0f               // 下降（または頂点）＝こちらへ落ちてくる
                 && distance <= ANTI_AIR_RANGE;                 // 縦長対空 hitbox の届く水平間合い
 
-        if (advanced && antiAir != null && opponentJumpIn && self.isGrounded()
+        if (!self.isGrounded() && jumpingIn) {
+            // 飛び込み中（空中・Task 57）：相手へドリフトしつつ、下降中に間合いへ入ったら空中攻撃（Task 32）を出す。
+            // 空中攻撃は attackPhase==NONE のとき attackButton で発動するので、非攻撃中のみ attack を立てる
+            // （既に出していれば isAttacking()==true で再発動しない）。地上反応はすべて canStartAction()==false で
+            // 自然に無効化されるため、この分岐を最優先に置いて空中の振る舞いを一手に引き受ける。乱数なし＝決定的。
+            moveDir = towardDir;
+            if (self.getVelocityY() <= 0f && distance <= JUMP_IN_ATTACK_RANGE
+                    && !self.isAttacking() && !self.isInHitstun()) {
+                attack = true;
+            }
+        } else if (advanced && antiAir != null && opponentJumpIn && self.isGrounded()
                 && self.canStartAction() && cooldown == 0) {
             // 無敵対空（Task 55）：飛び込んでくる相手を無敵フレーム付き打撃必殺技で落とす。
             // AI はコマンド検出（updateFighterInput）を経由しないので、自分で startSpecial を直接呼ぶ。
@@ -201,6 +230,17 @@ public final class AiController {
                         break;
                 }
             }
+        } else if (advanced && opponent.isGrounded() && self.isGrounded()
+                && distance > ATTACK_RANGE && distance <= DASH_APPROACH_RANGE
+                && cooldown == 0 && self.canStartAction()) {
+            // 飛び込み（ジャンプ攻撃・Task 57・HARD のみ）：中距離から前方ジャンプで踏み切り、空中攻撃で攻める。
+            // 空中での攻撃発火・ドリフトは先頭の「飛び込み中」分岐が担う。クールダウン明けのみ発動＝歩き接近と
+            // 交互になり一辺倒にならない（一定間隔で飛び込む）。対空（Task 55）を持つ相手には落とされる＝対の択。
+            jumpReq = true;
+            moveDir = towardDir;       // 前方ジャンプ（空中で相手へドリフト）
+            jumpingIn = true;
+            cooldown = ATTACK_COOLDOWN;
+            dashTapStep = 0;
         } else if (distance > ATTACK_RANGE) {
             // 間合いの外（ただしダッシュ距離より内）：歩いて接近する。
             moveDir = towardDir;
@@ -212,7 +252,7 @@ public final class AiController {
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
         }
-        self.update(moveDir, false, attack ? AttackButton.LIGHT : null, false, throwReq);
+        self.update(moveDir, jumpReq, attack ? AttackButton.LIGHT : null, false, throwReq);
     }
 
     /**
