@@ -169,8 +169,11 @@ public class Fighter {
                 // 空中ダッシュ（Task 69）：滞空中の二度押しで水平バースト。データ駆動（airDashes>0 のキャラのみ）。
                 // !dashTapGrounded：1 度目のタップも空中でアームされた窓のみ消費する（地上アーム窓の流用を防ぐ＝
                 // 「地上で 1 度押し→ジャンプ→空中で 1 度押し」で発動しない。仕様は滞空中の二度押し・Codex 指摘）。
+                // attackButton==null && !throwReq：同フレームで空中攻撃/投げが始まる入力では成立させない。
+                //   （後段の beginAttack が dashFrames を 0 に戻すため水平バーストは出ず、airDashesRemaining だけ
+                //    無駄に消費されるのを防ぐ。攻撃が優先＝この frame は air dash を成立させず窓を再アームする・Codex 指摘）。
                 boolean canAirDash = !grounded && attackPhase == AttackPhase.NONE && airDashesRemaining > 0
-                        && dashFrames <= 0 && !dashTapGrounded;
+                        && dashFrames <= 0 && !dashTapGrounded && attackButton == null && !throwReq;
                 if ((canGroundDash || canAirDash) && moveDir == dashTapDir && dashTapWindow > 0) {
                     dashFrames = GameConstants.DASH_FRAMES; // 二度押し成立 → ダッシュ開始（接地＝地上ステップ / 滞空＝空中ダッシュ）
                     dashDir = moveDir;
