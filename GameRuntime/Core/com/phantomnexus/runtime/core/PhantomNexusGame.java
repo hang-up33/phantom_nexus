@@ -76,6 +76,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** 検出コマンドを HUD に表示し続けるフレーム数。 */
     private static final int COMMAND_DISPLAY_FRAMES = 90;
 
+    /**
+     * ライフサイクル初期化（LibGDX が GL コンテキスト確立後に 1 回呼ぶ）。描画・撮影コントローラを生成し、
+     * ステージ / キャラクター定義を外部 JSON から読み込み、ファイター・アニメ・ラウンド管理・AI を構築する。
+     * 撮影モードのオーバーライド（ステージ / 初期 X / 制限時間 / AI 等）を参照するため `ScreenshotController` を先に初期化する。
+     */
     @Override
     public void create() {
         renderer = new GameRenderer();

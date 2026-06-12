@@ -243,18 +243,28 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ---
 
-## Stage（MVP 正式版・Task 17）
+## Stage（MVP 正式版・Task 17 / Task 40）
 
 1 ステージ = 1 JSON（`Assets/Stages/<id>.json`）。`Shared/Types/Stage` へデシリアライズ（`StageLoader`）。
 地面の高さ（物理基準）は `Shared/Constants.GROUND_Y` 固定で、本型は**見た目（背景）のみ**を担う（MVP）。
+**ステージは加算式**で、コードを変えず JSON を追加するだけで増やせる（Task 40 で検証）。現状の収録ステージ：
+
+| ID | 表示名 | 雰囲気 |
+|---|---|---|
+| `stage001`（既定） | Twilight Arena | 紫の夕暮れ |
+| `stage002` | Verdant Glade | 青空＋緑地（Task 40） |
+
+読み込むステージは既定で `stage001`。撮影時は **`phantom.screenshot.stage=<id>`（`-x stage=<id>`）** でオーバーライドできる（背景の撮り分け用。`PhantomNexusGame` が `ScreenshotController.stageId()` 経由で選択）。
+
+サンプル（`Assets/Stages/stage002.json`）：
 
 ```json
 {
-  "id": "stage001",
-  "name": "Twilight Arena",
-  "skyTop": [0.07, 0.08, 0.18],
-  "skyBottom": [0.42, 0.28, 0.40],
-  "groundColor": [0.16, 0.14, 0.20]
+  "id": "stage002",
+  "name": "Verdant Glade",
+  "skyTop": [0.18, 0.46, 0.78],
+  "skyBottom": [0.62, 0.82, 0.94],
+  "groundColor": [0.16, 0.40, 0.22]
 }
 ```
 
