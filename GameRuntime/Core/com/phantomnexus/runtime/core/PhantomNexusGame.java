@@ -74,6 +74,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private float spawnX2;
     private int hitstopFrames; // ヒットストップ（命中時に両者を凍結する残りフレーム・Task 86）
     private int superFlashFrames; // スーパーフラッシュ（スーパー必殺技発動時に両者を凍結する残りフレーム・Task 108）
+    private int koSlowFrames; // KO スローモーション（決着の一撃後のスロー再生・残り実フレーム・Task 115）
+    private boolean koSlowTriggered; // このラウンドで KO スローを既に開始したか（1 ラウンド 1 回・Task 115）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
@@ -224,6 +226,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
             superFlashFrames--;
             return;
         }
+        // KO スローモーション（Task 115）：決着の一撃後のスロー再生中は、戦闘更新を KO_SLOW_FACTOR フレームに 1 回へ
+        // 間引いて動きを遅くする（間のフレームは更新せず＝同じ絵を描き続ける＝スロー）。固定値＝決定的。
+        if (koSlowFrames > 0) {
+            koSlowFrames--;
+            if (koSlowFrames % GameConstants.KO_SLOW_FACTOR != 0) {
+                return;
+            }
+        }
         // ラウンド間インターバル中・ラウンド開始イントロ（"ROUND N"/"FIGHT!"）中は
         // ファイター操作・判定を停止し、カウントダウンのみ進める。
         if (!round.isBetweenRounds() && !round.isRoundIntro()) {
@@ -269,11 +279,19 @@ public class PhantomNexusGame extends ApplicationAdapter {
             fighter1.restoreFullHp();
             fighter2.restoreFullHp();
         }
-        // 勝敗 / ラウンド間カウントダウンを進める。
-        round.update(fighter1, fighter2);
-        // カウントダウン完了 → ファイターをスポーン位置にリセットして新ラウンド開始。
-        if (round.consumeNextRoundReady()) {
-            resetFighters();
+        // KO スローモーション（Task 115）の開始判定：決着の一撃でどちらかが KO したら、まだスロー未開始なら開始する
+        // （このラウンド 1 回）。スロー中は下の round.update を保留して即確定を防ぎ、スロー終了後に確定させる。
+        if (koSlowFrames <= 0 && !koSlowTriggered && (fighter1.isKO() || fighter2.isKO())) {
+            koSlowFrames = GameConstants.KO_SLOW_FRAMES;
+            koSlowTriggered = true;
+        }
+        // 勝敗 / ラウンド間カウントダウンを進める（KO スロー再生中は保留＝スロー終了後に確定）。
+        if (koSlowFrames <= 0) {
+            round.update(fighter1, fighter2);
+            // カウントダウン完了 → ファイターをスポーン位置にリセットして新ラウンド開始。
+            if (round.consumeNextRoundReady()) {
+                resetFighters();
+            }
         }
         fighter1.faceTowards(fighter2);
         fighter2.faceTowards(fighter1);
@@ -297,6 +315,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         hitSparks.clear();
         hitstopFrames = 0; // ヒットストップ（Task 86）もラウンド間でクリア
         superFlashFrames = 0; // スーパーフラッシュ（Task 108）もラウンド間でクリア
+        koSlowFrames = 0; // KO スローモーション（Task 115）もラウンド間でクリア
+        koSlowTriggered = false; // 次ラウンドで再び KO スローを使えるようにする（Task 115）
         p1Inputs.clear(); // 入力表示ログ（Task 96）もラウンド間でクリア
         lastInputToken = "";
         p2Ai.reset();

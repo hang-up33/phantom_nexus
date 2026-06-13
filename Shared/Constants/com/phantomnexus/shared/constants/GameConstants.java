@@ -358,4 +358,14 @@ public final class GameConstants {
      * しやすくなる＝固め（押し付け）への対抗。毎フレーム {@link #KNOCKBACK_FRICTION} で減衰。固定値で乱数なし＝決定的。
      */
     public static final float GUARD_PUSHBACK_SPEED = 4f;
+
+    /**
+     * KO スローモーション（Task 115）の演出フレーム数（実フレーム）。決着の一撃でどちらかが KO したとき、ラウンド確定の
+     * 直前にこの実フレーム数だけスロー再生する。スロー中は戦闘更新を {@link #KO_SLOW_FACTOR} フレームに 1 回へ間引く。
+     * 固定値で乱数なし＝決定的。60fps 基準で約 0.6 秒。
+     */
+    public static final int KO_SLOW_FRAMES = 36;
+
+    /** KO スローモーション（Task 115）の間引き係数。スロー中はこのフレーム数に 1 回だけ実体更新する（4＝1/4 速）。 */
+    public static final int KO_SLOW_FACTOR = 4;
 }
