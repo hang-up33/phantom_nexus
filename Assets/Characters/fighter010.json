@@ -1,0 +1,108 @@
+{
+  "id": "fighter010",
+  "name": "Yuki",
+  "hp": 780,
+  "walkSpeed": 6.2,
+  "jumpPower": 13.5,
+  "airJumps": 1,
+  "width": 78,
+  "height": 206,
+  "color": [0.80, 0.82, 0.88],
+  "sprite": {
+    "path": "Characters/fighter010.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "rapid_jab",
+      "button": "light",
+      "damage": 22,
+      "hits": 3,
+      "hitGap": 3,
+      "startup": 4,
+      "active": 8,
+      "recovery": 10,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 128,
+      "hitboxWidth": 74,
+      "hitboxHeight": 28
+    },
+    {
+      "id": "slash",
+      "button": "medium",
+      "damage": 58,
+      "startup": 6,
+      "active": 4,
+      "recovery": 13,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 104,
+      "hitboxWidth": 88,
+      "hitboxHeight": 40
+    },
+    {
+      "id": "rising_slash",
+      "button": "heavy",
+      "damage": 88,
+      "startup": 8,
+      "active": 5,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 70,
+      "hitboxWidth": 84,
+      "hitboxHeight": 80
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "frost_shard",
+      "command": "HADOUKEN",
+      "damage": 70,
+      "startup": 7,
+      "active": 3,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 44,
+      "hitboxHeight": 44,
+      "projectile": true,
+      "projectileSpeed": 13.0
+    }
+  ],
+  "throwMove": {
+    "id": "cold_throw",
+    "damage": 115,
+    "startup": 3,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 48,
+    "hitboxHeight": 135
+  },
+  "airThrowMove": {
+    "id": "ice_drop",
+    "damage": 105,
+    "startup": 3,
+    "active": 3,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 50,
+    "hitboxWidth": 54,
+    "hitboxHeight": 115
+  }
+}

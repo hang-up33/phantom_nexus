@@ -140,6 +140,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 73 | 第3ステージ追加（stage003 Crimson Dusk・JSON のみで背景差し替え検証） | ✅ 完了 |
 | 74 | 多段ヒット技（1 つの技が active 中に複数回ヒット・JSON `hits`/`hitGap` でデータ化） | ✅ 完了 |
 | 75 | AI 受け身（HARD の AI がダウン直後にクイック起き上がりして起き攻めに対抗） | ✅ 完了 |
+| 76 | 10 体目キャラ追加（fighter010 Yuki・多段ヒット rapid jab の高速 rushdown 型・JSON のみで追加） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
