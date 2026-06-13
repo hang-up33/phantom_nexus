@@ -108,6 +108,10 @@ public class GameRenderer {
     private static final Color GUARD_BAR_BACK = new Color(0.10f, 0.12f, 0.16f, 1f);
     private static final Color GUARD_BAR_FILL = new Color(0.35f, 0.72f, 1f, 1f);  // 通常＝水色（ガード色と同系）
     private static final Color GUARD_BAR_LOW = new Color(0.98f, 0.55f, 0.20f, 1f); // 残量わずか＝橙で警告
+    // スタンゲージ（Task 92）：蓄積で満タンに近づくと黄→赤で警告（めまい間近）。ガードゲージのさらに下に細く配置。
+    private static final Color STUN_BAR_BACK = new Color(0.12f, 0.10f, 0.10f, 1f);
+    private static final Color STUN_BAR_FILL = new Color(0.95f, 0.82f, 0.30f, 1f);
+    private static final Color STUN_BAR_HIGH = new Color(0.95f, 0.35f, 0.25f, 1f); // 満タン間近＝赤（めまい警告）
     private static final Color GUARD_BREAK_COLOR = new Color(1f, 0.30f, 0.26f, 1f); // "GUARD BREAK!" の赤
     private static final float GUARD_BREAK_SCALE = 1.5f;
     // 必殺技ゲージ（スーパーメーター・Task 44）。画面下端の細バー。満タンで EX 可（金色で点灯）。
@@ -237,6 +241,9 @@ public class GameRenderer {
         // ガードゲージ（HP バーの直下の細バー。ガードで減り、尽きるとガードクラッシュ。Task 43）。
         drawGuardGauge(p1, true);
         drawGuardGauge(p2, false);
+        // スタンゲージ（ガードゲージの直下。蓄積でめまい＝Task 79。stunThreshold>0 のキャラのみ表示）。Task 92。
+        drawStunGauge(p1, true);
+        drawStunGauge(p2, false);
         // 必殺技ゲージ（画面下端の細バー。貯まると EX 必殺技が撃てる。Task 44）。
         drawSuperMeter(p1, true);
         drawSuperMeter(p2, false);
@@ -420,6 +427,32 @@ public class GameRenderer {
         float fillWidth = HP_BAR_WIDTH * ratio;
         float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
         shapes.setColor(ratio <= 0.30f ? GUARD_BAR_LOW : GUARD_BAR_FILL);
+        shapes.rect(fillLeft, gaugeBottom, fillWidth, GUARD_BAR_HEIGHT);
+    }
+
+    /**
+     * スタンゲージを 1 本描く（Task 92）。ガードゲージのさらに下に細く配置し、被弾で増える蓄積スタン値を表示する。
+     * {@code stunThreshold <= 0}（めまい無効）のキャラは描かない。満タンに近づくと黄→赤で「めまい間近」を警告する。
+     */
+    private void drawStunGauge(Fighter f, boolean leftAnchored) {
+        int threshold = f.getDef().getStunThreshold();
+        if (threshold <= 0) {
+            return; // めまい無効のキャラはスタンゲージなし（従来表示を変えない）
+        }
+        float top = GameConstants.WORLD_HEIGHT - HP_BAR_TOP;
+        float barBottom = top - HP_BAR_HEIGHT;
+        // ガードゲージの 1 段下に積む（ガード = barBottom - gap - height、スタン = その下 - 小隙間 - height）。
+        float guardBottom = barBottom - HP_FRAME_THICKNESS - GUARD_BAR_GAP - GUARD_BAR_HEIGHT;
+        float gaugeBottom = guardBottom - 3f - GUARD_BAR_HEIGHT;
+        float outerLeft = leftAnchored
+                ? HP_BAR_MARGIN
+                : GameConstants.WORLD_WIDTH - HP_BAR_MARGIN - HP_BAR_WIDTH;
+        shapes.setColor(STUN_BAR_BACK);
+        shapes.rect(outerLeft, gaugeBottom, HP_BAR_WIDTH, GUARD_BAR_HEIGHT);
+        float ratio = Math.max(0f, Math.min(1f, f.getStunMeter() / (float) threshold));
+        float fillWidth = HP_BAR_WIDTH * ratio;
+        float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
+        shapes.setColor(ratio >= 0.75f ? STUN_BAR_HIGH : STUN_BAR_FILL);
         shapes.rect(fillLeft, gaugeBottom, fillWidth, GUARD_BAR_HEIGHT);
     }
 
