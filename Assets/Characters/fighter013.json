@@ -1,0 +1,97 @@
+{
+  "id": "fighter013",
+  "name": "Mizu",
+  "hp": 880,
+  "walkSpeed": 5.8,
+  "jumpPower": 13.0,
+  "width": 80,
+  "height": 214,
+  "color": [0.23, 0.78, 0.91],
+  "sprite": {
+    "path": "Characters/fighter013.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "jab",
+      "button": "light",
+      "damage": 42,
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 124,
+      "hitboxWidth": 82,
+      "hitboxHeight": 32
+    },
+    {
+      "id": "low_slice",
+      "button": "medium",
+      "guardHeight": "low",
+      "damage": 64,
+      "startup": 7,
+      "active": 4,
+      "recovery": 15,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 10,
+      "hitboxWidth": 100,
+      "hitboxHeight": 40
+    },
+    {
+      "id": "overhead_chop",
+      "button": "heavy",
+      "guardHeight": "overhead",
+      "knockdown": true,
+      "damage": 100,
+      "startup": 18,
+      "active": 4,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 70,
+      "hitboxWidth": 88,
+      "hitboxHeight": 90
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "water_shot",
+      "command": "HADOUKEN",
+      "damage": 80,
+      "startup": 9,
+      "active": 3,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 112,
+      "hitboxWidth": 48,
+      "hitboxHeight": 48,
+      "projectile": true,
+      "projectileSpeed": 12.0
+    }
+  ],
+  "throwMove": {
+    "id": "tide_throw",
+    "damage": 125,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 138
+  }
+}
