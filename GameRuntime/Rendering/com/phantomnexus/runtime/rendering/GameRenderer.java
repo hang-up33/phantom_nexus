@@ -130,6 +130,8 @@ public class GameRenderer {
     private static final String STATE_LABEL_COUNTER_SUFFIX = " (CH)"; // カウンターヒット被弾の付加表示（Task 71）
     private static final String STATE_LABEL_ARMOR_SUFFIX = " [ARMOR]"; // スーパーアーマー有効中の付加表示（Task 80）
     private static final String STATE_LABEL_JUST_SUFFIX = " [JUST]"; // ジャストガード成立の付加表示（Task 81）
+    private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
+    private static final float INPUT_DISPLAY_SCALE = 0.9f; // 入力表示 HUD の文字倍率（Task 96）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
@@ -192,7 +194,8 @@ public class GameRenderer {
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
                             List<Projectile> projectiles, List<DamagePopup> popups, List<HitSpark> sparks,
-                            RoundManager round, DebugOverlay debug, String controlsHint, String statusLine) {
+                            RoundManager round, DebugOverlay debug, String controlsHint, String statusLine,
+                            List<String> p1Inputs) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
@@ -280,6 +283,8 @@ public class GameRenderer {
         }
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
         drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        drawInputDisplay(p1Inputs); // P1 入力表示 HUD（Task 96）
+
         if (debug.isEnabled()) {
             drawCentered("DEBUG: push(blue) hurt(green) hit(red)", GameConstants.WORLD_WIDTH / 2f, 120f);
         }
@@ -846,6 +851,29 @@ public class GameRenderer {
         font.getData().setScale(GUARD_BREAK_SCALE);
         font.setColor(GUARD_BREAK_COLOR);
         drawCenteredClamped(TEXT_GUARD_BREAK, f.getX(), y, 12f); // 画面端でも見切れないようクランプ
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+    }
+
+    /**
+     * P1 の直近入力ログ（テンキー方向＋ボタン）を画面左端に縦に並べて表示する（入力表示 HUD・Task 96）。
+     * 最新を下にして上から古い順に並べる（FG 定番の表示向き）。空なら何も描かない。テキストパス内で呼び、
+     * フォント倍率は描画後に既定へ戻す（共有状態リーク防止）。
+     */
+    private void drawInputDisplay(List<String> inputs) {
+        if (inputs == null || inputs.isEmpty()) {
+            return;
+        }
+        font.getData().setScale(INPUT_DISPLAY_SCALE);
+        font.setColor(INPUT_DISPLAY_COLOR);
+        float x = 16f;
+        float lineH = 20f;
+        int n = inputs.size();
+        // 最新を最下行に：縦位置の起点を中段やや上に置き、下へ向かって新しい入力を描く。
+        float topY = 360f + (n - 1) * lineH;
+        for (int i = 0; i < n; i++) {
+            font.draw(batch, inputs.get(i), x, topY - i * lineH);
+        }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
