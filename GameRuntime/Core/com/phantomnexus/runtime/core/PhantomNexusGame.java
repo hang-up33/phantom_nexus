@@ -73,6 +73,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private float spawnX1;
     private float spawnX2;
     private int hitstopFrames; // ヒットストップ（命中時に両者を凍結する残りフレーム・Task 86）
+    private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
 
     /** 検出コマンドを HUD に表示し続けるフレーム数。 */
     private static final int COMMAND_DISPLAY_FRAMES = 90;
@@ -129,6 +130,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // AI 難易度（Task 56）。既定 HARD（全反応＝従来挙動）。撮影時は aidiff=easy/normal/hard で差し替え。
         // 未指定（null）なら setDifficulty が無視して既定 HARD を保つ＝既存リプレイ/レシピの決定性を保つ。
         p2Ai.setDifficulty(AiController.Difficulty.fromToken(screenshot.aiDifficulty(null)));
+        // トレーニングモード（Task 90）。撮影は training=true で起動時 ON。ON のときダミー（P2）の AI を切る。
+        trainingMode = screenshot.trainingEnabled(false);
+        if (trainingMode) {
+            p2AiEnabled = false;
+        }
         controlsHint = buildControlsHint();
         // 入力リプレイ（記録 / 再生）。phantom.replay.* 指定時のみ有効。通常起動には無影響。
         replay = new ReplayController();
@@ -162,6 +168,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 記録しない（format 不変・決定性維持）ため無視する。通常プレイのみ切替可能で、HUD ラベルを更新する。
         if (!replay.isRecording() && !replay.isReplaying() && Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
             p2Ai.cycleDifficulty();
+            controlsHint = buildControlsHint();
+        }
+        // F4：トレーニングモード（HP 無限のダミーでコンボ練習・Task 90）。ON にすると P2 AI を切る。
+        // リプレイ記録/再生中は無視（HP の挙動が変わり決定性に影響するため）。
+        if (!replay.isRecording() && !replay.isReplaying() && Gdx.input.isKeyJustPressed(Input.Keys.F4)) {
+            trainingMode = !trainingMode;
+            if (trainingMode) {
+                p2AiEnabled = false;
+            }
             controlsHint = buildControlsHint();
         }
         // 記録モード：update が消費する前にこのフレームの入力スナップショットを残す。
@@ -220,6 +235,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
             resolveHit(fighter2, fighter1);
             // 飛び道具（必殺技）の更新と命中処理（Task 20）。
             updateProjectiles();
+        }
+        // トレーニングモード（Task 90）：勝敗判定の前に両者の HP を満タンへ戻す＝無限 HP のダミーで KO せず練習できる。
+        // ダメージ数値ポップアップ・コンボカウンターは被弾時に確定済みなので、コンボ練習の情報はそのまま見える。
+        if (trainingMode) {
+            fighter1.restoreFullHp();
+            fighter2.restoreFullHp();
         }
         // 勝敗 / ラウンド間カウントダウンを進める。
         round.update(fighter1, fighter2);
@@ -593,7 +614,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** 操作ガイド HUD 文字列を組み立てる（難易度ラベルを含むため F3 切替時にも再構築する・Task 78）。 */
     private String buildControlsHint() {
         return "P1 " + p1Input.describe()
-                + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty";
+                + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
+                + "  [F4] training(" + (trainingMode ? "on" : "off") + ")";
     }
 
     private String statusLine() {
