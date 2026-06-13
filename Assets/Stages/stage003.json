@@ -1,0 +1,7 @@
+{
+  "id": "stage003",
+  "name": "Crimson Dusk",
+  "skyTop": [0.36, 0.10, 0.20],
+  "skyBottom": [0.95, 0.52, 0.30],
+  "groundColor": [0.28, 0.16, 0.18]
+}
