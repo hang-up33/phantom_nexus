@@ -343,6 +343,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 119) 10 番目のステージ `Assets/Stages/stage010.json`（"Starlit Shrine"・深い藍の夜空）を追加。`Stage` の JSON 仕様は不変（stage009 に続く 10 ステージ目＝計 10 ステージ）。撮影は `-x stage=stage010`。
 - (Task 118) 19 体目キャラ `Assets/Characters/fighter019.json`（"Mei"・HP880・**機動力特化の高速 rushdown 型**の mint `[90,220,180]`）＋スプライト `fighter019.png`（256×896）を追加。`PhantomNexusGame.ROSTER_IDS` にも追記（キャラ選択に出す・Task 117）。アーキタイプ：`walkSpeed6.2`・`airJumps:1`・`airDashes:1` の最速機動、弱 `quick_jab`（startup3）、低段浮かせ `low_slice`（`guardHeight:low`＋`launch`）、高速飛び道具 `gale_shot`、多段ビームスーパー `tempest_rush`（`superMove`・hits6＝38×6＝228）、地上/空中投げ。撮影は `-x p1char=fighter019`。
 - (Task 114) 18 体目キャラ `Assets/Characters/fighter018.json`（"Kuga"・HP1150・**アーマー＋壁バウンド＋スーパーの重量級 bruiser 型**の indigo `[90,50,170]`）＋スプライト `fighter018.png`（256×896）を追加。`Character` の JSON 仕様は不変（17 体目 fighter017 に続く 18 体目）。アーキタイプ：中 `armor_charge`（`armorHits:1`）、強 `wall_slam`（`wallBounce:true`）、無敵ダウン `quake_fist`（CHARGE_SHOT・`invincibleFrames`＋`knockdown`）、**打撃スーパー `titan_crush`（`superMove:true`＋`hardKnockdown:true`・dmg240）**、確定投げ `back_drop`（`noTech:true`・dmg150）＝既存機構を一通り束ねた重量級。撮影は `-x p1char=fighter018 -x p1meter=100`。
 - (Task 113) 9 番目のステージ `Assets/Stages/stage009.json`（"Aurora Tundra"・dark→teal グラデ＋氷青の床）を追加。`Stage` の JSON 仕様は不変（stage008 に続く 9 ステージ目）。撮影は `-x stage=stage009`。

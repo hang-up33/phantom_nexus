@@ -1,0 +1,7 @@
+{
+  "id": "stage010",
+  "name": "Starlit Shrine",
+  "skyTop": [0.02, 0.02, 0.08],
+  "skyBottom": [0.10, 0.08, 0.28],
+  "groundColor": [0.16, 0.14, 0.22]
+}
