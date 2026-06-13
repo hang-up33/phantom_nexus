@@ -318,4 +318,16 @@ public final class GameConstants {
 
     /** 床バウンド成立の表示フレーム数（Task 102）。状態ラベルに ground_bounce を出す表示専用カウンタの寿命。 */
     public static final int GROUND_BOUNCE_LABEL_FRAMES = 20;
+
+    /**
+     * 回復可能ダメージ（レッドライフ・Task 104）の回復開始までの遅延フレーム数。ガードの chip 被弾分は「赤ゲージ」として
+     * 一時的に失われ、最後に被弾（chip 含む）してからこのフレーム数だけ無被弾が続くと白 HP へ回復し始める。60fps 基準で約 1.5 秒。
+     */
+    public static final int RECOVERABLE_HP_DELAY_FRAMES = 90;
+
+    /**
+     * 回復可能ダメージの回復間隔（フレーム・Task 104）。{@link #RECOVERABLE_HP_DELAY_FRAMES} 経過後、このフレーム間隔ごとに
+     * 赤ゲージ 1 ポイントを白 HP へ戻す。小さいほど速く回復する（3＝約 20HP/秒）。
+     */
+    public static final int RECOVERABLE_HP_REGEN_INTERVAL = 3;
 }

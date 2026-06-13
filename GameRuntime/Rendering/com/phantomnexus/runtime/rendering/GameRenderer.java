@@ -60,6 +60,7 @@ public class GameRenderer {
     private static final Color HP_FILL_HIGH = new Color(0.30f, 0.82f, 0.40f, 1f);
     private static final Color HP_FILL_MID = new Color(0.95f, 0.80f, 0.25f, 1f);
     private static final Color HP_FILL_LOW = new Color(0.90f, 0.28f, 0.24f, 1f);
+    private static final Color HP_RECOVERABLE_COLOR = new Color(0.66f, 0.15f, 0.16f, 1f); // 回復可能ダメージ（レッドライフ）の赤ゲージ（Task 104）
     private static final Color ATK_STARTUP_COLOR = new Color(0.96f, 0.82f, 0.28f, 0.85f);
     private static final Color ATK_ACTIVE_COLOR = new Color(0.95f, 0.25f, 0.22f, 0.9f);
     private static final Color ATK_RECOVERY_COLOR = new Color(0.55f, 0.57f, 0.64f, 0.8f);
@@ -410,6 +411,15 @@ public class GameRenderer {
         float fillWidth = HP_BAR_WIDTH * ratio;
         // 減少は中央側から：左アンカーは左端固定で右が縮み、右アンカーは右端固定で左が縮む。
         float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
+        // 回復可能ダメージ（レッドライフ・Task 104）：白 HP の減った側に隣接して赤ゲージを描く（無被弾で白へ戻る分）。
+        // 白 HP の上から赤を描く前に背景の上へ赤を置くため、白フィルの前に描画する。
+        float recoverWidth = HP_BAR_WIDTH * f.getRecoverableRatio();
+        if (recoverWidth > 0f) {
+            // 左アンカーは白フィルの右隣、右アンカーは白フィルの左隣に赤を配置（失った位置に重なる）。
+            float recoverLeft = leftAnchored ? fillLeft + fillWidth : fillLeft - recoverWidth;
+            shapes.setColor(HP_RECOVERABLE_COLOR);
+            shapes.rect(recoverLeft, barBottom, recoverWidth, HP_BAR_HEIGHT);
+        }
         shapes.setColor(hpFillColor(ratio));
         shapes.rect(fillLeft, barBottom, fillWidth, HP_BAR_HEIGHT);
     }
