@@ -51,6 +51,9 @@ public class Fighter {
     private int wallBounceFrames;       // 壁バウンド成立（跳ね返り）直後の表示フレーム（ラベル wall_bounce・Task 101）
     private boolean groundBounceArmed;  // 床バウンド技を食らい、まだ着地して跳ね返っていない状態（Task 102）
     private int groundBounceFrames;     // 床バウンド成立（跳ね返り）直後の表示フレーム（ラベル ground_bounce・Task 102）
+    private int recoverableHp;          // 回復可能ダメージ（レッドライフ・ガード chip 分・無被弾で白 HP へ戻る・Task 104）
+    private int recoverDelay;           // 回復開始までの遅延フレーム（被弾のたびにリセット・Task 104）
+    private int recoverTick;            // 回復間隔のカウンタ（Task 104）
     private int stunMeter;              // 蓄積中のスタン値（被弾で増え非被弾で減衰・しきい値超えでめまい・Task 79）
     private int dizzyFrames;            // めまい（dizzy）の無防備行動不能フレーム（被弾無敵ではない＝フルコンボ確定・Task 79）
     private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
@@ -122,6 +125,20 @@ public class Fighter {
         // スタン値の自然減衰：完全に中立（のけぞり / ダウン / めまいでない）な間だけ抜けていく（Task 79）。
         if (hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0 && stunMeter > 0) {
             stunMeter = Math.max(0, stunMeter - GameConstants.STUN_DECAY_PER_FRAME);
+        }
+        // 回復可能ダメージ（レッドライフ・Task 104）：被弾していない（のけぞり/ダウン/めまいでない）間だけ遅延後に回復する。
+        // 遅延カウンタは中立時のみ進め、回復間隔ごとに赤ゲージ 1 を白 HP へ戻す（最後の被弾＝chip 含むからの猶予を表現）。
+        if (hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0) {
+            if (recoverDelay > 0) {
+                recoverDelay--;
+            } else if (recoverableHp > 0 && currentHp < def.getHp()) {
+                recoverTick++;
+                if (recoverTick >= GameConstants.RECOVERABLE_HP_REGEN_INTERVAL) {
+                    recoverTick = 0;
+                    currentHp = Math.min(def.getHp(), currentHp + 1);
+                    recoverableHp--;
+                }
+            }
         }
         // ダウンの被弾無敵ラッチ（Task 60・Codex 指摘）：この update の処理前にダウン中だったか（＝このフレームは inert か）を
         // 記録する。減算は下の inert 分岐内で行い 60F の行動不能を確保しつつ、当たり判定の被弾ゲート（isKnockedDown）は
@@ -404,6 +421,9 @@ public class Fighter {
         wallBounceFrames = 0;
         groundBounceArmed = false;
         groundBounceFrames = 0;
+        recoverableHp = 0;
+        recoverDelay = 0;
+        recoverTick = 0;
         stunMeter = 0;
         dizzyFrames = 0;
         guarding = false;
@@ -435,11 +455,18 @@ public class Fighter {
         }
         int chip = Math.max(1, attackDamage / 10);
         // 削り KO 禁止（Task 82）：既定では chip で HP を 1 未満にしない（最低 1 残す）。非ガードヒットは 0 まで削れる。
+        int hpBeforeChip = currentHp;
         if (!GameConstants.CHIP_DAMAGE_CAN_KO && currentHp - chip <= 0) {
             currentHp = 1;
         } else {
             applyDamage(chip);
         }
+        // 回復可能ダメージ（レッドライフ・Task 104）：実際に削れた chip 分を赤ゲージとして記録し、無被弾が続けば
+        // 白 HP へ戻る（ガードで凌いだダメージの一部を取り戻せる＝防御の見返り）。回復は白 HP の不足分が上限。
+        int chipLost = hpBeforeChip - currentHp;
+        recoverableHp = Math.min(def.getHp() - currentHp, recoverableHp + chipLost);
+        recoverDelay = GameConstants.RECOVERABLE_HP_DELAY_FRAMES;
+        recoverTick = 0; // 回復間隔カウンタも被弾でリセット（残留で早回復しないよう厳密化・Task 104）
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.3f;
         // ガードゲージを攻撃力に応じて削る。0 以下でガードクラッシュ（Task 43）。
         guardGauge -= Math.max(1, attackDamage / GameConstants.GUARD_DRAIN_DIVISOR);
@@ -479,6 +506,7 @@ public class Fighter {
         dashFrames = 0;      // 被弾でダッシュをキャンセル（Task 49）
         wallBounceArmed = false; // 新たな被弾で保留中の壁バウンドをキャンセル（Task 101。applyWallBounce はこの後に再アーム）
         groundBounceArmed = false; // 新たな被弾で保留中の床バウンドをキャンセル（Task 102。applyGroundBounce はこの後に再アーム）
+        recoverableHp = 0; // 非ガードで被弾したら回復可能ダメージ（赤ゲージ）は焼き切れる（Task 104）
     }
 
     /**
@@ -556,6 +584,7 @@ public class Fighter {
         dashFrames = 0;
         wallBounceArmed = false; // ダウンで保留中の壁バウンドをキャンセル（Task 101）
         groundBounceArmed = false; // ダウンで保留中の床バウンドをキャンセル（Task 102）
+        recoverableHp = 0; // 非ガード被弾（ダウン）で回復可能ダメージは焼き切れる（Task 104）
         // ダッシュ二度押しの受付状態もクリア（Task 60・CodeRabbit 指摘）。ダウン中は dash 検出ブロック（else 側）が
         // 走らず dashTapWindow が減衰しないため、被弾前にアームされた 1 回目のタップが 60F 温存され、起き上がり後の
         // 最初の方向入力で暴発ダッシュになる。窓・方向・前フレーム方向をニュートラルへ戻して保留タップを破棄する。
@@ -590,6 +619,7 @@ public class Fighter {
         guardBreakFrames = 0; // ガードクラッシュ硬直中に投げで上書きされたらラベルを更新（Task 43）
         guarding = false;    // 投げ（ガード不能）で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;      // 投げ被弾でダッシュをキャンセル（Task 49）
+        recoverableHp = 0;   // 投げ被弾で回復可能ダメージは焼き切れる（Task 104）
     }
 
     /**
@@ -968,6 +998,17 @@ public class Fighter {
     public float getHpRatio() {
         int max = def.getHp();
         return max > 0 ? Math.max(0f, Math.min(1f, currentHp / (float) max)) : 0f;
+    }
+
+    /** 回復可能ダメージ（レッドライフ・Task 104）の現在量。HP バーに赤ゲージとして表示する。 */
+    public int getRecoverableHp() {
+        return recoverableHp;
+    }
+
+    /** 回復可能ダメージの最大 HP に対する比率（0〜1・Task 104）。HP バー描画用。 */
+    public float getRecoverableRatio() {
+        int max = def.getHp();
+        return max > 0 ? Math.max(0f, Math.min(1f, recoverableHp / (float) max)) : 0f;
     }
 
     /** HP を最大まで回復する（トレーニングモードの無限 HP ダミー用・Task 90）。 */
