@@ -229,8 +229,10 @@ public class Fighter {
             // AIR_TECH_RECOVERY の後に行動可）。被弾でリセットされる airHitstunElapsed により、連続被弾中（多段ジャグル）は
             // 受け身できず、コンボが途切れて初めて抜けられる＝攻撃側の確定ジャグルを残しつつ防御側に脱出択を与える。
             // dizzy（地上の無防備）は対象外（hitstunFrames>0 を要求）。被弾無敵ではない（受け身狩りが成立する）。
+            // ガードクラッシュ（Task 43・`guardBreakFrames`）と投げ抜け硬直（Task 36・`throwTechFrames`）は hitstun を
+            // 流用するため、これらを空中受け身で抜けられないよう除外する（空中ガードクラッシュ等の確定反撃時間を守る・Codex 指摘）。
             boolean airTechInput = attackButton != null || jumpPressed || throwReq;
-            if (!grounded && hitstunFrames > 0
+            if (!grounded && hitstunFrames > 0 && guardBreakFrames <= 0 && throwTechFrames <= 0
                     && airHitstunElapsed >= GameConstants.AIR_TECH_MIN_FRAMES && airTechInput) {
                 hitstunFrames = 0;
                 wallBounceArmed = false;   // 受け身でジャグル（壁/床バウンド）を打ち切る
@@ -673,6 +675,8 @@ public class Fighter {
         wallBounceArmed = false; // ダウンで保留中の壁バウンドをキャンセル（Task 101）
         groundBounceArmed = false; // ダウンで保留中の床バウンドをキャンセル（Task 102）
         recoverableHp = 0; // 非ガード被弾（ダウン）で回復可能ダメージは焼き切れる（Task 104）
+        airHitstunElapsed = 0; // ダウン被弾でも空中受け身の窓/リカバリを打ち切る（Task 126）
+        airTechRecovery = 0;
         // ダッシュ二度押しの受付状態もクリア（Task 60・CodeRabbit 指摘）。ダウン中は dash 検出ブロック（else 側）が
         // 走らず dashTapWindow が減衰しないため、被弾前にアームされた 1 回目のタップが 60F 温存され、起き上がり後の
         // 最初の方向入力で暴発ダッシュになる。窓・方向・前フレーム方向をニュートラルへ戻して保留タップを破棄する。
@@ -708,6 +712,8 @@ public class Fighter {
         guarding = false;    // 投げ（ガード不能）で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;      // 投げ被弾でダッシュをキャンセル（Task 49）
         recoverableHp = 0;   // 投げ被弾で回復可能ダメージは焼き切れる（Task 104）
+        airHitstunElapsed = 0; // 投げ被弾でも空中受け身の窓/リカバリを打ち切る（被弾種別に依らずクリア・Task 126・Codex 指摘）
+        airTechRecovery = 0;
     }
 
     /**
@@ -743,6 +749,8 @@ public class Fighter {
         dashAttacking = false;
         guarding = false; // 投げ抜けで neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;   // 投げ抜けでダッシュをキャンセル（Task 49）
+        airHitstunElapsed = 0; // 投げ抜けでも空中受け身の窓/リカバリを打ち切る（Task 126）
+        airTechRecovery = 0;
     }
 
     /** 投げ抜けの硬直中か（表示ラベルを "tech" にするための判定）（Task 36）。 */
