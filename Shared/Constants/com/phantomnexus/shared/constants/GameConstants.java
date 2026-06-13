@@ -268,4 +268,11 @@ public final class GameConstants {
 
     /** ジャストガード成立の表示フレーム数（Task 81）。状態ラベルに {@code [JUST]} を付す表示専用カウンタの寿命。 */
     public static final int JUST_GUARD_LABEL_FRAMES = 16;
+
+    /**
+     * 削り（chip）ダメージで KO できるか（Task 82）。{@code false}（既定）なら、ガード中の chip ダメージは
+     * HP を 1 未満にしない（最低 1 残す）＝「削り殺し」を禁止する格闘ゲーム定番ルール。打撃 / 投げの<b>非ガード</b>
+     * ヒット（{@code applyHit}/{@code applyThrow}/{@code applyKnockdown}）は通常どおり 0 まで削れる（KO 可能）。
+     */
+    public static final boolean CHIP_DAMAGE_CAN_KO = false;
 }
