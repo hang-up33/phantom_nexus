@@ -35,6 +35,7 @@ public class Fighter {
     private int knockdownFrames;        // ダウン（knockdown）の行動不能フレーム。ダウン中は被弾無敵（Task 60）
     private boolean knockdownInertThisFrame; // このフレームの update 処理前にダウン中だったか（被弾ゲートの 1F ラッチ・Task 60）
     private boolean ukemiRecovery;      // 受け身（クイック起き上がり）が成立中か（ダウン短縮・表示用・Task 66）
+    private boolean hardKnockdown;      // 現在のダウンが受け身不能（hard knockdown）か（Task 88）
     private float velocityX;
     private boolean crouching;
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
@@ -146,7 +147,8 @@ public class Fighter {
             // knockdownFrames から算出。短縮済み（残り ≤ UKEMI_RISE_FRAMES）や窓を過ぎたら無効＝フルダウンを待つ。乱数なし。
             int elapsed = GameConstants.KNOCKDOWN_FRAMES - knockdownFrames;
             boolean ukemiInput = attackButton != null || jumpPressed || throwReq;
-            if (ukemiInput && elapsed <= GameConstants.UKEMI_WINDOW
+            // 受け身不能ダウン（Task 88）はクイック起き上がりを許さない（必ずフルダウン＝起き攻め確定）。
+            if (!hardKnockdown && ukemiInput && elapsed <= GameConstants.UKEMI_WINDOW
                     && knockdownFrames > GameConstants.UKEMI_RISE_FRAMES) {
                 knockdownFrames = GameConstants.UKEMI_RISE_FRAMES;
                 ukemiRecovery = true; // 表示用（クイック起き上がりであることを識別）
@@ -354,6 +356,7 @@ public class Fighter {
         knockdownFrames = 0;
         knockdownInertThisFrame = false;
         ukemiRecovery = false;
+        hardKnockdown = false;
         crouching = false;
         crouchAttacking = false;
         aerialAttacking = false;
@@ -456,11 +459,20 @@ public class Fighter {
      * （{@link #isKnockedDown()} を当たり判定が参照＝起き攻め / OTG なし）。コンボ補正・計数は {@link #applyHit} と同じ。
      */
     public void applyKnockdown(int damage, int knockbackDir) {
+        applyKnockdown(damage, knockbackDir, false);
+    }
+
+    /**
+     * ダウンを適用する（受け身可否つき・Task 88）。{@code hard} が true なら受け身不能ダウン（クイック起き上がり不可＝
+     * 起き攻め確定）。それ以外は {@link #applyKnockdown(int, int)} と同じ（受け身可能）。
+     */
+    public void applyKnockdown(int damage, int knockbackDir, boolean hard) {
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
         applyDamage(scaledComboDamage(damage));
         hitstunFrames = 0;                 // のけぞりではなくダウンへ（ラベル / 優先順が knockdown を表示）
         knockdownFrames = GameConstants.KNOCKDOWN_FRAMES;
-        ukemiRecovery = false;             // 新しいダウン＝受け身を再度受け付ける（Task 66）
+        hardKnockdown = hard;              // 受け身可否（Task 88）
+        ukemiRecovery = false;             // 新しいダウン＝受け身を再度受け付ける（Task 66。hard なら受け付けても短縮しない）
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * GameConstants.KNOCKDOWN_KNOCKBACK_SCALE;
         attackPhase = AttackPhase.NONE;
         attackFrame = 0;
@@ -1053,6 +1065,11 @@ public class Fighter {
     /** 受け身（ukemi・クイック起き上がり）成立中か（Task 66）。ダウン中の早期起き上がりを表示で識別するための判定。 */
     public boolean isUkemiRecovering() {
         return ukemiRecovery && knockdownFrames > 0;
+    }
+
+    /** 現在のダウンが受け身不能（hard knockdown・Task 88）か。ダウン中のみ有効（表示ラベル用）。 */
+    public boolean isHardKnockedDown() {
+        return hardKnockdown && knockdownFrames > 0;
     }
 
     /** 現在このファイターが受けている連続ヒット数（コンボ数）。hitstun が切れると 0 に戻る（Task 39）。 */
