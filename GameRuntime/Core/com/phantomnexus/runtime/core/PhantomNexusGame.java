@@ -472,14 +472,26 @@ public class PhantomNexusGame extends ApplicationAdapter {
                     break;
             }
         }
+        // カウンターヒット（Task 71）：相手の攻撃 startup 中（技を出しきる前）に打撃を当てたら差し返し成立。
+        // ガード成立時は対象外（防御を崩したわけではない）。ダメージを COUNTER_HIT_DAMAGE_SCALE 倍にし、
+        // 通常ヒットは hitstun を COUNTER_HIT_BONUS_HITSTUN 上乗せして追撃を繋ぎやすくする。乱数なし＝決定的。
+        boolean counter = !blocked && defender.getAttackPhase() == com.phantomnexus.runtime.battle.AttackPhase.STARTUP;
+        int dealtDamage = counter
+                ? Math.max(1, Math.round(hb.getDamage() * GameConstants.COUNTER_HIT_DAMAGE_SCALE))
+                : hb.getDamage();
         if (blocked) {
             // ガード成立：chip ダメージのみ（のけぞりなし）。
             defender.applyGuard(hb.getDamage(), knockbackDir);
         } else if (attacker.getCurrentMove() != null && attacker.getCurrentMove().isKnockdown()) {
             // ダウン技（Task 60）：非ガードヒットで相手をダウンさせる（通常のけぞりの代わり・ダウン中無敵）。
-            defender.applyKnockdown(hb.getDamage(), knockbackDir);
+            // ダウンは既に長い拘束のため hitstun ボーナスは加えず、カウンター時はダメージ倍率のみ適用する。
+            defender.applyKnockdown(dealtDamage, knockbackDir);
         } else {
-            defender.applyHit(hb.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+            int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
+            defender.applyHit(dealtDamage, hitstun, knockbackDir);
+        }
+        if (counter) {
+            defender.markCounterHit(); // 被弾ラベルに (CH) を付す（差し返しの証跡）
         }
         // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべ、同位置に火花を出す。
         float sparkX = hb.getX() + hb.getWidth() / 2f;

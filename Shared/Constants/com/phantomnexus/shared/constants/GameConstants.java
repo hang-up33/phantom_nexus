@@ -222,4 +222,24 @@ public final class GameConstants {
      * 攻撃の startup〜active 間に前方へスライドしてから止まる（既存の velocityX 適用経路を流用）。
      */
     public static final float DASH_ATTACK_LUNGE_SPEED = 14f;
+
+    /**
+     * カウンターヒット（Task 71）のダメージ倍率。相手の攻撃 <b>startup 中</b>（技を出しきる前）に打撃を当てると
+     * 「差し返し（counter hit）」として与ダメージをこの倍率で増やす。攻撃を振る側のリスクを表現し、
+     * 置き / 差し込みの読み合いに価値を与える。倍率のみで乱数なし（入力リプレイの決定性を保つ）。
+     */
+    public static final float COUNTER_HIT_DAMAGE_SCALE = 1.3f;
+
+    /**
+     * カウンターヒット成立時に上乗せするのけぞり（hitstun）フレーム数（Task 71）。通常 {@link #HITSTUN_FRAMES} に
+     * 加算し、カウンターから追撃（コンボ）が繋がりやすくする。ダウン技のカウンターはダウンが既に長いため
+     * ダメージ倍率のみ適用しこのボーナスは加えない。
+     */
+    public static final int COUNTER_HIT_BONUS_HITSTUN = 8;
+
+    /**
+     * カウンターヒットを受けた側の表示フレーム数（Task 71）。被弾ラベルに {@code (CH)} を付して識別する表示専用カウンタの寿命。
+     * のけぞりと同程度で十分（カウンター被弾＝差し返された証跡をスクショで読めるようにする）。
+     */
+    public static final int COUNTER_HIT_LABEL_FRAMES = HITSTUN_FRAMES + COUNTER_HIT_BONUS_HITSTUN;
 }
