@@ -216,6 +216,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `armorHits` | int | 任意 | スーパーアーマー数（Task 80）。技の **startup 中**に被弾してものけぞらず継続できる回数。省略時 `0`＝アーマーなし（後方互換）。ダメージは受けるが hitstun に入らない。投げ（ガード不能）は貫通する |
 | `launch` | float | 任意 | 浮かせ（launch・Task 83）の上方初速（px/frame）。`> 0` で非ガードヒット時に相手を打ち上げて空中やられ（ジャグル起点）にする。省略時 `0`＝打ち上げなし（後方互換）。`knockdown` とは排他（ダウンが優先） |
 | `otg` | bool | 任意 | OTG（追い打ち・Task 85）。`true` なら**ダウン中（Task 60）の相手にも当たる**（通常はダウン中無敵で当たらない）。省略時 `false`（後方互換）。無敵リバーサル中の相手は貫通しない |
+| `hardKnockdown` | bool | 任意 | 受け身不能ダウン（Task 88）。`knockdown:true` の技にさらに付けると、食らった相手は受け身（Task 66）でクイック起き上がりできず必ずフルダウン＝起き攻め確定。省略時 `false`（後方互換）。`knockdown=false` では無意味 |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -338,6 +339,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 88) `Move` に任意 bool `hardKnockdown`（受け身不能ダウン・既定 false＝後方互換）を追加。`knockdown:true` の技に付けると食らった相手は受け身（Task 66）でクイック起き上がりできず必ずフルダウン（起き攻め確定）。`Fighter.applyKnockdown(damage,dir,hard)` オーバーロード＋`hardKnockdown` フィールドで、ukemi 短縮分岐を `!hardKnockdown` でゲート。`GameRenderer` が `knockdown(hard)` ラベルを表示。任意フィールドのためローダ追加検証なし。例示として fighter011 の `overhead_smash` に `hardKnockdown:true`。`knockdown=false` の技では無意味。戦闘仕様は BattleSystem.md「ダウン（knockdown）（Task 60）」節の受け身不能追記を参照。`Move` の normal/special 両フィールド表に `hardKnockdown` を追加。
 - (Task 87) 12 体目キャラ `Assets/Characters/fighter012.json`（"Daichi"・HP860・**浮かせ＋空中機動の juggle 型**の brown）＋プレースホルダ・スプライト `fighter012.png` を追加。`Character` の JSON 仕様は不変（11 体目 fighter011 に続く 12 体目）。アーキタイプ：`airJumps:1` の機動、中攻撃 `lift_kick` に **`launch:9.0`（Task 83）** で打ち上げ→空中コンボの起点、飛び道具 `boulder_shot`、地上投げ＋空中投げ。撮影は `-x p1char=fighter012` / `-x p2char=fighter012`。
 - (Task 85) `Move` に任意 bool `otg`（追い打ち・既定 false＝後方互換）を追加。`true` の技は `CollisionSystem.isHitting` でダウン中（Task 60）の相手にも当たる（通常はダウン中無敵で whiff）。無敵リバーサル中（`invincibleFrames`）の相手は貫通しない。任意フィールドのためローダ追加検証なし。例示として fighter011 の `hook` に `otg:true`＋低 hitbox（ダウン追撃の拾い）。戦闘仕様は BattleSystem.md「ダウン（knockdown）（Task 60）」節の OTG 追記を参照。`Move` の normal/special 両フィールド表に `otg` を追加。
 - (Task 84) 11 体目キャラ `Assets/Characters/fighter011.json`（"Goro"・HP1100・**アーマー技を持つ重量級ブルーザー型**の olive）＋プレースホルダ・スプライト `fighter011.png` を追加。`Character` の JSON 仕様は不変（10 体目 fighter010 に続く 11 体目）。アーキタイプ：遅い `walkSpeed4.0`・高 HP・`stunThreshold:360`（崩れにくい）、中攻撃 `armor_shoulder` に **`armorHits:1`（Task 80）** で押し込む、強攻撃 `overhead_smash` は overhead＋`knockdown:true`、必殺技 `earthshaker`（CHARGE_SHOT・`invincibleFrames:8` の無敵リバーサル・飛び道具なし）。撮影は `-x p1char=fighter011` / `-x p2char=fighter011`。
