@@ -275,6 +275,9 @@ public class Fighter {
             // 相手が受け身を釣って再度浮かせ直せる（受け身狩り）。リカバリ後（=0）は通常の滞空行動が可能になる。
             crouching = false;
             this.moveDir = 0;
+            // リカバリ中は行動不能＝ガードもできない（後退保持で update 冒頭の guarding が true になっても打ち消す）。
+            // これを落とさないと受け身後に後退保持で打撃/飛び道具を防げてしまい「受け身狩り可」が崩れる（Codex 指摘）。
+            guarding = false;
             airTechRecovery--;
         } else {
             // ガード knockback：hitstun 無しでも velocityX（applyGuard 由来）を位置へ反映する。
