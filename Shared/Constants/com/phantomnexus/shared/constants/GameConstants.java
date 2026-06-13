@@ -330,4 +330,18 @@ public final class GameConstants {
      * 赤ゲージ 1 ポイントを白 HP へ戻す。小さいほど速く回復する（3＝約 20HP/秒）。
      */
     public static final int RECOVERABLE_HP_REGEN_INTERVAL = 3;
+
+    /**
+     * パリィ（parry・Task 105）の受付窓（フレーム数）。<b>前方</b>（相手方向）を押し始めてからこのフレーム数以内に
+     * 攻撃が当たると「パリィ」成立＝ダメージ・chip・のけぞりなしで完全に弾き、攻撃側の硬直を反撃確定にできる。
+     * ジャストガード（後退入力・Task 81）と対になる前方入力の防御テク。前方を押しっぱなし（前進）では成立せず、
+     * ヒット直前に合わせて<b>タップし直した</b>反応のみ成立する（小さく＝シビア）。投げはパリィできない。
+     */
+    public static final int PARRY_WINDOW = 5;
+
+    /** パリィ成立時に獲得する必殺技ゲージ量（Task 105）。リスクの高い前方反応への見返り（ジャストガードより多め）。 */
+    public static final float PARRY_METER = 14f;
+
+    /** パリィ成立の表示フレーム数（Task 105）。状態ラベル "parry" を出す表示専用カウンタの寿命（行動はロックしない＝即反撃可）。 */
+    public static final int PARRY_LABEL_FRAMES = 14;
 }

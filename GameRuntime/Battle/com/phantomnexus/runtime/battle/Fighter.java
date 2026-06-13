@@ -51,6 +51,8 @@ public class Fighter {
     private int wallBounceFrames;       // 壁バウンド成立（跳ね返り）直後の表示フレーム（ラベル wall_bounce・Task 101）
     private boolean groundBounceArmed;  // 床バウンド技を食らい、まだ着地して跳ね返っていない状態（Task 102）
     private int groundBounceFrames;     // 床バウンド成立（跳ね返り）直後の表示フレーム（ラベル ground_bounce・Task 102）
+    private int forwardHeldFrames;      // 前方（相手方向）を押し続けているフレーム数（パリィ判定用・Task 105）
+    private int parryFrames;            // パリィ成立直後の表示フレーム（ラベル "parry"・行動はロックしない・Task 105）
     private int recoverableHp;          // 回復可能ダメージ（レッドライフ・ガード chip 分・無被弾で白 HP へ戻る・Task 104）
     private int recoverDelay;           // 回復開始までの遅延フレーム（被弾のたびにリセット・Task 104）
     private int recoverTick;            // 回復間隔のカウンタ（Task 104）
@@ -113,6 +115,10 @@ public class Fighter {
         if (groundBounceFrames > 0) {
             groundBounceFrames--;
         }
+        // パリィ成立の表示フレームを減衰（Task 105・ラベル表示専用・行動はロックしない）。
+        if (parryFrames > 0) {
+            parryFrames--;
+        }
         // ジャストガード成立の表示フレームを減衰（Task 81。ラベルの [JUST] 表示専用）。
         if (justGuardFrames > 0) {
             justGuardFrames--;
@@ -158,6 +164,12 @@ public class Fighter {
         // ジャストガード判定用：ガード連続保持フレームを数える（Task 81）。保持し始めて JUST_GUARD_WINDOW 以内の
         // ガード成立はジャストガード（chip / ゲージ削りなし＋メーター獲得）になる。非ガードで 0 リセット。
         guardHeldFrames = guarding ? guardHeldFrames + 1 : 0;
+        // パリィ判定用（Task 105）：前方（相手方向）を押し続けているフレーム数を数える。押し始めて PARRY_WINDOW 以内に
+        // 攻撃を受けるとパリィ成立。押しっぱなし（前進）では窓を超えて不成立＝タップし直した反応のみ拾う（just-guard の前方版）。
+        int forwardDir = facingRight ? 1 : -1;
+        boolean pressingForward = hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0
+                                  && attackPhase == AttackPhase.NONE && grounded && moveDir == forwardDir;
+        forwardHeldFrames = pressingForward ? forwardHeldFrames + 1 : 0;
         // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43。ガード中は減る一方）。
         if (!guarding && guardBreakFrames <= 0 && guardGauge < GameConstants.GUARD_GAUGE_MAX) {
             guardGauge = Math.min(GameConstants.GUARD_GAUGE_MAX,
@@ -424,6 +436,8 @@ public class Fighter {
         recoverableHp = 0;
         recoverDelay = 0;
         recoverTick = 0;
+        forwardHeldFrames = 0;
+        parryFrames = 0;
         stunMeter = 0;
         dizzyFrames = 0;
         guarding = false;
@@ -684,6 +698,31 @@ public class Fighter {
     /** 直近に床バウンド（跳ね返り）が成立したか（表示ラベルを "ground_bounce" にするための判定・Task 102）。 */
     public boolean isGroundBounced() {
         return groundBounceFrames > 0;
+    }
+
+    /**
+     * パリィ可能な状態か（Task 105）。前方（相手方向）を押し始めて {@link GameConstants#PARRY_WINDOW} 以内＝
+     * タップし直した反応のみ true（前進の押しっぱなしは窓を超えて false）。中立（攻撃/のけぞり/ダウン/めまいでない）が前提
+     * （{@code forwardHeldFrames} の算出自体がそれらを除外している）。投げはパリィできない（{@code resolveHit} の打撃判定でのみ参照）。
+     */
+    public boolean canParry() {
+        return forwardHeldFrames >= 1 && forwardHeldFrames <= GameConstants.PARRY_WINDOW;
+    }
+
+    /**
+     * パリィ（Task 105）を適用する。攻撃を<b>ダメージ・chip・のけぞりなしで完全に弾く</b>。行動はロックしないため
+     * 攻撃側の硬直を即座に反撃確定にできる（ジャストガードより攻めの見返りが大きい committal な防御テク）。
+     * 表示用 `parryFrames` を立て、メーターを獲得する。位置・速度は変えない（その場で弾く）。
+     */
+    public void applyParry() {
+        parryFrames = GameConstants.PARRY_LABEL_FRAMES;
+        forwardHeldFrames = 0; // 同じ前方押しで次フレームに連続パリィしない（タップし直しを要求）
+        gainMeter(GameConstants.PARRY_METER);
+    }
+
+    /** 直近にパリィが成立したか（表示ラベルを "parry" にするための判定・Task 105）。 */
+    public boolean isParrying() {
+        return parryFrames > 0;
     }
 
     /**
