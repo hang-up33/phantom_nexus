@@ -56,6 +56,7 @@
     {
       "id": "stone_fist",
       "button": "heavy",
+      "wallBounce": true,
       "damage": 96,
       "startup": 10,
       "active": 4,

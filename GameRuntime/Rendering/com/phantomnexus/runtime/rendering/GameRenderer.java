@@ -779,6 +779,9 @@ public class GameRenderer {
         } else if (f.isDizzy()) {
             // めまい（Task 79）。HITSTUN ポーズを流用しつつ dizzy ラベルで識別（被弾無敵ではない無防備硬直）。
             stateLabel = "dizzy";
+        } else if (f.isWallBounced()) {
+            // 壁バウンド成立（Task 101）。HITSTUN を流用しつつ wall_bounce ラベルで跳ね返りを識別する。
+            stateLabel = "wall_bounce";
         } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {

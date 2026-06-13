@@ -47,6 +47,8 @@ public class Fighter {
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
     private int counterHitFrames;       // カウンターヒットを受けた直後の表示フレーム（ラベルに (CH) を付す・Task 71）
+    private boolean wallBounceArmed;    // 壁バウンド技を食らい、まだ壁に当たって跳ね返っていない状態（Task 101）
+    private int wallBounceFrames;       // 壁バウンド成立（跳ね返り）直後の表示フレーム（ラベル wall_bounce・Task 101）
     private int stunMeter;              // 蓄積中のスタン値（被弾で増え非被弾で減衰・しきい値超えでめまい・Task 79）
     private int dizzyFrames;            // めまい（dizzy）の無防備行動不能フレーム（被弾無敵ではない＝フルコンボ確定・Task 79）
     private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
@@ -97,6 +99,10 @@ public class Fighter {
         // カウンターヒット被弾の表示フレームを減衰（Task 71。ラベルの (CH) 表示専用・拘束は hitstunFrames が担う）。
         if (counterHitFrames > 0) {
             counterHitFrames--;
+        }
+        // 壁バウンド成立（跳ね返り）の表示フレームを減衰（Task 101・ラベル表示専用・拘束は hitstunFrames が担う）。
+        if (wallBounceFrames > 0) {
+            wallBounceFrames--;
         }
         // ジャストガード成立の表示フレームを減衰（Task 81。ラベルの [JUST] 表示専用）。
         if (justGuardFrames > 0) {
@@ -178,6 +184,16 @@ public class Fighter {
             }
             x += velocityX;
             clampToStage();
+            // 壁バウンド（Task 101）：壁バウンド技を食らって横へ飛ばされ、画面端（壁）に達したら一度だけ跳ね返る。
+            // 反対方向へ WALL_BOUNCE_REBOUND_SCALE 倍の速度で戻し、再び浮かせて（POP）のけぞりを延長＝跳ね返り際を追撃可能。
+            if (wallBounceArmed && atStageEdge() && pushingIntoEdge()) {
+                velocityX = -velocityX * GameConstants.WALL_BOUNCE_REBOUND_SCALE;
+                velocityY = GameConstants.WALL_BOUNCE_POP;
+                grounded = false;
+                hitstunFrames += GameConstants.WALL_BOUNCE_BONUS_HITSTUN;
+                wallBounceArmed = false;
+                wallBounceFrames = GameConstants.WALL_BOUNCE_LABEL_FRAMES;
+            }
             velocityX *= GameConstants.KNOCKBACK_FRICTION;
             if (Math.abs(velocityX) < 0.1f) {
                 velocityX = 0f;
@@ -366,6 +382,8 @@ public class Fighter {
         throwTechFrames = 0;
         comboCount = 0;
         counterHitFrames = 0;
+        wallBounceArmed = false;
+        wallBounceFrames = 0;
         stunMeter = 0;
         dizzyFrames = 0;
         guarding = false;
@@ -439,6 +457,7 @@ public class Fighter {
         guardBreakFrames = 0; // ガードクラッシュ硬直中にフル被弾したらラベルをのけぞりへ戻す（Task 43）
         guarding = false;    // 被弾で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;      // 被弾でダッシュをキャンセル（Task 49）
+        wallBounceArmed = false; // 新たな被弾で保留中の壁バウンドをキャンセル（Task 101。applyWallBounce はこの後に再アーム）
     }
 
     /**
@@ -450,6 +469,17 @@ public class Fighter {
         applyHit(damage, hitstun, knockbackDir);
         velocityY = launchVelocity; // 上方初速で打ち上げ（重力は update 末尾で毎フレーム適用＝弧を描いて落下）
         grounded = false;
+    }
+
+    /**
+     * 壁バウンド（wall bounce・Task 101）を適用する。{@link #applyHit} に加えて相手を強い水平初速で横へ吹き飛ばし、
+     * 画面端（壁）に達したら {@code update} 内で一度だけ跳ね返って再び浮く（画面端ジャグルの延長）。
+     * {@code applyHit} がダメージ / コンボ計数 / 各種クリアを行うため、{@code wallBounceArmed} はその後に立てる。
+     */
+    public void applyWallBounce(int damage, int hitstun, int knockbackDir) {
+        applyHit(damage, hitstun, knockbackDir);
+        velocityX = knockbackDir * GameConstants.WALL_BOUNCE_SPEED; // 強い水平吹き飛ばし（壁へ向かう）
+        wallBounceArmed = true; // applyHit の後に立てる（applyHit がクリアするため）
     }
 
     /**
@@ -487,6 +517,7 @@ public class Fighter {
         guardBreakFrames = 0;
         guarding = false;
         dashFrames = 0;
+        wallBounceArmed = false; // ダウンで保留中の壁バウンドをキャンセル（Task 101）
         // ダッシュ二度押しの受付状態もクリア（Task 60・CodeRabbit 指摘）。ダウン中は dash 検出ブロック（else 側）が
         // 走らず dashTapWindow が減衰しないため、被弾前にアームされた 1 回目のタップが 60F 温存され、起き上がり後の
         // 最初の方向入力で暴発ダッシュになる。窓・方向・前フレーム方向をニュートラルへ戻して保留タップを破棄する。
@@ -575,6 +606,11 @@ public class Fighter {
     /** 直近にカウンターヒットを受けたか（表示ラベルに {@code (CH)} を付すための判定・Task 71）。 */
     public boolean isCounterHit() {
         return counterHitFrames > 0;
+    }
+
+    /** 直近に壁バウンド（跳ね返り）が成立したか（表示ラベルを "wall_bounce" にするための判定・Task 101）。 */
+    public boolean isWallBounced() {
+        return wallBounceFrames > 0;
     }
 
     /**
@@ -760,6 +796,19 @@ public class Fighter {
         } else if (x > GameConstants.WORLD_WIDTH - half) {
             x = GameConstants.WORLD_WIDTH - half;
         }
+    }
+
+    /** 画面端（壁）に接しているか（{@link #clampToStage} でクランプされた位置か）。壁バウンド判定用（Task 101）。 */
+    private boolean atStageEdge() {
+        float half = def.getWidth() / 2f;
+        return x <= half + 0.5f || x >= GameConstants.WORLD_WIDTH - half - 0.5f;
+    }
+
+    /** 現在の水平速度が壁の方向へ向かっているか（壁バウンドの跳ね返り判定用・Task 101）。 */
+    private boolean pushingIntoEdge() {
+        float half = def.getWidth() / 2f;
+        return (x <= half + 0.5f && velocityX < 0f)
+                || (x >= GameConstants.WORLD_WIDTH - half - 0.5f && velocityX > 0f);
     }
 
     /** 押し合い解消などで中心 X を移動させ、画面端にクランプする。 */

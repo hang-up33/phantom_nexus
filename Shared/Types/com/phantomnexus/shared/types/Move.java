@@ -96,6 +96,13 @@ public class Move {
      */
     private boolean noTech = false;
     /**
+     * 壁バウンド（wall bounce・Task 101）。{@code true} の技を非ガードでヒットさせると、相手を強い水平初速で
+     * <b>横方向に吹き飛ばし</b>、画面端（壁）に到達すると<b>跳ね返って再び浮く</b>＝画面端ジャグルの延長点になる。
+     * のけぞり中＝無防備なので、跳ね返り際を追撃できる。既定 {@code false}（後方互換）。ダウン技（{@code knockdown}）とは
+     * 排他（ダウンが優先）。浮かせ（{@code launch}）より優先して解決する。
+     */
+    private boolean wallBounce = false;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -249,6 +256,11 @@ public class Move {
     /** 投げ抜け不能（command throw・Task 94）か。{@code true} なら相手は投げ抜け（Task 36）できない確定の掴み。既定 {@code false}。 */
     public boolean isNoTech() {
         return noTech;
+    }
+
+    /** 壁バウンド（Task 101）か。{@code true} なら相手を横へ吹き飛ばし画面端で跳ね返らせる（画面端ジャグル延長）。既定 {@code false}（後方互換）。 */
+    public boolean isWallBounce() {
+        return wallBounce;
     }
 
     /**

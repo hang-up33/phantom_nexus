@@ -561,8 +561,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             defender.applyKnockdown(dealtDamage, knockbackDir, attacker.getCurrentMove().isHardKnockdown());
         } else {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
+            boolean wallBounce = attacker.getCurrentMove() != null && attacker.getCurrentMove().isWallBounce();
             float launch = attacker.getCurrentMove() != null ? attacker.getCurrentMove().getLaunch() : 0f;
-            if (launch > 0f) {
+            if (wallBounce) {
+                // 壁バウンド技（Task 101）：相手を横へ吹き飛ばし、画面端で跳ね返らせて再び浮かせる（画面端ジャグル延長）。
+                // 浮かせより優先（同時指定なら横飛ばし＋壁跳ね返りを採用）。
+                defender.applyWallBounce(dealtDamage, hitstun, knockbackDir);
+            } else if (launch > 0f) {
                 // 浮かせ技（Task 83）：相手を打ち上げて空中やられ（ジャグル起点）にする。
                 defender.applyLaunch(dealtDamage, hitstun, knockbackDir, launch);
             } else {
