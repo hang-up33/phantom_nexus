@@ -1,0 +1,124 @@
+{
+  "id": "fighter015",
+  "name": "Aki",
+  "hp": 900,
+  "walkSpeed": 5.4,
+  "jumpPower": 13.2,
+  "airJumps": 1,
+  "width": 80,
+  "height": 214,
+  "color": [0.65, 0.84, 0.22],
+  "sprite": {
+    "path": "Characters/fighter015.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "double_jab",
+      "button": "light",
+      "hits": 2,
+      "hitGap": 4,
+      "damage": 28,
+      "startup": 4,
+      "active": 9,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 124,
+      "hitboxWidth": 80,
+      "hitboxHeight": 30
+    },
+    {
+      "id": "rising_kick",
+      "button": "medium",
+      "launch": 9.5,
+      "damage": 64,
+      "startup": 8,
+      "active": 4,
+      "recovery": 16,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 90,
+      "hitboxWidth": 84,
+      "hitboxHeight": 64
+    },
+    {
+      "id": "crescent",
+      "button": "heavy",
+      "knockdown": true,
+      "damage": 110,
+      "startup": 11,
+      "active": 4,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 95,
+      "hitboxWidth": 96,
+      "hitboxHeight": 56
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "leaf_shot",
+      "command": "HADOUKEN",
+      "damage": 78,
+      "startup": 9,
+      "active": 3,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 112,
+      "hitboxWidth": 48,
+      "hitboxHeight": 48,
+      "projectile": true,
+      "projectileSpeed": 11.5
+    },
+    {
+      "id": "whirl_uppercut",
+      "command": "CHARGE_SHOT",
+      "invincibleFrames": 8,
+      "launch": 10.0,
+      "damage": 100,
+      "startup": 5,
+      "active": 6,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 60,
+      "hitboxWidth": 80,
+      "hitboxHeight": 110
+    }
+  ],
+  "throwMove": {
+    "id": "vine_throw",
+    "damage": 125,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 138
+  },
+  "airThrowMove": {
+    "id": "air_vine",
+    "damage": 108,
+    "startup": 3,
+    "active": 3,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 50,
+    "hitboxWidth": 54,
+    "hitboxHeight": 116
+  }
+}
