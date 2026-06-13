@@ -137,6 +137,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 70 | 空中投げ（滞空中の相手専用のガード不能掴み・JSON `airThrowMove` でデータ化） | ✅ 完了 |
 | 71 | カウンターヒット（相手の攻撃 startup 中に打撃を当てるとダメージ増＋のけぞり延長） | ✅ 完了 |
 | 72 | 9 体目キャラ追加（fighter009 Hayato・高 HP の charge zoner 型・JSON のみで追加） | ✅ 完了 |
+| 73 | 第3ステージ追加（stage003 Crimson Dusk・JSON のみで背景差し替え検証） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
