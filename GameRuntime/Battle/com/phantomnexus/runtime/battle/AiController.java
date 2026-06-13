@@ -153,6 +153,15 @@ public final class AiController {
         if (cooldown > 0) {
             cooldown--;
         }
+        // AI 受け身（ukemi・Task 75・HARD のみ）：ダウン中（行動不能）の間は毎フレーム行動入力を出し、受付窓
+        // （Task 66・Fighter 側が持つ）内なら最早フレームでクイック起き上がりする＝起き攻めへの対抗。窓は AI から
+        // 見えないが、Fighter が窓外の入力を無視するので「ダウン中は入力し続ける」だけで成立する。`!canStartAction()`
+        // で起き上がり確定フレーム（ラッチで isKnockedDown が true でも canStartAction が回復するフレーム）を除外し、
+        // そこで通常技が暴発しないようにする。乱数なし＝決定的（自分のダウン状態のみで判断・入力リプレイと両立）。
+        if (difficulty == Difficulty.HARD && self.isKnockedDown() && !self.canStartAction()) {
+            self.update(0, false, AttackButton.LIGHT, false, false);
+            return;
+        }
         float dx = opponent.getX() - self.getX();
         float distance = Math.abs(dx);
         int towardDir = dx >= 0 ? 1 : -1; // 相手の方向
