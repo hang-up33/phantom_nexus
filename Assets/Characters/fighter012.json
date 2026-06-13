@@ -1,0 +1,107 @@
+{
+  "id": "fighter012",
+  "name": "Daichi",
+  "hp": 860,
+  "walkSpeed": 5.5,
+  "jumpPower": 14.0,
+  "airJumps": 1,
+  "width": 80,
+  "height": 212,
+  "color": [0.62, 0.44, 0.26],
+  "sprite": {
+    "path": "Characters/fighter012.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "palm",
+      "button": "light",
+      "damage": 40,
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 122,
+      "hitboxWidth": 80,
+      "hitboxHeight": 32
+    },
+    {
+      "id": "lift_kick",
+      "button": "medium",
+      "launch": 9.0,
+      "damage": 62,
+      "startup": 8,
+      "active": 4,
+      "recovery": 16,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 95,
+      "hitboxWidth": 86,
+      "hitboxHeight": 58
+    },
+    {
+      "id": "stone_fist",
+      "button": "heavy",
+      "damage": 96,
+      "startup": 10,
+      "active": 4,
+      "recovery": 21,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 94,
+      "hitboxHeight": 48
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "boulder_shot",
+      "command": "HADOUKEN",
+      "damage": 85,
+      "startup": 10,
+      "active": 3,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 52,
+      "hitboxHeight": 52,
+      "projectile": true,
+      "projectileSpeed": 9.5
+    }
+  ],
+  "throwMove": {
+    "id": "seismic_toss",
+    "damage": 130,
+    "startup": 4,
+    "active": 2,
+    "recovery": 21,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 140
+  },
+  "airThrowMove": {
+    "id": "air_slam",
+    "damage": 112,
+    "startup": 3,
+    "active": 3,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 50,
+    "hitboxWidth": 56,
+    "hitboxHeight": 118
+  }
+}
