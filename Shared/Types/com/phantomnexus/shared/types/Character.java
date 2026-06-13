@@ -34,6 +34,12 @@ public class Character {
      */
     private int airDashes;
     /**
+     * ラン（run・任意, 既定 false, Task 123）。{@code true} のキャラは前ダッシュ（二度押し）中に前方を保持し続けると
+     * ダッシュが継続して<b>走り続ける</b>（離すと停止）。{@code false}（既定）は従来どおり固定長の前ステップ（後方互換）。
+     * 機動型キャラの差別化。バックステップ（後ダッシュ）は run 対象外で常に固定長。
+     */
+    private boolean canRun;
+    /**
      * めまい（dizzy / stun・Task 79）の発生しきい値。被弾で蓄積したスタン値がこの値以上になるとめまいに陥る。
      * 任意・既定 0＝<b>めまい無効</b>（後方互換＝この値を設定したキャラだけがめまいする）。値が小さいほどめまいしやすい。
      */
@@ -115,6 +121,11 @@ public class Character {
     /** 空中ダッシュの回数（air dash・既定 0＝空中ダッシュなし、Task 69）。負値は 0 に丸める。 */
     public int getAirDashes() {
         return Math.max(0, airDashes);
+    }
+
+    /** ラン（Task 123）か。{@code true} なら前ダッシュ中の前方保持で走り続ける。既定 {@code false}（後方互換）。 */
+    public boolean isCanRun() {
+        return canRun;
     }
 
     /** めまい発生しきい値（Task 79・既定 0＝めまい無効＝後方互換）。負値は 0 に丸める。 */

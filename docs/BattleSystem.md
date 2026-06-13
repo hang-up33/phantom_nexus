@@ -1036,6 +1036,7 @@ HARD の AI が、**必殺技ゲージ満タン**かつ間合い内（`GUARD_RAN
 
 ## 変更履歴
 
+- (Task 123) ラン（run）を追記。`Character.canRun`（任意・既定 false）の キャラは前ダッシュ（二度押し）中に前方を保持し続けると `Fighter` のダッシュ分岐が `dashFrames` を更新して走り続ける（離すと停止・バックステップは固定長・grounded のみ）。表示ラベル `run`（`isRunning()`＝`running && dashFrames>0`）。fighter019 Mei に `canRun:true`。`canRun=false`（既定）は従来の固定長前ステップ＝後方互換。乱数なし＝決定的。DataFormat.md にもフィールド/変更履歴を追加。
 - (Task 122) ディレイ起き上がりを追記。`GameConstants.DELAY_WAKEUP_MAX`＋`Fighter` の `delayWakeupFrames`/`delayWakeupActive`。ダウン中の下押しで起き上がりタイマーを最大 24F 凍結（受け身と対の遅起き択・無敵維持）。`applyKnockdown`/`reset` でリセット、ラベル `knockdown(delay)`。乱数なし＝決定的。ダウン後に下を保持する既存リプレイは起き上がり時刻が変わり得る（戦闘仕様変更）。「ディレイ起き上がり（Task 122）」節・冒頭サマリを追加。
 - (Task 121) コンボ累計ダメージ HUD を追記。`Fighter.comboDamage`＋`applyComboDamage`（既存 4 経路の `applyDamage(scaledComboDamage)` を集約）でコンボ補正後の実ダメージ和を蓄積、`drawComboCounter` に `D DMG` 行を追加。新規コンボで上書き・`reset()` で 0。純表示＝戦闘無影響・決定的。「コンボ累計ダメージ HUD（Task 121）」節・冒頭サマリを追加。
 - (Task 117) キャラクター選択画面を追記。`ROSTER_IDS`(18)＋`rosterNames`(遅延)＋`charCursor`/`charSelP1`/`charSelP2`/`charP1Locked`、`updateCharacterSelect`/`enterCharacterSelect`/`ensureRosterLoaded`/`startBattle`、`render()` の CHARACTER_SELECT 分岐、`GameRenderer.renderCharacterSelect`。タイトル VERSUS→キャラ選択→（P1/P2 確定）→バトル。トレーニングは即バトル。純 UI＝戦闘無影響・決定的・既存レシピ/リプレイ不変。「画面フロー：キャラクター選択画面（Task 117）」節・冒頭サマリを追加。

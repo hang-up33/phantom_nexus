@@ -6,6 +6,7 @@
   "jumpPower": 15.0,
   "airJumps": 1,
   "airDashes": 1,
+  "canRun": true,
   "color": [0.353, 0.863, 0.706],
   "width": 78,
   "height": 200,
