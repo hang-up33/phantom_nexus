@@ -1,0 +1,7 @@
+{
+  "id": "stage006",
+  "name": "Sakura Court",
+  "skyTop": [0.55, 0.70, 0.90],
+  "skyBottom": [0.96, 0.80, 0.88],
+  "groundColor": [0.40, 0.30, 0.34]
+}
