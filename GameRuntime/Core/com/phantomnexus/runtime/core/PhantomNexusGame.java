@@ -475,7 +475,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 投げ抜けは地上投げ限定（空中投げ＝committal な対空択で抜けられない・Task 70）。種別は発動した Move で固定
         // （isAirThrowing）するので、接地直後にジャンプした相手の残存 tech 窓で空中投げが抜かれる境界も塞がる。
         if (attacker.isThrowing()) {
-            if (!attacker.isAirThrowing() && defender.canTechThrow()) {
+            // 投げ抜け不能（command throw・Task 94）の投げは tech 窓を無視して必ず掴む（地上投げの抜け判定をスキップ）。
+            Move throwMove = attacker.getCurrentMove();
+            boolean noTech = throwMove != null && throwMove.isNoTech();
+            if (!noTech && !attacker.isAirThrowing() && defender.canTechThrow()) {
                 // 投げ抜け成立：両者をノーダメージで反対方向へ弾き、短い硬直に入れる（ガード不能投げ唯一の対抗策）。
                 defender.applyThrowTech(knockbackDir);
                 attacker.applyThrowTech(-knockbackDir);
