@@ -40,6 +40,7 @@ public final class RoundManager {
     private boolean roundFinished = false;
     private Winner roundWinner = Winner.NONE;
     private FinishReason roundReason = FinishReason.NONE;
+    private boolean roundPerfect = false; // この決着ラウンドを勝者がノーダメージで取ったか（PERFECT 演出・Task 127）
 
     // Match state
     private boolean matchOver = false;
@@ -103,6 +104,7 @@ public final class RoundManager {
             roundFinished = true;
             roundReason = FinishReason.KO;
             roundWinner = (ko1 && ko2) ? Winner.DRAW : (ko2 ? Winner.P1 : Winner.P2);
+            roundPerfect = computeRoundPerfect(p1, p2);
             finishRound();
             return;
         }
@@ -113,6 +115,7 @@ public final class RoundManager {
             roundFinished = true;
             roundReason = FinishReason.TIMEOUT;
             roundWinner = decideByHp(p1, p2);
+            roundPerfect = computeRoundPerfect(p1, p2);
             finishRound();
         }
     }
@@ -148,7 +151,23 @@ public final class RoundManager {
         roundFinished = false;
         roundWinner = Winner.NONE;
         roundReason = FinishReason.NONE;
+        roundPerfect = false; // 新ラウンド開始で PERFECT 状態をクリア（Task 127）
         introCountdown = introFrames; // 新ラウンドも開始イントロを再生
+    }
+
+    /**
+     * 決着したラウンドを勝者が**ノーダメージ**（HP 満タンのまま）で取ったか（PERFECT 演出・Task 127）。
+     * 勝者の現在 HP が最大 HP と一致すれば true（chip を赤ゲージ回復で取り返した場合も満タンなら PERFECT）。
+     * 引き分け / 未決着では false。乱数なし・HP の観測のみで決まる（リプレイと両立）。
+     */
+    private boolean computeRoundPerfect(Fighter p1, Fighter p2) {
+        if (roundWinner == Winner.P1) {
+            return p1.getCurrentHp() == p1.getMaxHp();
+        }
+        if (roundWinner == Winner.P2) {
+            return p2.getCurrentHp() == p2.getMaxHp();
+        }
+        return false;
     }
 
     private static Winner decideByHp(Fighter p1, Fighter p2) {
@@ -224,6 +243,11 @@ public final class RoundManager {
     /** 直近ラウンドの勝者（ラウンド未決着は {@code NONE}）。 */
     public Winner getRoundWinner() {
         return roundWinner;
+    }
+
+    /** 直近に決着したラウンドを勝者がノーダメージで取ったか（PERFECT 演出・Task 127）。新ラウンド開始でクリア。 */
+    public boolean isRoundPerfect() {
+        return roundPerfect;
     }
 
     /** P1 の勝利ラウンド数。 */

@@ -92,6 +92,7 @@ public class GameRenderer {
     private static final float POPUP_FADE_START = 0.6f;      // この進捗以降フェード開始（0..1）
     private static final Color WIN_DOT_ON = new Color(1f, 0.85f, 0.20f, 1f);
     private static final Color WIN_DOT_OFF = new Color(0.28f, 0.30f, 0.36f, 1f);
+    private static final Color PERFECT_COLOR = new Color(1f, 0.86f, 0.22f, 1f); // PERFECT 演出の金色（Task 127）
     private static final float WIN_DOT_SIZE = 14f;
     private static final float WIN_DOT_GAP = 5f;
     private static final float MARKER_SIZE = 18f;
@@ -342,6 +343,13 @@ public class GameRenderer {
         }
         int secsLeft = (round.getBetweenCountdown() + GameConstants.TARGET_FPS - 1) / GameConstants.TARGET_FPS;
         float cx = GameConstants.WORLD_WIDTH / 2f;
+        // PERFECT（ノーダメージ勝利・Task 127）：金色で決着理由の上に強調表示する。
+        if (round.isRoundPerfect()) {
+            font.setColor(PERFECT_COLOR);
+            font.getData().setScale(2.0f);
+            drawCentered("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 95f);
+            font.setColor(Color.WHITE);
+        }
         font.getData().setScale(2.5f);
         drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
         font.getData().setScale(1.8f);
@@ -390,6 +398,13 @@ public class GameRenderer {
         }
         String score = round.getP1Wins() + " - " + round.getP2Wins();
         float cx = GameConstants.WORLD_WIDTH / 2f;
+        // PERFECT（最終ラウンドをノーダメージで決めた場合・Task 127）：金色で決着理由の上に強調表示する。
+        if (round.isRoundPerfect()) {
+            font.setColor(PERFECT_COLOR);
+            font.getData().setScale(2.2f);
+            drawCentered("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 100f);
+            font.setColor(Color.WHITE);
+        }
         font.getData().setScale(3.0f);
         drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
         font.getData().setScale(2.0f);
