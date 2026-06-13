@@ -38,6 +38,8 @@ public class Fighter {
     private int delayWakeupFrames;      // ディレイ起き上がりで凍結した累計フレーム（最大 DELAY_WAKEUP_MAX・Task 122）
     private boolean delayWakeupActive;  // このフレーム起き上がりを遅延（凍結）しているか（表示用・Task 122）
     private boolean hardKnockdown;      // 現在のダウンが受け身不能（hard knockdown）か（Task 88）
+    private int airHitstunElapsed;      // 空中やられの経過フレーム（空中受け身の最小窓判定用・被弾でリセット・Task 126）
+    private int airTechRecovery;        // 空中受け身の成立後リカバリ残フレーム（滞空中・行動不能・Task 126）
     private float velocityX;
     private boolean crouching;
     private boolean crouchAttacking; // しゃがみ中に開始した攻撃（Task 28）
@@ -222,29 +224,58 @@ public class Fighter {
             // 短い hitstun に上書きされても dizzyFrames が独立に拘束を保つ（上で減衰済み）。被弾無敵ではない（ダウンと違う）。
             crouching = false;
             this.moveDir = 0;
-            if (hitstunFrames > 0) {
-                hitstunFrames--;
-                // hitstun から復帰した瞬間にコンボを終了（次の被弾は新規コンボ＝1 から数え直す）（Task 39）。
-                if (hitstunFrames == 0) {
-                    comboCount = 0;
+            // 空中受け身（air recovery / air tech・Task 126）：空中やられ（滞空＋hitstun）が AIR_TECH_MIN_FRAMES 以上
+            // 経過したとき行動入力（攻撃/ジャンプ/投げ）があれば、空中やられを抜けて中立の滞空状態へ復帰する（短い
+            // AIR_TECH_RECOVERY の後に行動可）。被弾でリセットされる airHitstunElapsed により、連続被弾中（多段ジャグル）は
+            // 受け身できず、コンボが途切れて初めて抜けられる＝攻撃側の確定ジャグルを残しつつ防御側に脱出択を与える。
+            // dizzy（地上の無防備）は対象外（hitstunFrames>0 を要求）。被弾無敵ではない（受け身狩りが成立する）。
+            boolean airTechInput = attackButton != null || jumpPressed || throwReq;
+            if (!grounded && hitstunFrames > 0
+                    && airHitstunElapsed >= GameConstants.AIR_TECH_MIN_FRAMES && airTechInput) {
+                hitstunFrames = 0;
+                wallBounceArmed = false;   // 受け身でジャグル（壁/床バウンド）を打ち切る
+                groundBounceArmed = false;
+                airHitstunElapsed = 0;
+                airTechRecovery = GameConstants.AIR_TECH_RECOVERY_FRAMES;
+                velocityX = 0f;            // 水平 knockback を打ち消し中立復帰（落下は重力に委ねる）
+                comboCount = 0;            // 受け身でコンボ終了
+            } else {
+                if (hitstunFrames > 0) {
+                    hitstunFrames--;
+                    // hitstun から復帰した瞬間にコンボを終了（次の被弾は新規コンボ＝1 から数え直す）（Task 39）。
+                    if (hitstunFrames == 0) {
+                        comboCount = 0;
+                    }
+                }
+                x += velocityX;
+                clampToStage();
+                // 壁バウンド（Task 101）：壁バウンド技を食らって横へ飛ばされ、画面端（壁）に達したら一度だけ跳ね返る。
+                // 反対方向へ WALL_BOUNCE_REBOUND_SCALE 倍の速度で戻し、再び浮かせて（POP）のけぞりを延長＝跳ね返り際を追撃可能。
+                if (wallBounceArmed && atStageEdge() && pushingIntoEdge()) {
+                    velocityX = -velocityX * GameConstants.WALL_BOUNCE_REBOUND_SCALE;
+                    velocityY = GameConstants.WALL_BOUNCE_POP;
+                    grounded = false;
+                    hitstunFrames += GameConstants.WALL_BOUNCE_BONUS_HITSTUN;
+                    wallBounceArmed = false;
+                    wallBounceFrames = GameConstants.WALL_BOUNCE_LABEL_FRAMES;
+                }
+                velocityX *= GameConstants.KNOCKBACK_FRICTION;
+                if (Math.abs(velocityX) < 0.1f) {
+                    velocityX = 0f;
+                }
+                // 空中やられの経過を数える（落下際の受け身判定用）。接地中は 0（地上 hitstun は受け身不可）。
+                if (!grounded) {
+                    airHitstunElapsed++;
+                } else {
+                    airHitstunElapsed = 0;
                 }
             }
-            x += velocityX;
-            clampToStage();
-            // 壁バウンド（Task 101）：壁バウンド技を食らって横へ飛ばされ、画面端（壁）に達したら一度だけ跳ね返る。
-            // 反対方向へ WALL_BOUNCE_REBOUND_SCALE 倍の速度で戻し、再び浮かせて（POP）のけぞりを延長＝跳ね返り際を追撃可能。
-            if (wallBounceArmed && atStageEdge() && pushingIntoEdge()) {
-                velocityX = -velocityX * GameConstants.WALL_BOUNCE_REBOUND_SCALE;
-                velocityY = GameConstants.WALL_BOUNCE_POP;
-                grounded = false;
-                hitstunFrames += GameConstants.WALL_BOUNCE_BONUS_HITSTUN;
-                wallBounceArmed = false;
-                wallBounceFrames = GameConstants.WALL_BOUNCE_LABEL_FRAMES;
-            }
-            velocityX *= GameConstants.KNOCKBACK_FRICTION;
-            if (Math.abs(velocityX) < 0.1f) {
-                velocityX = 0f;
-            }
+        } else if (airTechRecovery > 0) {
+            // 空中受け身の成立後リカバリ（Task 126）：滞空したまま行動不能で落下する短い隙。被弾無敵ではないので
+            // 相手が受け身を釣って再度浮かせ直せる（受け身狩り）。リカバリ後（=0）は通常の滞空行動が可能になる。
+            crouching = false;
+            this.moveDir = 0;
+            airTechRecovery--;
         } else {
             // ガード knockback：hitstun 無しでも velocityX（applyGuard 由来）を位置へ反映する。
             if (velocityX != 0) {
@@ -410,6 +441,8 @@ public class Fighter {
                 groundBounceArmed = false; // 跳ね返らずに通常着地したら保留中の床バウンドを破棄（残留での遅延暴発防止・Task 102）
                 airJumpsRemaining = def.getAirJumps();   // 接地で空中ジャンプ回数を回復（Task 68）
                 airDashesRemaining = def.getAirDashes();  // 接地で空中ダッシュ回数を回復（Task 69）
+                airHitstunElapsed = 0;     // 接地で空中やられ経過をリセット（Task 126）
+                airTechRecovery = 0;       // 着地で空中受け身リカバリを終了（地上行動可へ・Task 126）
                 if (!wasGrounded && dashFrames > 0) {
                     dashFrames = 0; // 着地で空中ダッシュを終了（地上ダッシュへ持ち越さない・Task 69）
                 }
@@ -442,6 +475,8 @@ public class Fighter {
         delayWakeupFrames = 0;
         delayWakeupActive = false;
         hardKnockdown = false;
+        airHitstunElapsed = 0;  // 空中受け身の経過/リカバリをリセット（Task 126）
+        airTechRecovery = 0;
         crouching = false;
         crouchAttacking = false;
         aerialAttacking = false;
@@ -553,6 +588,8 @@ public class Fighter {
         wallBounceArmed = false; // 新たな被弾で保留中の壁バウンドをキャンセル（Task 101。applyWallBounce はこの後に再アーム）
         groundBounceArmed = false; // 新たな被弾で保留中の床バウンドをキャンセル（Task 102。applyGroundBounce はこの後に再アーム）
         recoverableHp = 0; // 非ガードで被弾したら回復可能ダメージ（赤ゲージ）は焼き切れる（Task 104）
+        airHitstunElapsed = 0; // 被弾ごとに空中受け身の最小窓をリセット（連続被弾中＝多段ジャグルは受け身不可・Task 126）
+        airTechRecovery = 0;   // 被弾で受け身リカバリを打ち切る（再び空中やられへ・Task 126）
     }
 
     /**
@@ -1273,6 +1310,11 @@ public class Fighter {
 
     public boolean isInHitstun() {
         return hitstunFrames > 0;
+    }
+
+    /** 空中受け身（air recovery）の成立後リカバリ中か（滞空・行動不能・表示用・Task 126）。 */
+    public boolean isAirTeching() {
+        return airTechRecovery > 0;
     }
 
     public int getHitstunFrames() {
