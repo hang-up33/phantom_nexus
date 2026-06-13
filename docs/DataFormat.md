@@ -334,6 +334,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 76) 10 体目キャラ `Assets/Characters/fighter010.json`（"Yuki"・HP780・**多段ヒット rapid jab の高速 rushdown 型**の silver）＋プレースホルダ・スプライト `fighter010.png` を追加。`Character` の JSON 仕様は不変（9 体目 fighter009 に続く 10 体目）。アーキタイプ：速い `walkSpeed6.2`＋`airJumps:1` の機動、弱攻撃 `rapid_jab` を **`hits:3`（Task 74）の 3 段刻み**にした rushdown、高速飛び道具 `frost_shard`、地上投げ＋空中投げ。低 HP で手数型。撮影は `-x p1char=fighter010` / `-x p2char=fighter010`。
 - (Task 74) `Move` に任意 int `hits`（既定 1・後方互換）・`hitGap`（既定 4）を追加。`hits >= 2` の技は active 区間中に `hitGap` フレーム間隔で複数回ヒットする多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る）。`getHits()` は最小 1・`getHitGap()` は最小 0 に丸める。任意フィールドのためローダ追加検証なし（旧 JSON はキー無しで単発）。例示として fighter009 の中攻撃を 2 段技 `twin_thrust`（`hits:2`・`hitGap:4`・active9）に。戦闘仕様は BattleSystem.md「多段ヒット技（Task 74）」節を参照。`Move` の normal/special 両フィールド表に `hits`/`hitGap` を追加。
 - (Task 72) 9 体目キャラ `Assets/Characters/fighter009.json`（"Hayato"・HP1050・**高 HP の charge zoner 型**の gold）＋プレースホルダ・スプライト `fighter009.png` を追加。`Character` の JSON 仕様は不変で、JSON＋PNG の追加だけでキャラが動作する（8 体目 fighter008 に続く 9 体目）。アーキタイプ：遅い `walkSpeed4.2`・長射程の通常技（`jab`/`twin_thrust`/`heavy_lance`）・`CHARGE_SHOT` 飛び道具 `charge_beam`（溜め式の弾＝HADOUKEN とは別モーション）・強攻撃 `heavy_lance` に `knockdown:true`。AI はデータ駆動の飛び道具牽制（Task 64）でこの弾を撃って zoning する。撮影は `-x p1char=fighter009` / `-x p2char=fighter009`。
 
