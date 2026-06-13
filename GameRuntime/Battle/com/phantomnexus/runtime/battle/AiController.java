@@ -1,5 +1,6 @@
 package com.phantomnexus.runtime.battle;
 
+import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.AttackButton;
 import com.phantomnexus.shared.types.GuardHeight;
 import com.phantomnexus.shared.types.Move;
@@ -65,6 +66,16 @@ public final class AiController {
     /** 攻撃 / 投げ後に次の能動行動まで空けるフレーム数（連打防止）。 */
     private static final int ATTACK_COOLDOWN = 45;
     /**
+     * パリィ読み（Task 106・HARD のみ）の再発までのクールダウン（フレーム）。一度パリィを試みたらこの間は再試行しない＝
+     * すべての打撃を弾く「壁」にせず、たまに差し込む「読み」に留める。クールダウン中の打撃は通常どおりガード反応で凌ぐ。
+     */
+    private static final int AI_PARRY_COOLDOWN = 90;
+    /**
+     * パリィ読み（Task 106）で前方を押し始める「active までの残り startup フレーム」のリード（Task 105 の PARRY_WINDOW=5 より
+     * 小さくする）。active 着弾フレームで {@code forwardHeldFrames} が 1〜PARRY_WINDOW に収まるよう、直前 2 フレームから押し始める。
+     */
+    private static final int AI_PARRY_LEAD = 2;
+    /**
      * この距離（中心間, px）より遠ければ歩きでなくダッシュ（二度押し前ステップ・Task 49）で素早く間合いを詰める（Task 50）。
      * {@link #ATTACK_RANGE} までの接近のうち、遠距離はダッシュ・近距離は歩きと使い分ける。
      */
@@ -81,6 +92,8 @@ public final class AiController {
     private static final float JUMP_IN_ATTACK_RANGE = 130f;
 
     private int cooldown;
+    private int parryCooldown;          // パリィ読みの再発クールダウン（Task 106）
+    private int parryHold;              // パリィ commit 中：前方を押し続ける残りフレーム（Task 106）
     /**
      * 飛び込み（ジャンプ攻撃・Task 57）を実行中か。地上から踏み切った瞬間に立て、着地で下ろす。空中の間は
      * 相手へ向かってドリフトし、下降中に間合いへ入ったら空中攻撃を出す（HARD のみ）。
@@ -112,6 +125,8 @@ public final class AiController {
     /** ラウンド間リセット（クールダウン・ダッシュ進行・保留中の弾を消去して次ラウンド開始時の行動可否を初期化する）。 */
     public void reset() {
         cooldown = 0;
+        parryCooldown = 0;
+        parryHold = 0;
         dashTapStep = 0;
         jumpingIn = false;
         pendingProjectile = null;
@@ -168,6 +183,12 @@ public final class AiController {
         if (cooldown > 0) {
             cooldown--;
         }
+        if (parryCooldown > 0) {
+            parryCooldown--;
+        }
+        if (parryHold > 0) {
+            parryHold--; // パリィ commit の残りフレームを減衰（Task 106）
+        }
         // 起き上がりリバーサル（Task 97）検出用：前フレームの down 状態を退避してから今フレームの状態へ更新する
         // （ukemi の早期 return を跨いでも必ず更新されるよう、ここで先に行う）。
         boolean prevKnockedDown = wasKnockedDown;
@@ -212,6 +233,25 @@ public final class AiController {
                 && opponent.getVelocityY() <= 0f               // 下降（または頂点）＝こちらへ落ちてくる
                 && distance <= ANTI_AIR_RANGE;                 // 縦長対空 hitbox の届く水平間合い
 
+        // パリィ読み（Task 106・HARD のみ）：相手の打撃が active 直前（startup 残り AI_PARRY_LEAD フレーム以内）に入ったら、
+        // 前方タップで弾く準備（parryHold）を立てる。commit 中（parryHold>0）は下の専用分岐が前方を短く押し続け、active を
+        // パリィ（Task 105）する。一度試みたら parryCooldown の間は再発しない＝全打撃を弾く壁にせず「読み」に留める。
+        //
+        // 重要：Fighter 側の窓は「前方を押し始めて PARRY_WINDOW(5) フレーム以内」のみ成立（押しっぱなしでは不成立）。
+        // よって active 着弾フレームで forwardHeldFrames が 1〜5 に収まるよう、active の直前 AI_PARRY_LEAD(2) フレームから
+        // 押し始める（active 時 forwardHeldFrames ≒ 3）。長く保持すると窓を外す（self-review で検出した off-by-one を回避）。
+        // 相手の attackFrame / startup（観測可能）だけで判断＝乱数なし・決定的。投げ（ガード不能）は parry できない。
+        Move oppAtk = opponent.getCurrentMove();
+        boolean opponentAboutToHit = opponentStriking
+                && opponent.getAttackPhase() == AttackPhase.STARTUP
+                && oppAtk != null
+                && oppAtk.getStartup() - opponent.getAttackFrame() <= AI_PARRY_LEAD;
+        if (advanced && parryCooldown == 0 && parryHold == 0 && opponentAboutToHit
+                && distance <= GUARD_RANGE && self.isGrounded() && self.canStartAction()) {
+            parryHold = AI_PARRY_LEAD + 2; // active の直前 LEAD フレーム＋着弾後 1〜2 フレームをカバー（fhf ≤ 4 ≤ PARRY_WINDOW）
+            parryCooldown = AI_PARRY_COOLDOWN;
+        }
+
         if (!self.isGrounded() && jumpingIn) {
             // 飛び込み中（空中・Task 57）：相手へドリフトしつつ、下降中に間合いへ入ったら空中攻撃（Task 32）を出す。
             // 空中攻撃は attackPhase==NONE のとき attackButton で発動するので、非攻撃中のみ attack を立てる
@@ -252,6 +292,15 @@ public final class AiController {
                 self.cancelDash();
             }
             self.armThrowTech();
+            dashTapStep = 0;
+        } else if (advanced && parryHold > 0 && self.canStartAction()) {
+            // パリィ commit（Task 106・HARD のみ）：上で立てた parryHold の間、前方を押し続けて相手の active を
+            // パリィ（Task 105）で弾く＝ダメージ/chip/のけぞりなしで完全防御＋反撃確定。ダッシュ接近中なら止めて
+            // 読みを優先する（ガード反応と同じ作法）。タイミングを外せば前進＝committal な被弾リスク（壁にならない）。
+            if (self.isDashing()) {
+                self.cancelDash();
+            }
+            moveDir = towardDir;
             dashTapStep = 0;
         } else if (defends && opponentStriking && distance <= GUARD_RANGE && self.canStartAction()) {
             // ガード反応：相手の打撃に合わせて後退方向を保持し、ガードで chip に抑える。
