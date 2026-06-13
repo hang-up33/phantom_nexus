@@ -130,6 +130,15 @@ public final class AiController {
         }
     }
 
+    /**
+     * 難易度を次段階へ循環させる（EASY → NORMAL → HARD → EASY…）（Task 78・実行時切替）。
+     * Core が F3 押下で呼ぶ（通常プレイのみ。リプレイ記録/再生中は format 不変・決定性を保つため呼ばない）。
+     */
+    public void cycleDifficulty() {
+        Difficulty[] all = Difficulty.values();
+        difficulty = all[(difficulty.ordinal() + 1) % all.length];
+    }
+
     /** 現在の難易度（HUD 表示・テスト用）。 */
     public Difficulty getDifficulty() {
         return difficulty;

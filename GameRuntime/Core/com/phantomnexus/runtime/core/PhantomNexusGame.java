@@ -128,7 +128,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // AI 難易度（Task 56）。既定 HARD（全反応＝従来挙動）。撮影時は aidiff=easy/normal/hard で差し替え。
         // 未指定（null）なら setDifficulty が無視して既定 HARD を保つ＝既存リプレイ/レシピの決定性を保つ。
         p2Ai.setDifficulty(AiController.Difficulty.fromToken(screenshot.aiDifficulty(null)));
-        controlsHint = "P1 " + p1Input.describe() + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")";
+        controlsHint = buildControlsHint();
         // 入力リプレイ（記録 / 再生）。phantom.replay.* 指定時のみ有効。通常起動には無影響。
         replay = new ReplayController();
         if (replay.isRecording()) {
@@ -156,6 +156,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 再生中は F2 を無視（記録した AI 状態を尊重し、視聴者のキーで試合が変わらないようにする）。
         if (!replay.isReplaying() && Gdx.input.isKeyJustPressed(Input.Keys.F2)) {
             p2AiEnabled = !p2AiEnabled;
+        }
+        // F3：AI 難易度を実行時に循環（EASY→NORMAL→HARD・Task 78）。リプレイ記録/再生中は難易度を per-frame に
+        // 記録しない（format 不変・決定性維持）ため無視する。通常プレイのみ切替可能で、HUD ラベルを更新する。
+        if (!replay.isRecording() && !replay.isReplaying() && Gdx.input.isKeyJustPressed(Input.Keys.F3)) {
+            p2Ai.cycleDifficulty();
+            controlsHint = buildControlsHint();
         }
         // 記録モード：update が消費する前にこのフレームの入力スナップショットを残す。
         if (replay.isRecording()) {
@@ -545,6 +551,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** 現在の AI 難易度ラベル（小文字・HUD 表示用・Task 56）。 */
     private String aiDifficultyLabel() {
         return p2Ai.getDifficulty().name().toLowerCase();
+    }
+
+    /** 操作ガイド HUD 文字列を組み立てる（難易度ラベルを含むため F3 切替時にも再構築する・Task 78）。 */
+    private String buildControlsHint() {
+        return "P1 " + p1Input.describe()
+                + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty";
     }
 
     private String statusLine() {
