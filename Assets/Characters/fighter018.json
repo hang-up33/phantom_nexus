@@ -1,0 +1,113 @@
+{
+  "id": "fighter018",
+  "name": "Kuga",
+  "hp": 1150,
+  "walkSpeed": 3.6,
+  "jumpPower": 13.0,
+  "airJumps": 0,
+  "width": 84,
+  "height": 214,
+  "stunThreshold": 360,
+  "color": [0.353, 0.196, 0.667],
+  "sprite": {
+    "path": "Characters/fighter018.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "hammer_jab",
+      "button": "light",
+      "damage": 48,
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 84,
+      "hitboxHeight": 32
+    },
+    {
+      "id": "armor_charge",
+      "button": "medium",
+      "armorHits": 1,
+      "damage": 74,
+      "startup": 12,
+      "active": 4,
+      "recovery": 18,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 95,
+      "hitboxWidth": 96,
+      "hitboxHeight": 56
+    },
+    {
+      "id": "wall_slam",
+      "button": "heavy",
+      "wallBounce": true,
+      "damage": 98,
+      "startup": 13,
+      "active": 4,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 96,
+      "hitboxHeight": 52
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "quake_fist",
+      "command": "CHARGE_SHOT",
+      "invincibleFrames": 6,
+      "knockdown": true,
+      "damage": 110,
+      "startup": 9,
+      "active": 5,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 60,
+      "hitboxWidth": 70,
+      "hitboxHeight": 120
+    },
+    {
+      "id": "titan_crush",
+      "command": "SUPER",
+      "superMove": true,
+      "hardKnockdown": true,
+      "damage": 240,
+      "startup": 8,
+      "active": 5,
+      "recovery": 36,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 70,
+      "hitboxWidth": 120,
+      "hitboxHeight": 130
+    }
+  ],
+  "throwMove": {
+    "id": "back_drop",
+    "noTech": true,
+    "damage": 150,
+    "startup": 5,
+    "active": 2,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 52,
+    "hitboxHeight": 145
+  }
+}
