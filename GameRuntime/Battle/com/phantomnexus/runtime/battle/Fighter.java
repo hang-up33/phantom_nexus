@@ -496,6 +496,15 @@ public class Fighter {
     }
 
     /**
+     * プッシュブロック（guard pushback・Task 111）：自分の攻撃がガードされたとき、相手と反対方向（{@code awayDir}）へ
+     * 押し戻される。攻撃ステートは継続したまま {@code velocityX} だけ与え、既存の velocityX 適用＋減衰経路（{@code update}）で
+     * 後方へスライドする（ダッシュ攻撃の lunge と同じ仕組み）。攻撃判定そのものは不変（既に markAttackConnected 済み）。
+     */
+    public void applyGuardPushback(int awayDir) {
+        velocityX = awayDir * GameConstants.GUARD_PUSHBACK_SPEED;
+    }
+
+    /**
      * 被弾を適用する（HP 減算・のけぞり遷移・knockback）。攻撃中だった場合は中断する。
      */
     public void applyHit(int damage, int hitstun, int knockbackDir) {

@@ -351,4 +351,11 @@ public final class GameConstants {
      * 固定値で乱数なし＝決定的。60fps 基準で約 0.5 秒。
      */
     public static final int SUPER_FLASH_FRAMES = 30;
+
+    /**
+     * プッシュブロック（guard pushback・Task 111）：攻撃がガードされたとき、<b>攻撃側</b>も相手と反対方向へこの初速で
+     * 押し戻される（防御側は従来どおり {@code applyGuard} で後退）。両者が離れて間合いがリセットされ、ガードからの仕切り直しが
+     * しやすくなる＝固め（押し付け）への対抗。毎フレーム {@link #KNOCKBACK_FRICTION} で減衰。固定値で乱数なし＝決定的。
+     */
+    public static final float GUARD_PUSHBACK_SPEED = 4f;
 }
