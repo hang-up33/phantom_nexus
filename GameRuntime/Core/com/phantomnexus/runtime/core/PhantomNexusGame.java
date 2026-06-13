@@ -481,16 +481,22 @@ public class PhantomNexusGame extends ApplicationAdapter {
                     break;
             }
         }
+        // スーパーアーマー（Task 80）：相手が startup のアーマー技中なら、のけぞらせずダメージのみ与えて技を継続させる。
+        // ガード成立時は対象外（防御が優先）。投げは上で処理済みのためここには来ない＝アーマーは打撃のみ吸収する。
+        boolean armored = !blocked && defender.isArmorActive();
         // カウンターヒット（Task 71）：相手の攻撃 startup 中（技を出しきる前）に打撃を当てたら差し返し成立。
-        // ガード成立時は対象外（防御を崩したわけではない）。ダメージを COUNTER_HIT_DAMAGE_SCALE 倍にし、
-        // 通常ヒットは hitstun を COUNTER_HIT_BONUS_HITSTUN 上乗せして追撃を繋ぎやすくする。乱数なし＝決定的。
-        boolean counter = !blocked && defender.getAttackPhase() == com.phantomnexus.runtime.battle.AttackPhase.STARTUP;
+        // ガード成立・アーマー吸収時は対象外（防御を崩した / のけぞらせたわけではない）。乱数なし＝決定的。
+        boolean counter = !blocked && !armored
+                && defender.getAttackPhase() == com.phantomnexus.runtime.battle.AttackPhase.STARTUP;
         int dealtDamage = counter
                 ? Math.max(1, Math.round(hb.getDamage() * GameConstants.COUNTER_HIT_DAMAGE_SCALE))
                 : hb.getDamage();
         if (blocked) {
             // ガード成立：chip ダメージのみ（のけぞりなし）。
             defender.applyGuard(hb.getDamage(), knockbackDir);
+        } else if (armored) {
+            // アーマー吸収：のけぞらず damage のみ受けて技を継続（Task 80）。
+            defender.absorbArmorHit(dealtDamage, knockbackDir);
         } else if (attacker.getCurrentMove() != null && attacker.getCurrentMove().isKnockdown()) {
             // ダウン技（Task 60）：非ガードヒットで相手をダウンさせる（通常のけぞりの代わり・ダウン中無敵）。
             // ダウンは既に長い拘束のため hitstun ボーナスは加えず、カウンター時はダメージ倍率のみ適用する。
@@ -499,7 +505,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
             defender.applyHit(dealtDamage, hitstun, knockbackDir);
         }
-        if (!blocked) {
+        if (!blocked && !armored) {
             defender.addStun(dealtDamage); // めまい蓄積（Task 79・通常ヒット。閾値超えで dizzy。stunThreshold=0 なら no-op）
         }
         if (counter) {

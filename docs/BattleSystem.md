@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78・79 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜80 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -413,6 +413,25 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **判定（`resolveHit`）**：従来の「命中済みなら return」を `!canHitNow()` に置き換えただけ。多段は active 中に `hitGap` 間隔で `markAttackConnected` を繰り返す。
 - **コンボ整合**：サブヒットのたびに `applyHit` が呼ばれ、相手は hitstun 継続中なので `comboCount` が加算され `N HITS!` 表示＋ダメージ補正が乗る（例：fighter009 の `twin_thrust`＝`hits:2` で **2 HITS**）。
 - **決定性**：命中回数とフレームカウンタのみで決まり乱数なし（入力リプレイと両立）。投げ・飛び道具は対象外（body hitbox の打撃のみ。`hits` は body hitbox のヒット解決で参照）。
+
+---
+
+## スーパーアーマー（Task 80）
+
+技の **startup 中**に被弾してものけぞらず技を継続できる**スーパーアーマー**。強気の差し込み / 切り返しの起点になる。**データ駆動**（`Move.armorHits`＝吸収できる回数・既定 0＝なし＝後方互換）。
+
+| 項目 | 仕様 |
+|---|---|
+| 有効区間 | 技の `STARTUP` 中のみ（`attackPhase == STARTUP`） |
+| 吸収回数 | `Move.armorHits`。残りがある間、被弾しても hitstun に入らず技継続 |
+| ダメージ | アーマー吸収でも**ダメージは受ける**（コンボ補正込み）。軽い knockback（のけぞりなし） |
+| 貫通 | 投げ（ガード不能・上で処理）は吸収できない＝アーマー潰しの択。ガード成立時はそもそもアーマー判定に来ない |
+| 表示 | アーマー残あり（`isArmorActive()`）の間は状態ラベルに `[ARMOR]` を付す |
+
+- **実装（`Fighter`）**：`armorHitsUsed`（`beginAttack`/`reset` でリセット）。`isArmorActive()`＝`STARTUP && armorHitsUsed < move.armorHits`。`absorbArmorHit(damage, dir)` がダメージ適用＋`armorHitsUsed++`＋軽 knockback（中断しない＝attackPhase 不変で技継続）。
+- **判定（`resolveHit`）**：非ガードヒットで `defender.isArmorActive()` なら `absorbArmorHit` を呼び、`applyHit`/`applyKnockdown` を**呼ばない**（のけぞらせない）。アーマー吸収はカウンター（Task 71）・スタン蓄積（Task 79）の対象外（差し込みを潰したわけではない）。
+- **決定性**：残アーマー数とフレーム区間のみで決まり**乱数なし**（入力リプレイと両立）。`armorHits=0`（既定）の技は従来挙動を完全に維持。
+- **実例**：fighter009 Hayato の `heavy_lance`（`armorHits:2`）＝アーマー付きの重い差し込み。
 
 ---
 
@@ -840,6 +859,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 80) スーパーアーマーを追記。`Move` に任意 int `armorHits`（既定 0＝なし・後方互換）を追加。`Fighter` に `armorHitsUsed`＋`isArmorActive()`（STARTUP かつ残あり）／`absorbArmorHit()`（ダメージのみ受けて中断しない・軽 knockback）を追加（`beginAttack`/`reset` でリセット）。`PhantomNexusGame.resolveHit` の非ガードヒットで `defender.isArmorActive()` なら `absorbArmorHit` を呼び `applyHit`/`applyKnockdown` を呼ばない（のけぞらせない）＝アーマー吸収はカウンター・スタン蓄積の対象外。投げはアーマーを貫通（上で処理）。`GameRenderer` がアーマー残あり中に `[ARMOR]` を付す。fighter009 の `heavy_lance` に `armorHits:2`。`armorHits=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、アーマー技を出している既存リプレイは被弾結果が変わり得る（戦闘仕様変更）。「スーパーアーマー（Task 80）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 79) めまい（dizzy / stun）を追記。`Character` に任意 int `stunThreshold`（既定 0＝無効・後方互換）・`GameConstants` に `DIZZY_FRAMES`(100)・`STUN_DECAY_PER_FRAME`(2) を追加。`Fighter` に `stunMeter`／`dizzyFrames`＋`addStun()`／`isDizzy()` を追加し、inert 分岐を `hitstunFrames>0 || dizzyFrames>0` に拡張（めまいは無防備＝被弾無敵ではない・コンボ確定）、`canStartAction()`／`guarding` に `dizzyFrames<=0` を追加、`update()` 冒頭で dizzy 減衰＋中立時のスタン自然減衰。`resolveHit`／`updateProjectiles` の非ガードヒットで `addStun(dealtDamage)`（投げ・ダウン技は除外）。`GameRenderer` が `dizzy` ラベルを hitstun より先に表示。fighter009（340）/ fighter010（180）に `stunThreshold` を付与。`stunThreshold=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、`stunThreshold>0` のキャラを連係で崩す既存リプレイはめまいで結果が変わり得る（戦闘仕様変更）。「めまい（dizzy / stun）（Task 79）」節・ステート一覧・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 78) 実行時 AI 難易度切替を追記。`AiController.cycleDifficulty()`（EASY→NORMAL→HARD 循環）を追加し、Core が F3 押下で呼ぶ＋HUD ラベル（`buildControlsHint()` に抽出）を再構築。**リプレイ記録/再生中は無視**（難易度を per-frame に記録しない＝format 不変・決定性維持。F2 を再生中に無視するのと同じ作法）。通常プレイのみ切替可。Task 56 で「起動時固定」としていた難易度の実行時メニュー化（将来候補だったもの）。HUD に `[F3] difficulty` を追加。
 - (Task 75) AI 受け身（ukemi）を追記。`AiController.control()` の最優先に「HARD かつ `self.isKnockedDown() && !self.canStartAction()`（行動不能のダウン中）の間は毎フレーム行動入力を出して return」する早期分岐を追加。受け身の受付窓（Task 66・Fighter 側）内なら最早フレームでクイック起き上がりが成立する＝起き攻めへの対抗。`!canStartAction()` で起き上がり確定フレームを除外し通常技の暴発を防ぐ。HARD のみ（NORMAL/EASY はフルダウン）。Fighter/Core/GameConstants は無改修（Task 66 を流用）。乱数なし＝決定的（自分のダウン状態のみ・入力リプレイと両立）。「AI 受け身（ukemi・Task 75）」節・AI 節見出し・冒頭サマリを追加。

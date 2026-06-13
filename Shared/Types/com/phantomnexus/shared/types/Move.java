@@ -66,6 +66,12 @@ public class Move {
      */
     private int hitGap = 4;
     /**
+     * スーパーアーマー数（Task 80）。技の <b>startup 中</b>に、被弾しても<b>のけぞらず</b>に技を継続できる回数。
+     * 既定 0＝アーマーなし（後方互換）。ダメージは受けるが hitstun に入らない＝強気の差し込み / 切り返しに使う。
+     * 投げ（ガード不能）はアーマーを貫通する。旧 JSON（キー無し）は 0。
+     */
+    private int armorHits = 0;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -194,6 +200,11 @@ public class Move {
     /** 多段ヒットのサブヒット間隔（フレーム数・Task 74）。負値は 0 に丸める。{@link #getHits()} が 1 なら無視される。 */
     public int getHitGap() {
         return Math.max(0, hitGap);
+    }
+
+    /** スーパーアーマー数（Task 80）。startup 中に被弾してものけぞらず継続できる回数。負値は 0 に丸める（既定 0＝なし）。 */
+    public int getArmorHits() {
+        return Math.max(0, armorHits);
     }
 
     /**

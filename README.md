@@ -144,6 +144,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 77 | 第4ステージ追加（stage004 Frozen Peak・JSON のみで背景差し替え検証） | ✅ 完了 |
 | 78 | 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環・リプレイ中は無効） | ✅ 完了 |
 | 79 | めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・JSON `stunThreshold` でデータ化） | ✅ 完了 |
+| 80 | スーパーアーマー（startup 中にのけぞらず被弾を吸収・JSON `armorHits` でデータ化） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）

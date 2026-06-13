@@ -124,6 +124,7 @@ public class GameRenderer {
     private static final String STATE_LABEL_INVINCIBLE_SUFFIX = " [INV]"; // 無敵フレーム中の付加表示（Task 53）
     private static final String STATE_LABEL_EX_SUFFIX = " [EX]"; // EX 必殺技中の付加表示（Task 54）
     private static final String STATE_LABEL_COUNTER_SUFFIX = " (CH)"; // カウンターヒット被弾の付加表示（Task 71）
+    private static final String STATE_LABEL_ARMOR_SUFFIX = " [ARMOR]"; // スーパーアーマー有効中の付加表示（Task 80）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
@@ -767,6 +768,10 @@ public class GameRenderer {
         // カウンターヒット被弾中（Task 71）は (CH) を付す（差し返された証跡）。
         if (f.isCounterHit()) {
             stateLabel = stateLabel + STATE_LABEL_COUNTER_SUFFIX;
+        }
+        // スーパーアーマー有効中（Task 80）は [ARMOR] を付す（のけぞらない startup の証跡）。
+        if (f.isArmorActive()) {
+            stateLabel = stateLabel + STATE_LABEL_ARMOR_SUFFIX;
         }
         drawCentered(stateLabel, centerX, top + 12f);
     }

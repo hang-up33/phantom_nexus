@@ -30,6 +30,7 @@ public class Fighter {
     private Move currentMove;  // 進行中の技（攻撃中のみ非 null）
     private int attackHits;             // 進行中の技がこれまでに命中した回数（多段ヒット・Task 74。0=未命中）
     private int attackHitGap;           // 次のサブヒットを許可するまでの待機フレーム（多段ヒットの間隔・Task 74）
+    private int armorHitsUsed;          // 進行中の技で消費したアーマー数（スーパーアーマー・Task 80）
     private int hitstunFrames;
     private int knockdownFrames;        // ダウン（knockdown）の行動不能フレーム。ダウン中は被弾無敵（Task 60）
     private boolean knockdownInertThisFrame; // このフレームの update 処理前にダウン中だったか（被弾ゲートの 1F ラッチ・Task 60）
@@ -339,6 +340,7 @@ public class Fighter {
         currentMove = null;
         attackHits = 0;
         attackHitGap = 0;
+        armorHitsUsed = 0;
         hitstunFrames = 0;
         knockdownFrames = 0;
         knockdownInertThisFrame = false;
@@ -551,6 +553,26 @@ public class Fighter {
         return dizzyFrames > 0;
     }
 
+    /**
+     * スーパーアーマー（Task 80）が有効か。進行中の技が startup 区間にあり、{@code armorHits} の残りがあれば、
+     * 被弾してものけぞらずに技を継続できる（ダメージは受ける）。投げ（ガード不能）はアーマーを貫通する。
+     */
+    public boolean isArmorActive() {
+        return attackPhase == AttackPhase.STARTUP && currentMove != null
+                && armorHitsUsed < currentMove.getArmorHits();
+    }
+
+    /**
+     * アーマーで 1 発受け止める（Task 80）。ダメージは適用するが hitstun / 中断はしない（技は継続）。軽い knockback を
+     * 与える。アーマー残数を 1 消費する。コンボ計数・補正は通常ヒットと同じ（{@link #scaledComboDamage}）。
+     */
+    public void absorbArmorHit(int damage, int knockbackDir) {
+        comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
+        applyDamage(scaledComboDamage(damage));
+        armorHitsUsed++;
+        velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.25f; // のけぞらず軽く押されるだけ
+    }
+
     /** 現在の蓄積スタン値（HUD / デバッグ用・Task 79）。 */
     public int getStunMeter() {
         return stunMeter;
@@ -654,6 +676,7 @@ public class Fighter {
         attackFrame = 0;
         attackHits = 0;     // 多段ヒットの命中回数をリセット（Task 74。新技は改めて命中判定される）
         attackHitGap = 0;
+        armorHitsUsed = 0;  // スーパーアーマーの消費数をリセット（Task 80）
         exAttack = false; // 既定は非 EX。EX 必殺技のみ startSpecial(move, true) が beginAttack 後に true へ立てる（Task 54）。
         guarding = false; // 攻撃開始フレームにガード状態を残さない（同フレームの被弾が誤って applyGuard になるのを防ぐ）
         dashFrames = 0;   // 攻撃でダッシュをキャンセル（ダッシュ攻撃は通常攻撃として出る・Task 49）
