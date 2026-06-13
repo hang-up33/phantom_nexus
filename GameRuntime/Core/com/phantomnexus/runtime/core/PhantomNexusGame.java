@@ -74,6 +74,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private float spawnX2;
     private int hitstopFrames; // ヒットストップ（命中時に両者を凍結する残りフレーム・Task 86）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
+    private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
+    private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
+    private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
 
     /** 検出コマンドを HUD に表示し続けるフレーム数。 */
     private static final int COMMAND_DISPLAY_FRAMES = 90;
@@ -185,7 +188,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
         update();
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks, round,
-                debugOverlay, controlsHint, statusLine());
+                debugOverlay, controlsHint, statusLine(), p1Inputs);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
@@ -269,6 +272,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         damagePopups.clear();
         hitSparks.clear();
         hitstopFrames = 0; // ヒットストップ（Task 86）もラウンド間でクリア
+        p1Inputs.clear(); // 入力表示ログ（Task 96）もラウンド間でクリア
+        lastInputToken = "";
         p2Ai.reset();
     }
 
@@ -349,6 +354,23 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 投げ（Task 35）：地上・立ち（非しゃがみ）で投げボタンが押され、キャラに投げ技があれば最優先で発動する。
         // ガード不能の近接掴み。Fighter 側が予約語 "throw" を受けて専用経路で起動する（通常攻撃 / 必殺技は抑止）。
         boolean throwPressed = in.isPressed(InputAction.THROW);
+        // 入力表示 HUD（Task 96）：P1 のテンキー方向（向き相対・6=前/2=下 等）＋押したボタンを 1 トークンにし、変化時のみ
+        // ログへ積む（FG 定番の入力表示。トレーニング / 観戦の確認用）。throwPressed は上で読んだ値を流用（二重消費を避ける）。
+        if (player == 1) {
+            StringBuilder tok = new StringBuilder().append(numpad);
+            if (lightPressed) tok.append("L");
+            if (mediumPressed) tok.append("M");
+            if (heavyPressed) tok.append("H");
+            if (throwPressed) tok.append("T");
+            String token = tok.toString();
+            if (!token.equals(lastInputToken)) {
+                p1Inputs.add(token);
+                if (p1Inputs.size() > INPUT_LOG_MAX) {
+                    p1Inputs.remove(0);
+                }
+                lastInputToken = token;
+            }
+        }
         // 投げボタンを押した接地フレームは投げ抜け猶予窓をアームする（掴まれた瞬間に抜けられる・Task 36）。
         // 自分の投げが成立しない間合い／状況でも、防御反応としての投げ抜け入力はここで受け付ける。
         if (throwPressed && f.isGrounded()) {
