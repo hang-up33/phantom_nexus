@@ -1,0 +1,126 @@
+{
+  "id": "fighter017",
+  "name": "Shion",
+  "hp": 1000,
+  "walkSpeed": 4.6,
+  "jumpPower": 14.5,
+  "airJumps": 0,
+  "width": 80,
+  "height": 208,
+  "color": [0.588, 0.353, 0.902],
+  "sprite": {
+    "path": "Characters/fighter017.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "jab",
+      "button": "light",
+      "damage": 44,
+      "startup": 4,
+      "active": 3,
+      "recovery": 8,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 122,
+      "hitboxWidth": 82,
+      "hitboxHeight": 30
+    },
+    {
+      "id": "strong",
+      "button": "medium",
+      "damage": 66,
+      "startup": 7,
+      "active": 4,
+      "recovery": 15,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 92,
+      "hitboxHeight": 44
+    },
+    {
+      "id": "sweep",
+      "button": "heavy",
+      "guardHeight": "low",
+      "knockdown": true,
+      "damage": 90,
+      "startup": 11,
+      "active": 4,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 10,
+      "hitboxWidth": 104,
+      "hitboxHeight": 34
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "spirit_shot",
+      "command": "HADOUKEN",
+      "damage": 82,
+      "startup": 11,
+      "active": 3,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 50,
+      "hitboxHeight": 50,
+      "projectile": true,
+      "projectileSpeed": 9.0
+    },
+    {
+      "id": "rising_palm",
+      "command": "CHARGE_SHOT",
+      "invincibleFrames": 8,
+      "launch": 9.0,
+      "damage": 96,
+      "startup": 7,
+      "active": 6,
+      "recovery": 28,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 70,
+      "hitboxWidth": 60,
+      "hitboxHeight": 130
+    },
+    {
+      "id": "radiant_beam",
+      "command": "SUPER",
+      "superMove": true,
+      "hits": 5,
+      "hitGap": 3,
+      "damage": 44,
+      "startup": 9,
+      "active": 18,
+      "recovery": 34,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 90,
+      "hitboxWidth": 220,
+      "hitboxHeight": 60
+    }
+  ],
+  "throwMove": {
+    "id": "spirit_throw",
+    "damage": 124,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 140
+  }
+}
