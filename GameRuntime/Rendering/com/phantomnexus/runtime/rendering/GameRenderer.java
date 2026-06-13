@@ -133,6 +133,7 @@ public class GameRenderer {
     private static final String STATE_LABEL_JUST_SUFFIX = " [JUST]"; // ジャストガード成立の付加表示（Task 81）
     private static final String STATE_LABEL_SUPER_SUFFIX = " [SUPER]"; // スーパー必殺技中の付加表示（Task 108）
     private static final Color MOVE_LIST_COLOR = new Color(0.95f, 0.95f, 0.78f, 1f); // コマンド表 HUD の文字色（Task 112）
+    private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
     private static final float INPUT_DISPLAY_SCALE = 0.9f; // 入力表示 HUD の文字倍率（Task 96）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
@@ -904,6 +905,33 @@ public class GameRenderer {
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
+    }
+
+    /**
+     * タイトル画面を描く（Task 116）。モード選択（0=対戦 / 1=トレーニング）。選択中の項目を黄色で強調する。
+     * 独立した clear + テキストパス（バトル描画とは別フレーム）。
+     */
+    public void renderTitle(int selection) {
+        ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        camera.update();
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(2.4f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 180f);
+        font.getData().setScale(1.5f);
+        font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, 380f);
+        font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, 312f);
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 200f);
+        drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
+                GameConstants.WORLD_WIDTH / 2f, 168f);
+        batch.end();
     }
 
     /**

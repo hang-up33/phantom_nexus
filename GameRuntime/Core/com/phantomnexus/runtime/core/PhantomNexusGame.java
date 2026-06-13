@@ -78,6 +78,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean koSlowTriggered; // このラウンドで KO スローを既に開始したか（1 ラウンド 1 回・Task 115）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
+
+    /** 画面状態（Task 116/117）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
+    enum Screen { TITLE, CHARACTER_SELECT, BATTLE }
+    private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
+    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング・Task 116）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -153,10 +158,71 @@ public class PhantomNexusGame extends ApplicationAdapter {
         } else if (replay.isReplaying()) {
             controlsHint = "[REPLAY] " + replay.frameCount() + "f   [F1] hitboxes";
         }
+        // 画面状態の初期化（Task 116/117）：通常起動はタイトル画面から始める。撮影モード・リプレイは
+        // 後方互換のため BATTLE 直行（既存スクショレシピ・リプレイは frame1 から戦闘開始の前提）。
+        // 撮影で各画面を撮るときだけ -x startscreen=title/charselect で上書きできる（既定 battle）。
+        if (replay.isRecording() || replay.isReplaying()) {
+            screen = Screen.BATTLE;
+        } else if (screenshot.isEnabled()) {
+            screen = parseStartScreen(screenshot.startScreen("battle"));
+        } else {
+            screen = Screen.TITLE;
+        }
+    }
+
+    /** 撮影オーバーライドの開始画面トークンを {@link Screen} へ解釈する（Task 116/117。既定/未知は BATTLE）。 */
+    private static Screen parseStartScreen(String token) {
+        if (token == null) {
+            return Screen.BATTLE;
+        }
+        switch (token.trim().toLowerCase()) {
+            case "title":
+                return Screen.TITLE;
+            case "charselect":
+                return Screen.CHARACTER_SELECT;
+            default:
+                return Screen.BATTLE;
+        }
+    }
+
+    /**
+     * タイトル画面の入力処理（Task 116）。上下でモード選択（0=対戦 / 1=トレーニング）、Enter/Space/J で確定。
+     * 対戦＝P2 AI ON・トレーニング＝P2 が何もしない（AI OFF）＋ HP 無限練習。確定で BATTLE へ遷移する
+     * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
+     */
+    private void updateTitle() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
+                || Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+            titleSelection = titleSelection == 0 ? 1 : 0; // 2 択トグル
+        }
+        boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+        if (confirm) {
+            if (titleSelection == 1) {
+                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。
+                trainingMode = true;
+                p2AiEnabled = false;
+            } else {
+                // 対戦：P2 AI ON。
+                trainingMode = false;
+                p2AiEnabled = true;
+            }
+            controlsHint = buildControlsHint();
+            screen = Screen.BATTLE;
+        }
     }
 
     @Override
     public void render() {
+        // タイトル画面（Task 116）：モード選択（対戦 / トレーニング）。撮影/リプレイでは create() で BATTLE 直行のため
+        // 通常はここに来ない（-x startscreen=title 指定時のみ撮影でも表示）。選択確定で対戦/トレーニングへ遷移する。
+        if (screen == Screen.TITLE) {
+            updateTitle();
+            renderer.renderTitle(titleSelection);
+            screenshot.maybeCapture();
+            return;
+        }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
         // 再生モード：記録済み入力をこのフレームの押下として注入し、P2 AI 状態も復元する。
