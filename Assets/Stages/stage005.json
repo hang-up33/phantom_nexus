@@ -1,0 +1,7 @@
+{
+  "id": "stage005",
+  "name": "Neon Alley",
+  "skyTop": [0.06, 0.03, 0.12],
+  "skyBottom": [0.42, 0.10, 0.46],
+  "groundColor": [0.10, 0.06, 0.16]
+}
