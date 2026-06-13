@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜82 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）＋ 削り KO 禁止（chip では HP を 1 未満にしない）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜83 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）＋ 削り KO 禁止（chip では HP を 1 未満にしない）＋ 浮かせ（launch・打ち上げて空中やられ＝ジャグル起点・`Move.launch` でデータ化）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -430,6 +430,25 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **判定（`resolveHit`）**：従来の「命中済みなら return」を `!canHitNow()` に置き換えただけ。多段は active 中に `hitGap` 間隔で `markAttackConnected` を繰り返す。
 - **コンボ整合**：サブヒットのたびに `applyHit` が呼ばれ、相手は hitstun 継続中なので `comboCount` が加算され `N HITS!` 表示＋ダメージ補正が乗る（例：fighter009 の `twin_thrust`＝`hits:2` で **2 HITS**）。
 - **決定性**：命中回数とフレームカウンタのみで決まり乱数なし（入力リプレイと両立）。投げ・飛び道具は対象外（body hitbox の打撃のみ。`hits` は body hitbox のヒット解決で参照）。
+
+---
+
+## 浮かせ（launch / ジャグル）（Task 83）
+
+`Move.launch`（上方初速・px/frame）を持つ技を非ガードヒットさせると、相手を**打ち上げて空中やられ**にする＝空中コンボ（ジャグル）の起点。**データ駆動**（既定 0＝打ち上げなし＝後方互換）。
+
+| 項目 | 仕様 |
+|---|---|
+| 打ち上げ | `applyLaunch` が通常被弾（`applyHit`）に加え `velocityY = launch`＋`grounded=false` |
+| 弧 | 重力（`update` 末尾で毎フレーム適用）で上昇→落下。横は通常 knockback |
+| 追撃 | 打ち上がった相手はのけぞり中＝無防備で、落下中・着地前に追撃でき空中コンボになる（コンボ計数・補正 Task 39/46 が乗る） |
+| 排他 | ダウン技（`knockdown`）とは排他（`resolveHit` で knockdown 分岐が先＝ダウンが優先） |
+| 表示 | のけぞり（`hitstun`）ラベル＋HUD の `(air)` タグ（専用ステートは追加しない） |
+
+- **実装（`Fighter.applyLaunch`）**：`applyHit` を呼んでから `velocityY = launchVelocity`／`grounded=false`。重力・着地は既存の `update()` 末尾ブロックがそのまま処理（新しい縦移動ロジック不要）。
+- **判定（`resolveHit`）**：非ガード通常ヒットの分岐で `move.getLaunch() > 0` なら `applyLaunch`、それ以外は `applyHit`。
+- **決定性**：初速と重力（固定値）のみで決まり**乱数なし**（入力リプレイと両立）。`launch=0`（既定）の技は従来挙動を維持。
+- **実例**：fighter010 Yuki の `rising_slash`（`launch:11.0`）＝rising 系の打ち上げ技。
 
 ---
 
@@ -876,6 +895,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 83) 浮かせ（launch / ジャグル）を追記。`Move` に任意 float `launch`（既定 0・後方互換）を追加。`Fighter.applyLaunch`（`applyHit`＋`velocityY=launch`＋`grounded=false`）を追加し、重力・着地は既存 `update()` 末尾を流用。`resolveHit` の非ガード通常ヒットで `move.getLaunch()>0` なら `applyLaunch`。ダウン技とは排他（knockdown 分岐が先）。専用ステートなし（hitstun＋(air)）。fighter010 の `rising_slash` に `launch:11.0`。`launch=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、launch 技ヒットを含む既存リプレイは打ち上げで結果が変わり得る（戦闘仕様変更）。「浮かせ（launch / ジャグル）（Task 83）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 82) 削り KO 禁止を追記。`GameConstants.CHIP_DAMAGE_CAN_KO`（既定 false）を追加し、`Fighter.applyGuard` の chip 適用で「chip が HP を 1 未満にする場合は HP=1 に留める」分岐を追加（削り殺し禁止の格闘ゲーム定番ルール）。非ガードの打撃 / 投げ / ダウン技ヒット（`applyHit`/`applyThrow`/`applyKnockdown`）は通常どおり 0 まで削れる（KO 可能）。ジャストガード（Task 81）は chip 自体なし。グローバルルール（JSON 不変）・乱数なし・リプレイ format 不変だが、低 HP で chip を受ける既存リプレイは KO せず生存に変わり得る（戦闘仕様変更）。「ガード（Task 27）」節に追記・冒頭サマリを更新。
 - (Task 81) ジャストガードを追記。`GameConstants` に `JUST_GUARD_WINDOW`(4)・`JUST_GUARD_METER`(12)・`JUST_GUARD_LABEL_FRAMES`(16) を追加。`Fighter` に `guardHeldFrames`（guarding 連続保持カウンタ・top で更新）／`justGuardFrames`（表示）を追加し、`applyGuard` 冒頭で `guardHeldFrames <= JUST_GUARD_WINDOW` ならメーター獲得＋最小 knockback で early return（chip / ゲージ削りなし）。`GameRenderer` が `[JUST]` を付す。Core 無改修（`blocked` のまま `applyGuard` 内で分岐）。グローバル機構（JSON 不変）。乱数なし・リプレイ format 不変だが、ヒット直前に後退を入れる既存リプレイはジャストガードで chip / メーターが変わり得る（戦闘仕様変更）。「ジャストガード（Task 81）」節・冒頭サマリを追加。
 - (Task 80) スーパーアーマーを追記。`Move` に任意 int `armorHits`（既定 0＝なし・後方互換）を追加。`Fighter` に `armorHitsUsed`＋`isArmorActive()`（STARTUP かつ残あり）／`absorbArmorHit()`（ダメージのみ受けて中断しない・軽 knockback）を追加（`beginAttack`/`reset` でリセット）。`PhantomNexusGame.resolveHit` の非ガードヒットで `defender.isArmorActive()` なら `absorbArmorHit` を呼び `applyHit`/`applyKnockdown` を呼ばない（のけぞらせない）＝アーマー吸収はカウンター・スタン蓄積の対象外。投げはアーマーを貫通（上で処理）。`GameRenderer` がアーマー残あり中に `[ARMOR]` を付す。fighter009 の `heavy_lance` に `armorHits:2`。`armorHits=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、アーマー技を出している既存リプレイは被弾結果が変わり得る（戦闘仕様変更）。「スーパーアーマー（Task 80）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。

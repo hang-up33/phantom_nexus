@@ -72,6 +72,12 @@ public class Move {
      */
     private int armorHits = 0;
     /**
+     * 浮かせ（launch・Task 83）の上方初速（px/frame）。{@code > 0} の技を非ガードでヒットさせると、相手を
+     * その初速で<b>打ち上げて空中やられ</b>にする（空中コンボ＝ジャグルの起点）。打ち上がった相手はのけぞり中で
+     * 無防備＝追撃可能。既定 0＝打ち上げなし（後方互換）。ダウン技（{@code knockdown}）とは排他（ダウンが優先）。
+     */
+    private float launch = 0f;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -205,6 +211,11 @@ public class Move {
     /** スーパーアーマー数（Task 80）。startup 中に被弾してものけぞらず継続できる回数。負値は 0 に丸める（既定 0＝なし）。 */
     public int getArmorHits() {
         return Math.max(0, armorHits);
+    }
+
+    /** 浮かせ（launch・Task 83）の上方初速（px/frame）。`> 0` で相手を打ち上げて空中やられにする。負値は 0 に丸める（既定 0＝なし）。 */
+    public float getLaunch() {
+        return Math.max(0f, launch);
     }
 
     /**
