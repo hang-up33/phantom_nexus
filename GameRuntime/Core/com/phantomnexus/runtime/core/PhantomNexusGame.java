@@ -83,6 +83,22 @@ public class PhantomNexusGame extends ApplicationAdapter {
     enum Screen { TITLE, CHARACTER_SELECT, BATTLE }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
     private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング・Task 116）
+
+    /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
+    private static final String[] ROSTER_IDS = {
+        "fighter001", "fighter002", "fighter003", "fighter004", "fighter005", "fighter006",
+        "fighter007", "fighter008", "fighter009", "fighter010", "fighter011", "fighter012",
+        "fighter013", "fighter014", "fighter015", "fighter016", "fighter017", "fighter018"
+    };
+    /** キャラクター選択グリッドの列数（Task 117）。 */
+    private static final int ROSTER_COLS = 6;
+    private String[] rosterNames;   // ロスターの表示名（遅延ロード・charselect に入ったとき構築・Task 117）
+    private int charCursor;         // 選択カーソルの現在 index（Task 117）
+    private int charSelP1 = -1;     // P1 が確定したキャラ index（未確定 -1・Task 117）
+    private int charSelP2 = -1;     // P2 が確定したキャラ index（未確定 -1・Task 117）
+    private boolean charP1Locked;   // P1 が確定して P2 選択中か（Task 117）
+    private BattleRules battleRules; // 対戦からの再開（charselect→battle）でラウンドを作り直すため保持（Task 117）
+    private int introFramesValue;    // 同上（ラウンド開始イントロ長・Task 117）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -126,14 +142,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
         animator1 = new FighterAnimator();
         animator2 = new FighterAnimator();
         // 対戦ルール / ラウンド管理（Task 14 / Task 26）。撮影時は制限時間をオーバーライド可能（結果表示の撮影用）。
-        BattleRules rules = new BattleRules(
+        battleRules = new BattleRules(
                 screenshot.timeLimitSeconds(BattleRules.defaults().getTimeLimitSeconds()),
                 BattleRules.defaults().getRoundsToWin());
         // ラウンド開始イントロ（"ROUND N"/"FIGHT!"・Task 42）。通常起動は有効。撮影モードは既定でスキップし
         // （既存スクショレシピの後方互換）、intro=true 指定時のみ有効化して開始演出を撮れる。
-        int introFrames = screenshot.roundIntroEnabled(true)
+        introFramesValue = screenshot.roundIntroEnabled(true)
                 ? GameConstants.ROUND_INTRO_FRAMES : 0;
-        round = new RoundManager(rules, introFrames);
+        round = new RoundManager(battleRules, introFramesValue);
         // デバッグ当たり判定表示（Task 18）。既定 OFF・F1 でトグル。撮影時は debug=true で強制 ON。
         debugOverlay = new DebugOverlay();
         debugOverlay.setEnabled(screenshot.debugEnabled());
@@ -200,17 +216,87 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 || Gdx.input.isKeyJustPressed(Input.Keys.J);
         if (confirm) {
             if (titleSelection == 1) {
-                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。
+                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
                 trainingMode = true;
                 p2AiEnabled = false;
+                controlsHint = buildControlsHint();
+                screen = Screen.BATTLE;
             } else {
-                // 対戦：P2 AI ON。
+                // 対戦：P2 AI ON。キャラクター選択（Task 117）へ遷移する。
                 trainingMode = false;
                 p2AiEnabled = true;
+                enterCharacterSelect();
             }
-            controlsHint = buildControlsHint();
-            screen = Screen.BATTLE;
         }
+    }
+
+    /** キャラクター選択画面へ入る（Task 117）。ロスター名を遅延ロードし、選択状態を初期化する。 */
+    private void enterCharacterSelect() {
+        ensureRosterLoaded();
+        charCursor = 0;
+        charSelP1 = -1;
+        charSelP2 = -1;
+        charP1Locked = false;
+        screen = Screen.CHARACTER_SELECT;
+    }
+
+    /** ロスターの表示名を（未ロードなら）構築する。各キャラ JSON を読み名前を取り出す（Task 117）。 */
+    private void ensureRosterLoaded() {
+        if (rosterNames != null) {
+            return;
+        }
+        rosterNames = new String[ROSTER_IDS.length];
+        for (int i = 0; i < ROSTER_IDS.length; i++) {
+            rosterNames[i] = CharacterLoader.load(ROSTER_IDS[i]).getName();
+        }
+    }
+
+    /**
+     * キャラクター選択画面の入力処理（Task 117）。矢印/WASD でカーソル移動、ENTER/SPACE/J で確定。
+     * 先に P1 が選び（確定で P1 ロック）、続いて P2 が選ぶ。両者確定で選んだキャラでバトルを開始する。純 UI・乱数なし。
+     */
+    private void updateCharacterSelect() {
+        int n = ROSTER_IDS.length;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            charCursor = (charCursor + 1) % n;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+            charCursor = (charCursor - 1 + n) % n;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+            charCursor = Math.min(n - 1, charCursor + ROSTER_COLS);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+            charCursor = Math.max(0, charCursor - ROSTER_COLS);
+        }
+        boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+        if (confirm) {
+            if (!charP1Locked) {
+                charSelP1 = charCursor;
+                charP1Locked = true;
+            } else {
+                charSelP2 = charCursor;
+                startBattle(ROSTER_IDS[charSelP1], ROSTER_IDS[charSelP2]);
+            }
+        }
+    }
+
+    /** 選んだ 2 キャラでバトルを開始する（Task 117）。ファイター・アニメ・ラウンド・AI を作り直して BATTLE へ。 */
+    private void startBattle(String p1Id, String p2Id) {
+        fighter1 = new Fighter(CharacterLoader.load(p1Id), spawnX1, true);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter1.setMeter(0f);
+        fighter2.setMeter(0f);
+        animator1 = new FighterAnimator();
+        animator2 = new FighterAnimator();
+        round = new RoundManager(battleRules, introFramesValue);
+        p2Ai.reset();
+        p1Inputs.clear();
+        lastInputToken = "";
+        controlsHint = buildControlsHint();
+        screen = Screen.BATTLE;
     }
 
     @Override
@@ -222,6 +308,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
             renderer.renderTitle(titleSelection);
             screenshot.maybeCapture();
             return;
+        }
+        // キャラクター選択画面（Task 117）：対戦モードで遷移。P1→P2 の順にロスターから選び、両者確定でバトル開始。
+        // 撮影で表示するときは create() で -x startscreen=charselect 指定（ロスター名を先にロードしておく）。
+        if (screen == Screen.CHARACTER_SELECT) {
+            ensureRosterLoaded();
+            updateCharacterSelect();
+            if (screen == Screen.CHARACTER_SELECT) { // 確定でバトルへ遷移していなければ描画
+                renderer.renderCharacterSelect(rosterNames, charCursor, charSelP1, charSelP2, charP1Locked, ROSTER_COLS);
+                screenshot.maybeCapture();
+                return;
+            }
         }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);

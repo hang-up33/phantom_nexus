@@ -134,6 +134,8 @@ public class GameRenderer {
     private static final String STATE_LABEL_SUPER_SUFFIX = " [SUPER]"; // スーパー必殺技中の付加表示（Task 108）
     private static final Color MOVE_LIST_COLOR = new Color(0.95f, 0.95f, 0.78f, 1f); // コマンド表 HUD の文字色（Task 112）
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
+    private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
+    private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
     private static final float INPUT_DISPLAY_SCALE = 0.9f; // 入力表示 HUD の文字倍率（Task 96）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
@@ -931,6 +933,59 @@ public class GameRenderer {
         drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 200f);
         drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
                 GameConstants.WORLD_WIDTH / 2f, 168f);
+        batch.end();
+    }
+
+    /**
+     * キャラクター選択画面を描く（Task 117）。ロスターをグリッド表示し、カーソル（黄）・P1 確定（シアン）・P2 確定（橙）を
+     * 色で区別する。上部に選択中プレイヤーと確定済みの選択を表示する。独立した clear + テキストパス。
+     */
+    public void renderCharacterSelect(String[] names, int cursor, int p1, int p2, boolean p1Locked, int cols) {
+        ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        camera.update();
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(1.6f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("CHARACTER SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
+        font.getData().setScale(1.1f);
+        font.setColor(p1Locked ? CHARSEL_P2_COLOR : CHARSEL_P1_COLOR);
+        drawCentered(p1Locked ? "Player 2 : choose your fighter" : "Player 1 : choose your fighter",
+                GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 130f);
+        font.getData().setScale(0.95f);
+        float gridLeft = 150f;
+        float gridTop = 460f;
+        float cellW = 165f;
+        float rowH = 64f;
+        for (int i = 0; i < names.length; i++) {
+            int col = i % cols;
+            int row = i / cols;
+            float cx = gridLeft + col * cellW + cellW / 2f;
+            float cy = gridTop - row * rowH;
+            Color c = Color.WHITE;
+            String label = names[i];
+            if (i == p1) {
+                c = CHARSEL_P1_COLOR;
+                label = "1>" + label;
+            } else if (i == p2) {
+                c = CHARSEL_P2_COLOR;
+                label = "2>" + label;
+            }
+            if (i == cursor) {
+                c = Color.YELLOW;
+                label = "[" + names[i] + "]";
+            }
+            font.setColor(c);
+            drawCentered(label, cx, cy);
+        }
+        font.getData().setScale(1.0f);
+        font.setColor(CHARSEL_P1_COLOR);
+        drawCentered("P1: " + (p1 >= 0 ? names[p1] : "..."), GameConstants.WORLD_WIDTH / 2f - 180f, 150f);
+        font.setColor(CHARSEL_P2_COLOR);
+        drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 180f, 150f);
+        font.setColor(Color.WHITE);
+        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
+        font.getData().setScale(1.0f);
         batch.end();
     }
 
