@@ -602,6 +602,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (blocked) {
             // ガード成立：chip ダメージのみ（のけぞりなし）。
             defender.applyGuard(hb.getDamage(), knockbackDir);
+            // プッシュブロック（Task 111）：攻撃側も相手と反対方向（-knockbackDir）へ押し戻して間合いを作る（固め対策）。
+            attacker.applyGuardPushback(-knockbackDir);
         } else if (armored) {
             // アーマー吸収：のけぞらず damage のみ受けて技を継続（Task 80）。
             defender.absorbArmorHit(dealtDamage, knockbackDir);
