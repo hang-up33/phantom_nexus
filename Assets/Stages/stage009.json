@@ -1,0 +1,7 @@
+{
+  "id": "stage009",
+  "name": "Aurora Tundra",
+  "skyTop": [0.03, 0.06, 0.12],
+  "skyBottom": [0.16, 0.48, 0.42],
+  "groundColor": [0.74, 0.82, 0.90]
+}
