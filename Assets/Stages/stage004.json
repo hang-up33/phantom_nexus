@@ -1,0 +1,7 @@
+{
+  "id": "stage004",
+  "name": "Frozen Peak",
+  "skyTop": [0.10, 0.16, 0.30],
+  "skyBottom": [0.62, 0.74, 0.86],
+  "groundColor": [0.78, 0.84, 0.92]
+}
