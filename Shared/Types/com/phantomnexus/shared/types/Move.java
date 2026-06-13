@@ -78,6 +78,12 @@ public class Move {
      */
     private float launch = 0f;
     /**
+     * OTG（off-the-ground・追い打ち・Task 85）。{@code true} の技は<b>ダウン中（Task 60）の相手にも当たる</b>
+     * （通常はダウン中無敵で当たらない）。倒れた相手への追撃を一部の技に許して起き攻め / コンボの幅を足す。
+     * 既定 {@code false}（後方互換＝ダウン中無敵を貫通しない）。無敵リバーサル（{@code invincibleFrames}）中の相手は貫通しない。
+     */
+    private boolean otg = false;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -216,6 +222,11 @@ public class Move {
     /** 浮かせ（launch・Task 83）の上方初速（px/frame）。`> 0` で相手を打ち上げて空中やられにする。負値は 0 に丸める（既定 0＝なし）。 */
     public float getLaunch() {
         return Math.max(0f, launch);
+    }
+
+    /** OTG（追い打ち・Task 85）か。{@code true} ならダウン中（Task 60）の相手にも当たる。既定 {@code false}（後方互換）。 */
+    public boolean isOtg() {
+        return otg;
     }
 
     /**

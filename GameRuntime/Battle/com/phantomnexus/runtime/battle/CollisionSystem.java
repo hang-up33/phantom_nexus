@@ -88,10 +88,16 @@ public final class CollisionSystem {
      * （本メソッドは純粋な幾何判定のみ）。
      */
     public static boolean isHitting(Fighter attacker, Fighter defender) {
-        // 無敵フレーム中（リバーサル / 対空・Task 53）・ダウン中（Task 60）の相手は食らい判定を失うため当たらない
-        // （ダウン中無敵＝起き攻め / OTG なし）。
-        if (defender.isInvincible() || defender.isKnockedDown()) {
+        // 無敵フレーム中（リバーサル / 対空・Task 53）は食らい判定を失う（OTG でも貫通しない）。
+        if (defender.isInvincible()) {
             return false;
+        }
+        // ダウン中（Task 60）は被弾無敵だが、OTG 技（追い打ち・Task 85）だけは倒れた相手にも当たる。
+        if (defender.isKnockedDown()) {
+            Move am = attacker.getCurrentMove();
+            if (am == null || !am.isOtg()) {
+                return false;
+            }
         }
         Hitbox hb = activeHitbox(attacker);
         if (hb == null) {

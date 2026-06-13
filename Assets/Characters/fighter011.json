@@ -31,14 +31,15 @@
     {
       "id": "hook",
       "button": "light",
+      "otg": true,
       "damage": 48,
       "startup": 6,
       "active": 3,
       "recovery": 11,
       "hitboxOffsetX": 0,
-      "hitboxOffsetY": 120,
-      "hitboxWidth": 84,
-      "hitboxHeight": 36
+      "hitboxOffsetY": 20,
+      "hitboxWidth": 96,
+      "hitboxHeight": 60
     },
     {
       "id": "armor_shoulder",
