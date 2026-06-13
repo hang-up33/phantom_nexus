@@ -337,6 +337,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 84) 11 体目キャラ `Assets/Characters/fighter011.json`（"Goro"・HP1100・**アーマー技を持つ重量級ブルーザー型**の olive）＋プレースホルダ・スプライト `fighter011.png` を追加。`Character` の JSON 仕様は不変（10 体目 fighter010 に続く 11 体目）。アーキタイプ：遅い `walkSpeed4.0`・高 HP・`stunThreshold:360`（崩れにくい）、中攻撃 `armor_shoulder` に **`armorHits:1`（Task 80）** で押し込む、強攻撃 `overhead_smash` は overhead＋`knockdown:true`、必殺技 `earthshaker`（CHARGE_SHOT・`invincibleFrames:8` の無敵リバーサル・飛び道具なし）。撮影は `-x p1char=fighter011` / `-x p2char=fighter011`。
 - (Task 83) `Move` に任意 float `launch`（既定 0＝打ち上げなし・後方互換）を追加。`> 0` の技を非ガードヒットさせると相手を上方初速 `launch` で打ち上げて空中やられ（ジャグル起点）にする。`getLaunch()` が負値を 0 に丸める。任意フィールドのためローダ追加検証なし。`knockdown` とは排他（ダウンが優先）。例示として fighter010 の `rising_slash` に `launch:11.0`（rising 系の打ち上げ）。戦闘仕様は BattleSystem.md「浮かせ（launch / ジャグル）（Task 83）」節を参照。`Move` の normal/special 両フィールド表に `launch` を追加。
 - (Task 80) `Move` に任意 int `armorHits`（既定 0＝アーマーなし・後方互換）を追加。技の startup 中に被弾してものけぞらず継続できる回数（スーパーアーマー）。ダメージは受けるが hitstun に入らない。投げは貫通。`getArmorHits()` が負値を 0 に丸める。任意フィールドのためローダ追加検証なし。例示として fighter009 の `heavy_lance` に `armorHits:2`（タンクの armored 強攻撃）。戦闘仕様は BattleSystem.md「スーパーアーマー（Task 80）」節を参照。`Move` の normal/special 両フィールド表に `armorHits` を追加。
 - (Task 79) `Character` に任意 int `stunThreshold`（既定 0＝めまい無効・後方互換）を追加。被弾で蓄積したスタン値がこの値以上になるとめまい（dizzy・`GameConstants.DIZZY_FRAMES`(100) の無防備硬直＝フルコンボ確定）に陥る。`getStunThreshold()` が負値を 0 に丸める。例示として fighter009 に `stunThreshold:340`（タンク）・fighter010 に `stunThreshold:180`（紙耐久＝崩れやすい）を付与。戦闘仕様は BattleSystem.md「めまい（dizzy / stun）（Task 79）」節を参照。
