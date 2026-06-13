@@ -35,6 +35,8 @@ public class Fighter {
     private int knockdownFrames;        // ダウン（knockdown）の行動不能フレーム。ダウン中は被弾無敵（Task 60）
     private boolean knockdownInertThisFrame; // このフレームの update 処理前にダウン中だったか（被弾ゲートの 1F ラッチ・Task 60）
     private boolean ukemiRecovery;      // 受け身（クイック起き上がり）が成立中か（ダウン短縮・表示用・Task 66）
+    private int delayWakeupFrames;      // ディレイ起き上がりで凍結した累計フレーム（最大 DELAY_WAKEUP_MAX・Task 122）
+    private boolean delayWakeupActive;  // このフレーム起き上がりを遅延（凍結）しているか（表示用・Task 122）
     private boolean hardKnockdown;      // 現在のダウンが受け身不能（hard knockdown）か（Task 88）
     private float velocityX;
     private boolean crouching;
@@ -195,10 +197,18 @@ public class Fighter {
                 knockdownFrames = GameConstants.UKEMI_RISE_FRAMES;
                 ukemiRecovery = true; // 表示用（クイック起き上がりであることを識別）
             }
-            knockdownFrames--;
-            // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
-            if (knockdownFrames == 0) {
-                comboCount = 0;
+            // ディレイ起き上がり（Task 122）：下（しゃがみ方向）を押し続けると起き上がりタイマーを凍結し、最大 DELAY_WAKEUP_MAX
+            // フレームだけ起き上がりを遅らせる（起き攻めの重ねタイミングをずらす）。受け身（早く起きる）と対の「遅く起きる」択。
+            // 受け身成立中（ukemiRecovery）は対象外。凍結中もダウン中無敵は維持される（knockdownFrames>0 のまま）。乱数なし。
+            delayWakeupActive = crouchHeld && !ukemiRecovery && delayWakeupFrames < GameConstants.DELAY_WAKEUP_MAX;
+            if (delayWakeupActive) {
+                delayWakeupFrames++; // 凍結（このフレームは減算しない）
+            } else {
+                knockdownFrames--;
+                // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
+                if (knockdownFrames == 0) {
+                    comboCount = 0;
+                }
             }
             x += velocityX;
             clampToStage();
@@ -420,6 +430,8 @@ public class Fighter {
         knockdownFrames = 0;
         knockdownInertThisFrame = false;
         ukemiRecovery = false;
+        delayWakeupFrames = 0;
+        delayWakeupActive = false;
         hardKnockdown = false;
         crouching = false;
         crouchAttacking = false;
@@ -593,6 +605,8 @@ public class Fighter {
         knockdownFrames = GameConstants.KNOCKDOWN_FRAMES;
         hardKnockdown = hard;              // 受け身可否（Task 88）
         ukemiRecovery = false;             // 新しいダウン＝受け身を再度受け付ける（Task 66。hard なら受け付けても短縮しない）
+        delayWakeupFrames = 0;             // 新しいダウン＝ディレイ起き上がりの遅延予算をリセット（Task 122）
+        delayWakeupActive = false;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * GameConstants.KNOCKDOWN_KNOCKBACK_SCALE;
         attackPhase = AttackPhase.NONE;
         attackFrame = 0;
@@ -1264,6 +1278,11 @@ public class Fighter {
     /** 受け身（ukemi・クイック起き上がり）成立中か（Task 66）。ダウン中の早期起き上がりを表示で識別するための判定。 */
     public boolean isUkemiRecovering() {
         return ukemiRecovery && knockdownFrames > 0;
+    }
+
+    /** ディレイ起き上がり（下押しでダウン延長）中か（Task 122）。ダウンラベルを knockdown(delay) にするための判定。 */
+    public boolean isDelayingWakeup() {
+        return delayWakeupActive && knockdownFrames > 0;
     }
 
     /** 現在のダウンが受け身不能（hard knockdown・Task 88）か。ダウン中のみ有効（表示ラベル用）。 */
