@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜86・88・90〜92・94 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）＋ 削り KO 禁止（chip では HP を 1 未満にしない）＋ 浮かせ（launch・打ち上げて空中やられ＝ジャグル起点・`Move.launch` でデータ化）＋ OTG（追い打ち・`Move.otg` でダウン中の相手にも当たる）＋ ヒットストップ（命中時に両者を数フレーム凍結する衝撃演出）＋ 受け身不能ダウン（hard knockdown・受け身でクイック起き上がりできないダウン）＋ トレーニングモード（F4・HP 無限ダミーでコンボ練習）＋ スタンゲージ HUD（めまい蓄積の可視化）＋ 投げ抜け不能投げ（command throw・`Move.noTech` で抜けられない確定の掴み）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜86・88・90〜92・94・97 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）＋ 削り KO 禁止（chip では HP を 1 未満にしない）＋ 浮かせ（launch・打ち上げて空中やられ＝ジャグル起点・`Move.launch` でデータ化）＋ OTG（追い打ち・`Move.otg` でダウン中の相手にも当たる）＋ ヒットストップ（命中時に両者を数フレーム凍結する衝撃演出）＋ 受け身不能ダウン（hard knockdown・受け身でクイック起き上がりできないダウン）＋ トレーニングモード（F4・HP 無限ダミーでコンボ練習）＋ スタンゲージ HUD（めまい蓄積の可視化）＋ 投げ抜け不能投げ（command throw・`Move.noTech` で抜けられない確定の掴み）＋ AI 起き上がりリバーサル（HARD の AI がダウンからの起き上がりに無敵技で切り返す）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -603,7 +603,7 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 
 ---
 
-## 簡易 AI（Task 21 → Task 37 → Task 50 → Task 51 → Task 55 → Task 56 → Task 57 → Task 63 → Task 64 → Task 75）
+## 簡易 AI（Task 21 → Task 37 → Task 50 → Task 51 → Task 55 → Task 56 → Task 57 → Task 63 → Task 64 → Task 75 → Task 97）
 
 - `GameRuntime/Battle/AiController` が 1 体を状態ベースで操作する（人間の `PlayerInput` の差し替え）。Task 21 の方針は「近づいて、間合い（中心間 ≤ 150px）に入ったら通常攻撃」。攻撃後はクールダウン（45F）で連打を防ぐ。
 - Core は P2 を既定で AI 制御（**F2** でトグル、撮影は `ai=false` で無効化）。AI は `Fighter.update` を人間と同じ経路で呼ぶため、移動・攻撃・押し合い・被弾はすべて共通ロジックを通る。
@@ -616,6 +616,13 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **暴発防止**：起き上がり確定フレーム（無敵ラッチで `isKnockedDown()` が true でも `canStartAction()` が回復するフレーム）は `!canStartAction()` の条件で除外し、そこで通常技が暴発しないようにする。
 - **難易度差**：HARD のみ受け身する（NORMAL/EASY はフル `KNOCKDOWN_FRAMES`(60) ダウン＝起き攻めを受けやすい）。受け身は早く起きる代わりにダウン中無敵も早く切れる（Task 66）ためノーリスクではない。
 - **決定的**：自分のダウン状態のみで判断し**乱数なし**（入力リプレイと両立）。Fighter / Core / `GameConstants` は無改修で、`AiController` に早期分岐を 1 つ足しただけ（Task 66 のクイック起き上がりをそのまま流用）。
+
+### AI 起き上がりリバーサル（Task 97）
+
+ダウン（Task 60）から起き上がった瞬間、HARD の AI は無敵打撃必殺技（リバーサル・Task 53）を持っていれば、相手が起き攻めの間合い（`GUARD_RANGE` 内）にいるとき昇龍拳タイプの**切り返し**を置く。
+
+- **検出**：`AiController` に `wasKnockedDown` を持ち、`control()` 冒頭で「前フレーム down」を退避→今フレーム状態へ更新（ukemi の早期 return を跨いでも必ず更新）。`prevKnockedDown && self.canStartAction()` ＝**起き上がった 1 フレーム**だけ発火（乱発しない）。
+- **行動**：`self.startSpecial(antiAir)`（対空＝Task 55 と同じ無敵打撃技を流用）。空振り / ガードされれば長 recovery で手痛い反確＝リスク/リターンの読み合い（撃たないフェイントは人間側の択）。HARD のみ・乱数なし＝決定的。
 
 ### ダッシュ接近（Task 50）
 
@@ -910,6 +917,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 97) AI 起き上がりリバーサルを追記。`AiController` に `wasKnockedDown`（前フレーム down 退避）を追加し、`prevKnockedDown && canStartAction()`（起き上がり 1 フレーム）＋無敵リバーサル所持＋相手が `GUARD_RANGE` 内なら `startSpecial(antiAir)` で切り返す（HARD のみ）。対空（Task 55）と同じ無敵打撃技を流用＝Core 無改修。乱数なし＝決定的（入力リプレイと両立）。AI 節見出し・「AI 起き上がりリバーサル（Task 97）」節・冒頭サマリを追加。
 - (Task 94) 投げ抜け不能投げ（command throw）を追記。`Move` に任意 bool `noTech`（既定 false・後方互換）を追加。`resolveHit` の投げ抜け（Task 36）判定を `!move.isNoTech()` でゲート＝noTech の投げは tech 窓を無視して必ず掴む。fighter011 の `power_bomb` に `noTech:true`。`noTech=false`（既定）は従来どおり抜け可能。乱数なし・リプレイ format 不変だが、noTech 投げに対し投げ抜け入力する既存リプレイは抜けられず被弾に変わり得る（戦闘仕様変更）。BattleSystem「投げ抜け（Task 36）」節に noTech を追記・冒頭サマリを更新（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 92) スタンゲージ HUD を追記。`GameRenderer.drawStunGauge` を追加し、ガードゲージのさらに下に蓄積スタン値（Task 79）を細バーで表示（満タン間近は黄→赤で警告）。`stunThreshold<=0`（めまい無効）のキャラは描かない＝従来表示を変えない。`Fighter.getStunMeter()` と `def.getStunThreshold()` を読むだけで、戦闘ロジック・signature は不変。「めまい（dizzy / stun）（Task 79）」のゲージ可視化。冒頭サマリを更新。
 - (Task 90) トレーニングモードを追記。`PhantomNexusGame` に `trainingMode`（F4 トグル・撮影は `-x training=true`・リプレイ記録/再生中は無視）を追加。ON のとき P2 AI を切り（ダミー化）、勝敗判定の前に両者 HP を満タンへ戻す＝KO せずコンボ練習できる。ダメージ数値ポップアップ・コンボカウンターは被弾時に確定済みでそのまま見える。`Fighter.restoreFullHp()`・`ScreenshotController.trainingEnabled()`・build.gradle 転送（`phantom.screenshot.training`）・HUD `[F4] training(on/off)` を追加。リプレイ format 不変（記録/再生中は無効化）。「トレーニングモード（Task 90）」として AI 節とは別の運用機能。冒頭サマリを更新。
