@@ -865,6 +865,9 @@ public class GameRenderer {
         font.getData().setScale(COMBO_SCALE);
         font.setColor(COMBO_COLOR);
         drawCentered(combo + " HITS!", f.getX(), y);
+        // コンボ累計ダメージ（Task 121）：ヒット数の下に補正後の実ダメージ合計を表示する。
+        font.getData().setScale(COMBO_SCALE * 0.7f);
+        drawCentered(f.getComboDamage() + " DMG", f.getX(), y - 24f);
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
