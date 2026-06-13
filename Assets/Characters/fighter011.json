@@ -1,0 +1,97 @@
+{
+  "id": "fighter011",
+  "name": "Goro",
+  "hp": 1100,
+  "walkSpeed": 4.0,
+  "jumpPower": 11.5,
+  "width": 92,
+  "height": 230,
+  "color": [0.47, 0.54, 0.22],
+  "stunThreshold": 360,
+  "sprite": {
+    "path": "Characters/fighter011.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "hook",
+      "button": "light",
+      "damage": 48,
+      "startup": 6,
+      "active": 3,
+      "recovery": 11,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 84,
+      "hitboxHeight": 36
+    },
+    {
+      "id": "armor_shoulder",
+      "button": "medium",
+      "armorHits": 1,
+      "damage": 78,
+      "startup": 11,
+      "active": 4,
+      "recovery": 18,
+      "hitboxOffsetX": 20,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 104,
+      "hitboxHeight": 50
+    },
+    {
+      "id": "overhead_smash",
+      "button": "heavy",
+      "guardHeight": "overhead",
+      "knockdown": true,
+      "damage": 125,
+      "startup": 16,
+      "active": 4,
+      "recovery": 28,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 60,
+      "hitboxWidth": 96,
+      "hitboxHeight": 100
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "earthshaker",
+      "command": "CHARGE_SHOT",
+      "invincibleFrames": 8,
+      "damage": 110,
+      "startup": 5,
+      "active": 6,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 50,
+      "hitboxWidth": 90,
+      "hitboxHeight": 110
+    }
+  ],
+  "throwMove": {
+    "id": "power_bomb",
+    "damage": 160,
+    "startup": 4,
+    "active": 2,
+    "recovery": 24,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 54,
+    "hitboxHeight": 150
+  }
+}
