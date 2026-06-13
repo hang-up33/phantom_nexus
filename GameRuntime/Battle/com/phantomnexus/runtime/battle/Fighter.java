@@ -49,6 +49,8 @@ public class Fighter {
     private int stunMeter;              // 蓄積中のスタン値（被弾で増え非被弾で減衰・しきい値超えでめまい・Task 79）
     private int dizzyFrames;            // めまい（dizzy）の無防備行動不能フレーム（被弾無敵ではない＝フルコンボ確定・Task 79）
     private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
+    private int guardHeldFrames; // ガードを連続保持しているフレーム数（ジャストガード判定用・Task 81）
+    private int justGuardFrames;  // ジャストガード成立直後の表示フレーム（ラベルに [JUST] を付す・Task 81）
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
     private float superMeter; // 必殺技ゲージ（攻撃の当て / 被弾 / ガードで貯まり EX 必殺技で消費・Task 44）
@@ -95,6 +97,10 @@ public class Fighter {
         if (counterHitFrames > 0) {
             counterHitFrames--;
         }
+        // ジャストガード成立の表示フレームを減衰（Task 81。ラベルの [JUST] 表示専用）。
+        if (justGuardFrames > 0) {
+            justGuardFrames--;
+        }
         // めまい（Task 79）の行動不能フレームを減衰。dizzyFrames が拘束の真の長さで、被弾で短い hitstun に上書き
         // されても独立に減るため「めまい中はずっと無防備」が保たれる（コンボでリセットされない）。
         if (dizzyFrames > 0) {
@@ -119,6 +125,9 @@ public class Fighter {
         guarding = hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0
                    && attackPhase == AttackPhase.NONE
                    && moveDir != 0 && moveDir == backDir;
+        // ジャストガード判定用：ガード連続保持フレームを数える（Task 81）。保持し始めて JUST_GUARD_WINDOW 以内の
+        // ガード成立はジャストガード（chip / ゲージ削りなし＋メーター獲得）になる。非ガードで 0 リセット。
+        guardHeldFrames = guarding ? guardHeldFrames + 1 : 0;
         // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43。ガード中は減る一方）。
         if (!guarding && guardBreakFrames <= 0 && guardGauge < GameConstants.GUARD_GAUGE_MAX) {
             guardGauge = Math.min(GameConstants.GUARD_GAUGE_MAX,
@@ -357,6 +366,8 @@ public class Fighter {
         stunMeter = 0;
         dizzyFrames = 0;
         guarding = false;
+        guardHeldFrames = 0;
+        justGuardFrames = 0;
         guardGauge = GameConstants.GUARD_GAUGE_MAX;
         guardBreakFrames = 0;
         superMeter = 0f;
@@ -373,6 +384,14 @@ public class Fighter {
      * chip ダメージは通常ダメージの 10%（最低 1）。攻撃の勢いで微小後退する。
      */
     public void applyGuard(int attackDamage, int knockbackDir) {
+        // ジャストガード（Task 81）：ガードを保持し始めて JUST_GUARD_WINDOW 以内に受けたら chip / ゲージ削りなし＋
+        // メーター獲得＋最小 knockback。押しっぱなしのターンでは guardHeldFrames が大きく成立しない（反応ガードのみ）。
+        if (guardHeldFrames <= GameConstants.JUST_GUARD_WINDOW) {
+            gainMeter(GameConstants.JUST_GUARD_METER);
+            velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.1f;
+            justGuardFrames = GameConstants.JUST_GUARD_LABEL_FRAMES;
+            return; // ダメージ・ゲージ削りなし（完全防御）
+        }
         int chip = Math.max(1, attackDamage / 10);
         applyDamage(chip);
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.3f;
@@ -856,6 +875,11 @@ public class Fighter {
     /** ガード中か（後退方向保持・非のけぞり・非攻撃）。立ち / しゃがみ / 空中いずれも含む（接地は不要・Task 59）。 */
     public boolean isGuarding() {
         return guarding;
+    }
+
+    /** ジャストガード成立直後か（表示ラベルに {@code [JUST]} を付すための判定・Task 81）。 */
+    public boolean isJustGuarding() {
+        return justGuardFrames > 0;
     }
 
     /** しゃがみガード中か（ガード中 + 低姿勢を維持）（Task 30）。 */
