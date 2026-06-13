@@ -806,6 +806,10 @@ public class GameRenderer {
             stateLabel = "ground_bounce";
         } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
+        } else if (f.isAirTeching()) {
+            // 空中受け身（air recovery・Task 126）。滞空のため JUMP ポーズを流用しつつ air_tech ラベルで識別する
+            // （空中やられを抜けた直後の行動不能リカバリ＝被弾無敵ではない committal な脱出）。
+            stateLabel = "air_tech";
         } else if (f.isParrying()) {
             // パリィ成立（Task 105）。行動はロックしないが、成立直後の数フレームを parry ラベルで識別する（反撃確定の証跡）。
             stateLabel = "parry";
