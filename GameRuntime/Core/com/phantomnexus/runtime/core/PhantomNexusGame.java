@@ -511,7 +511,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         } else if (attacker.getCurrentMove() != null && attacker.getCurrentMove().isKnockdown()) {
             // ダウン技（Task 60）：非ガードヒットで相手をダウンさせる（通常のけぞりの代わり・ダウン中無敵）。
             // ダウンは既に長い拘束のため hitstun ボーナスは加えず、カウンター時はダメージ倍率のみ適用する。
-            defender.applyKnockdown(dealtDamage, knockbackDir);
+            // 受け身不能ダウン（Task 88）の技なら hard を渡してクイック起き上がりを禁止する。
+            defender.applyKnockdown(dealtDamage, knockbackDir, attacker.getCurrentMove().isHardKnockdown());
         } else {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
             float launch = attacker.getCurrentMove() != null ? attacker.getCurrentMove().getLaunch() : 0f;

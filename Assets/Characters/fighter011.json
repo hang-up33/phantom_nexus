@@ -59,6 +59,7 @@
       "button": "heavy",
       "guardHeight": "overhead",
       "knockdown": true,
+      "hardKnockdown": true,
       "damage": 125,
       "startup": 16,
       "active": 4,

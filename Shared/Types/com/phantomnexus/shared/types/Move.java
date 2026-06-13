@@ -84,6 +84,12 @@ public class Move {
      */
     private boolean otg = false;
     /**
+     * 受け身不能ダウン（hard knockdown・Task 88）。{@code knockdown=true} の技にさらにこれを付けると、
+     * 食らった相手は受け身（ukemi・Task 66）でクイック起き上がりできず、必ずフルダウン（`KNOCKDOWN_FRAMES`）する＝
+     * 起き攻めが確定する。既定 {@code false}（後方互換＝通常ダウンは受け身可能）。{@code knockdown=false} の技では無意味。
+     */
+    private boolean hardKnockdown = false;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -227,6 +233,11 @@ public class Move {
     /** OTG（追い打ち・Task 85）か。{@code true} ならダウン中（Task 60）の相手にも当たる。既定 {@code false}（後方互換）。 */
     public boolean isOtg() {
         return otg;
+    }
+
+    /** 受け身不能ダウン（hard knockdown・Task 88）か。{@code true} なら食らった相手は受け身できずフルダウンする。既定 {@code false}。 */
+    public boolean isHardKnockdown() {
+        return hardKnockdown;
     }
 
     /**
