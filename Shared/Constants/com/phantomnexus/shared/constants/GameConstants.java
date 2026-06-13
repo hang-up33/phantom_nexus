@@ -368,4 +368,11 @@ public final class GameConstants {
 
     /** KO スローモーション（Task 115）の間引き係数。スロー中はこのフレーム数に 1 回だけ実体更新する（4＝1/4 速）。 */
     public static final int KO_SLOW_FACTOR = 4;
+
+    /**
+     * ディレイ起き上がり（delayed wakeup・Task 122）の最大遅延フレーム数。ダウン中に<b>下（しゃがみ方向）を押し続ける</b>と
+     * 起き上がりタイマーを最大このフレーム数ぶん凍結し、起き上がりを遅らせる＝相手の起き攻め（重ね）のタイミングをずらす
+     * 防御択。受け身（ukemi＝早く起きる・Task 66）と対の「遅く起きる」択。ダウン中無敵は凍結中も維持される。
+     */
+    public static final int DELAY_WAKEUP_MAX = 24;
 }
