@@ -167,6 +167,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 100 | ドキュメント総整備（CLAUDE.md フェーズ更新・kaizen 反映・撮影オーバーライド `training` 追記） | ✅ 完了 |
 | 101 | 壁バウンド（wall bounce・`Move.wallBounce` で相手を画面端で跳ね返らせて再び浮かせる＝画面端ジャグル延長） | ✅ 完了 |
 | 102 | 床バウンド（ground bounce・`Move.groundBounce` で着地時に跳ね返らせて再び浮かせる＝ジャグル延長） | ✅ 完了 |
+| 103 | 16 体目キャラ追加（fighter016 Enji・launch/床バウンド/壁バウンド/飛び道具を束ねた bounce-juggle 型・JSON のみで追加） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）

@@ -1,0 +1,121 @@
+{
+  "id": "fighter016",
+  "name": "Enji",
+  "hp": 880,
+  "walkSpeed": 5.0,
+  "jumpPower": 14.0,
+  "airJumps": 1,
+  "width": 80,
+  "height": 204,
+  "color": [0.894, 0.361, 0.188],
+  "sprite": {
+    "path": "Characters/fighter016.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "jab",
+      "button": "light",
+      "damage": 42,
+      "startup": 4,
+      "active": 3,
+      "recovery": 8,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 80,
+      "hitboxHeight": 30
+    },
+    {
+      "id": "rising_knee",
+      "button": "medium",
+      "launch": 9.5,
+      "damage": 64,
+      "startup": 8,
+      "active": 4,
+      "recovery": 17,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 90,
+      "hitboxWidth": 84,
+      "hitboxHeight": 64
+    },
+    {
+      "id": "meteor_drop",
+      "button": "heavy",
+      "groundBounce": true,
+      "damage": 92,
+      "startup": 12,
+      "active": 4,
+      "recovery": 22,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 92,
+      "hitboxHeight": 50
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "ember_shot",
+      "command": "HADOUKEN",
+      "damage": 80,
+      "startup": 11,
+      "active": 3,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 110,
+      "hitboxWidth": 50,
+      "hitboxHeight": 50,
+      "projectile": true,
+      "projectileSpeed": 9.0
+    },
+    {
+      "id": "comet_smash",
+      "command": "CHARGE_SHOT",
+      "wallBounce": true,
+      "damage": 100,
+      "startup": 12,
+      "active": 4,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 80,
+      "hitboxWidth": 70,
+      "hitboxHeight": 80
+    }
+  ],
+  "throwMove": {
+    "id": "burning_throw",
+    "damage": 128,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 140
+  },
+  "airThrowMove": {
+    "id": "sky_grab",
+    "damage": 110,
+    "startup": 3,
+    "active": 3,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 50,
+    "hitboxWidth": 56,
+    "hitboxHeight": 118
+  }
+}
