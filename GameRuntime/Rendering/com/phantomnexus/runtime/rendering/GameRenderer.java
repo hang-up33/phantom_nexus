@@ -132,6 +132,7 @@ public class GameRenderer {
     private static final String STATE_LABEL_ARMOR_SUFFIX = " [ARMOR]"; // スーパーアーマー有効中の付加表示（Task 80）
     private static final String STATE_LABEL_JUST_SUFFIX = " [JUST]"; // ジャストガード成立の付加表示（Task 81）
     private static final String STATE_LABEL_SUPER_SUFFIX = " [SUPER]"; // スーパー必殺技中の付加表示（Task 108）
+    private static final Color MOVE_LIST_COLOR = new Color(0.95f, 0.95f, 0.78f, 1f); // コマンド表 HUD の文字色（Task 112）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
     private static final float INPUT_DISPLAY_SCALE = 0.9f; // 入力表示 HUD の文字倍率（Task 96）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
@@ -197,7 +198,7 @@ public class GameRenderer {
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
                             List<Projectile> projectiles, List<DamagePopup> popups, List<HitSpark> sparks,
                             RoundManager round, DebugOverlay debug, String controlsHint, String statusLine,
-                            List<String> p1Inputs) {
+                            List<String> p1Inputs, boolean moveListVisible) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
@@ -286,6 +287,9 @@ public class GameRenderer {
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
         drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
         drawInputDisplay(p1Inputs); // P1 入力表示 HUD（Task 96）
+        if (moveListVisible) {
+            drawMoveList(p1, p2); // コマンド表 HUD（技/コマンド一覧・F5・Task 112）
+        }
 
         if (debug.isEnabled()) {
             drawCentered("DEBUG: push(blue) hurt(green) hit(red)", GameConstants.WORLD_WIDTH / 2f, 120f);
@@ -900,6 +904,72 @@ public class GameRenderer {
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
+    }
+
+    /**
+     * コマンド表 HUD（Task 112）：両ファイターの技/コマンド一覧を画面左右に描く（F5 トグル）。
+     * データはキャラ定義（{@link Character}）から組み立てる純表示。通常技はボタン（L/M/H）、必殺技はコマンド表記、
+     * 投げ・スーパーも列挙する。トレーニング / 観戦時の参照用。
+     */
+    private void drawMoveList(Fighter p1, Fighter p2) {
+        font.getData().setScale(0.85f);
+        font.setColor(MOVE_LIST_COLOR);
+        drawMoveListColumn(p1.getDef(), 24f);
+        drawMoveListColumn(p2.getDef(), GameConstants.WORLD_WIDTH - 320f);
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+    }
+
+    /** コマンド表の 1 キャラ分を左上原点（{@code x}）から下方向へ描く（Task 112）。 */
+    private void drawMoveListColumn(Character def, float x) {
+        float y = 600f;
+        float lineH = 22f;
+        font.draw(batch, "[" + def.getName() + "] moves", x, y);
+        y -= lineH;
+        Move[] normals = def.getNormalMoves();
+        if (normals != null) {
+            for (Move m : normals) {
+                if (m == null) {
+                    continue;
+                }
+                String btn = m.getButton() != null ? m.getButton().name().substring(0, 1) : "?";
+                font.draw(batch, btn + " : " + m.getId(), x, y);
+                y -= lineH;
+            }
+        }
+        Move[] specials = def.getSpecialMoves();
+        if (specials != null) {
+            for (Move m : specials) {
+                if (m == null) {
+                    continue;
+                }
+                font.draw(batch, commandLabel(m.getCommand()) + " : " + m.getId(), x, y);
+                y -= lineH;
+            }
+        }
+        if (def.getThrowMove() != null) {
+            font.draw(batch, "throw : " + def.getThrowMove().getId(), x, y);
+            y -= lineH;
+        }
+    }
+
+    /** コマンド名（{@code Command.name()}）をテンキー表記の短いラベルへ変換する（Task 112）。 */
+    private static String commandLabel(String command) {
+        if (command == null) {
+            return "?";
+        }
+        switch (command.trim().toUpperCase()) {
+            case "HADOUKEN":
+                return "236+A";
+            case "CHARGE_SHOT":
+                return "[4]6+A";
+            case "DOWN_ATTACK":
+                return "2+A";
+            case "SUPER":
+                return "236236+A";
+            default:
+                return command;
+        }
     }
 
     /** 指定文字列を中心 X（{@code centerX}）・ベースライン Y（{@code y}）に水平センタリングで描く。 */

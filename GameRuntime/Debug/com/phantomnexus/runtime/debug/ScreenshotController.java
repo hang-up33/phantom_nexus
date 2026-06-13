@@ -274,6 +274,14 @@ public final class ScreenshotController {
         return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.training")));
     }
 
+    /** コマンド表 HUD（Task 112）を撮影モードで初期表示するか（{@code -x movelist=true}）。通常起動・未指定は {@code fallback}（F5 トグルの初期値）。 */
+    public boolean moveListEnabled(boolean fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.movelist")));
+    }
+
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
         addTokens(spec, p1Hold, p2Hold);

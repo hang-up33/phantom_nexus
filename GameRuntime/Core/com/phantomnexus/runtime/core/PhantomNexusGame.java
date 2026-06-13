@@ -75,6 +75,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private int hitstopFrames; // ヒットストップ（命中時に両者を凍結する残りフレーム・Task 86）
     private int superFlashFrames; // スーパーフラッシュ（スーパー必殺技発動時に両者を凍結する残りフレーム・Task 108）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
+    private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -139,6 +140,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (trainingMode) {
             p2AiEnabled = false;
         }
+        moveListVisible = screenshot.moveListEnabled(false); // コマンド表 HUD（Task 112）。撮影は movelist=true で起動時 ON。
         controlsHint = buildControlsHint();
         // 入力リプレイ（記録 / 再生）。phantom.replay.* 指定時のみ有効。通常起動には無影響。
         replay = new ReplayController();
@@ -183,13 +185,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
             controlsHint = buildControlsHint();
         }
+        // コマンド表 HUD（Task 112）：F5 で技/コマンド一覧の表示を切り替える（純表示なので記録/再生中も操作可）。
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
+            moveListVisible = !moveListVisible;
+            controlsHint = buildControlsHint();
+        }
         // 記録モード：update が消費する前にこのフレームの入力スナップショットを残す。
         if (replay.isRecording()) {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks, round,
-                debugOverlay, controlsHint, statusLine(), p1Inputs);
+                debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
@@ -703,7 +710,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String buildControlsHint() {
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
-                + "  [F4] training(" + (trainingMode ? "on" : "off") + ")";
+                + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")";
     }
 
     private String statusLine() {
