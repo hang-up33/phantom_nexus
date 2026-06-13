@@ -213,6 +213,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `knockdown` | bool | 任意 | `true` の技を**非ガード**でヒットさせると相手をダウンさせる（通常のけぞりの代わり・ダウン中は被弾無敵＝OTG なし・Task 60）。省略時 `false`（後方互換）。投げ・飛び道具は対象外（打撃ヒットのみ） |
 | `hits` | int | 任意 | 多段ヒット数（Task 74）。active 区間中に最大何回ヒットさせるか。省略時 `1`（単発・後方互換）。2 以上で `hitGap` 間隔の多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る） |
 | `hitGap` | int | 任意 | 多段ヒットのサブヒット間隔（フレーム数・Task 74）。省略時 `4`。`hits == 1`（単発）では無視。`active` は `hitGap × (hits-1)` 以上が必要（全段当てるため） |
+| `armorHits` | int | 任意 | スーパーアーマー数（Task 80）。技の **startup 中**に被弾してものけぞらず継続できる回数。省略時 `0`＝アーマーなし（後方互換）。ダメージは受けるが hitstun に入らない。投げ（ガード不能）は貫通する |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -335,6 +336,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 80) `Move` に任意 int `armorHits`（既定 0＝アーマーなし・後方互換）を追加。技の startup 中に被弾してものけぞらず継続できる回数（スーパーアーマー）。ダメージは受けるが hitstun に入らない。投げは貫通。`getArmorHits()` が負値を 0 に丸める。任意フィールドのためローダ追加検証なし。例示として fighter009 の `heavy_lance` に `armorHits:2`（タンクの armored 強攻撃）。戦闘仕様は BattleSystem.md「スーパーアーマー（Task 80）」節を参照。`Move` の normal/special 両フィールド表に `armorHits` を追加。
 - (Task 79) `Character` に任意 int `stunThreshold`（既定 0＝めまい無効・後方互換）を追加。被弾で蓄積したスタン値がこの値以上になるとめまい（dizzy・`GameConstants.DIZZY_FRAMES`(100) の無防備硬直＝フルコンボ確定）に陥る。`getStunThreshold()` が負値を 0 に丸める。例示として fighter009 に `stunThreshold:340`（タンク）・fighter010 に `stunThreshold:180`（紙耐久＝崩れやすい）を付与。戦闘仕様は BattleSystem.md「めまい（dizzy / stun）（Task 79）」節を参照。
 - (Task 76) 10 体目キャラ `Assets/Characters/fighter010.json`（"Yuki"・HP780・**多段ヒット rapid jab の高速 rushdown 型**の silver）＋プレースホルダ・スプライト `fighter010.png` を追加。`Character` の JSON 仕様は不変（9 体目 fighter009 に続く 10 体目）。アーキタイプ：速い `walkSpeed6.2`＋`airJumps:1` の機動、弱攻撃 `rapid_jab` を **`hits:3`（Task 74）の 3 段刻み**にした rushdown、高速飛び道具 `frost_shard`、地上投げ＋空中投げ。低 HP で手数型。撮影は `-x p1char=fighter010` / `-x p2char=fighter010`。
 - (Task 74) `Move` に任意 int `hits`（既定 1・後方互換）・`hitGap`（既定 4）を追加。`hits >= 2` の技は active 区間中に `hitGap` フレーム間隔で複数回ヒットする多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る）。`getHits()` は最小 1・`getHitGap()` は最小 0 に丸める。任意フィールドのためローダ追加検証なし（旧 JSON はキー無しで単発）。例示として fighter009 の中攻撃を 2 段技 `twin_thrust`（`hits:2`・`hitGap:4`・active9）に。戦闘仕様は BattleSystem.md「多段ヒット技（Task 74）」節を参照。`Move` の normal/special 両フィールド表に `hits`/`hitGap` を追加。
