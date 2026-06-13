@@ -284,4 +284,23 @@ public final class GameConstants {
 
     /** ガード成立時のヒットストップ（Task 86）。命中より短く、ガードの「いなし」感を出す。 */
     public static final int HITSTOP_BLOCK_FRAMES = 2;
+
+    /**
+     * 壁バウンド（wall bounce・Task 101）の水平吹き飛ばし初速（px/frame, 後方へ）。{@code Move.wallBounce=true} の技を
+     * 非ガードヒットさせると相手にこの初速を与えて横へ飛ばす。画面端（壁）に達すると {@link #WALL_BOUNCE_REBOUND_SCALE}
+     * 倍の速度で跳ね返り、{@link #WALL_BOUNCE_POP} で再び浮いて追撃可能になる（画面端ジャグルの延長）。
+     */
+    public static final float WALL_BOUNCE_SPEED = 11f;
+
+    /** 壁に当たって跳ね返るときの水平速度の倍率（Task 101）。元の吹き飛ばし速度にこの倍率を掛けて反対方向へ戻す。 */
+    public static final float WALL_BOUNCE_REBOUND_SCALE = 0.6f;
+
+    /** 壁バウンドで跳ね返る瞬間に与える上方初速（px/frame・Task 101）。再び浮かせて追撃の猶予を作る。 */
+    public static final float WALL_BOUNCE_POP = 8f;
+
+    /** 壁バウンド成立（跳ね返り）時に上乗せするのけぞりフレーム数（Task 101）。跳ね返り際の追撃が間に合う猶予。 */
+    public static final int WALL_BOUNCE_BONUS_HITSTUN = 16;
+
+    /** 壁バウンド成立の表示フレーム数（Task 101）。状態ラベルに wall_bounce を出す表示専用カウンタの寿命。 */
+    public static final int WALL_BOUNCE_LABEL_FRAMES = 20;
 }

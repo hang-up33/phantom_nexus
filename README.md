@@ -165,6 +165,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 98 | 第7ステージ追加（stage007 Volcanic Rift・JSON のみで背景差し替え検証） | ✅ 完了 |
 | 99 | 15 体目キャラ追加（fighter015 Aki・多段/浮かせ/二系統必殺技の万能 shoto 型・JSON のみで追加） | ✅ 完了 |
 | 100 | ドキュメント総整備（CLAUDE.md フェーズ更新・kaizen 反映・撮影オーバーライド `training` 追記） | ✅ 完了 |
+| 101 | 壁バウンド（wall bounce・`Move.wallBounce` で相手を画面端で跳ね返らせて再び浮かせる＝画面端ジャグル延長） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
