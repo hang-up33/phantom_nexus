@@ -393,7 +393,12 @@ public class Fighter {
             return; // ダメージ・ゲージ削りなし（完全防御）
         }
         int chip = Math.max(1, attackDamage / 10);
-        applyDamage(chip);
+        // 削り KO 禁止（Task 82）：既定では chip で HP を 1 未満にしない（最低 1 残す）。非ガードヒットは 0 まで削れる。
+        if (!GameConstants.CHIP_DAMAGE_CAN_KO && currentHp - chip <= 0) {
+            currentHp = 1;
+        } else {
+            applyDamage(chip);
+        }
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.3f;
         // ガードゲージを攻撃力に応じて削る。0 以下でガードクラッシュ（Task 43）。
         guardGauge -= Math.max(1, attackDamage / GameConstants.GUARD_DRAIN_DIVISOR);
