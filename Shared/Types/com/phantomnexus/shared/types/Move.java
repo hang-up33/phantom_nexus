@@ -55,6 +55,17 @@ public class Move {
      */
     private boolean knockdown = false;
     /**
+     * 多段ヒット数（Task 74）。この技の active 区間中に最大何回ヒットさせるか。既定 1（単発・後方互換）。
+     * 2 以上にすると、active 中に {@link #hitGap} フレーム間隔で複数回ヒットする多段技になる（各サブヒットは
+     * のけぞり中の相手にコンボとして加算され、コンボダメージ補正＝Task 46 が乗る）。旧 JSON（キー無し）は 1。
+     */
+    private int hits = 1;
+    /**
+     * 多段ヒットのサブヒット間隔（フレーム数・Task 74）。{@link #hits} が 2 以上のとき、1 回ヒットしてから
+     * 次のヒットを許可するまでの待機フレーム。既定 4。{@code hits == 1}（単発）では無視される。
+     */
+    private int hitGap = 4;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -173,6 +184,16 @@ public class Move {
     /** ダウン技か（Task 60）。{@code true} の技を非ガードで食らうと相手はダウンする。既定 {@code false}（後方互換）。 */
     public boolean isKnockdown() {
         return knockdown;
+    }
+
+    /** 多段ヒット数（Task 74）。最小 1（単発）に丸める。2 以上で {@link #getHitGap()} 間隔の多段技になる。 */
+    public int getHits() {
+        return Math.max(1, hits);
+    }
+
+    /** 多段ヒットのサブヒット間隔（フレーム数・Task 74）。負値は 0 に丸める。{@link #getHits()} が 1 なら無視される。 */
+    public int getHitGap() {
+        return Math.max(0, hitGap);
     }
 
     /**

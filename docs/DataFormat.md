@@ -210,6 +210,8 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `hitboxHeight` | float | ✅ | hitbox の高さ（px） |
 | `guardHeight` | string | 任意 | ガード高さ属性：`"overhead"`（上段・立ちガードのみ可）/ `"mid"`（中段・両ガード可, **既定**）/ `"low"`（下段・しゃがみガードのみ可）。省略時 `"mid"`（Task 33） |
 | `knockdown` | bool | 任意 | `true` の技を**非ガード**でヒットさせると相手をダウンさせる（通常のけぞりの代わり・ダウン中は被弾無敵＝OTG なし・Task 60）。省略時 `false`（後方互換）。投げ・飛び道具は対象外（打撃ヒットのみ） |
+| `hits` | int | 任意 | 多段ヒット数（Task 74）。active 区間中に最大何回ヒットさせるか。省略時 `1`（単発・後方互換）。2 以上で `hitGap` 間隔の多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る） |
+| `hitGap` | int | 任意 | 多段ヒットのサブヒット間隔（フレーム数・Task 74）。省略時 `4`。`hits == 1`（単発）では無視。`active` は `hitGap × (hits-1)` 以上が必要（全段当てるため） |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -331,6 +333,9 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 - 不明な追加フィールドは将来拡張のため無視（前方互換）。
 
 ## 変更履歴
+
+- (Task 74) `Move` に任意 int `hits`（既定 1・後方互換）・`hitGap`（既定 4）を追加。`hits >= 2` の技は active 区間中に `hitGap` フレーム間隔で複数回ヒットする多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る）。`getHits()` は最小 1・`getHitGap()` は最小 0 に丸める。任意フィールドのためローダ追加検証なし（旧 JSON はキー無しで単発）。例示として fighter009 の中攻撃を 2 段技 `twin_thrust`（`hits:2`・`hitGap:4`・active9）に。戦闘仕様は BattleSystem.md「多段ヒット技（Task 74）」節を参照。`Move` の normal/special 両フィールド表に `hits`/`hitGap` を追加。
+- (Task 72) 9 体目キャラ `Assets/Characters/fighter009.json`（"Hayato"・HP1050・**高 HP の charge zoner 型**の gold）＋プレースホルダ・スプライト `fighter009.png` を追加。`Character` の JSON 仕様は不変で、JSON＋PNG の追加だけでキャラが動作する（8 体目 fighter008 に続く 9 体目）。アーキタイプ：遅い `walkSpeed4.2`・長射程の通常技（`jab`/`twin_thrust`/`heavy_lance`）・`CHARGE_SHOT` 飛び道具 `charge_beam`（溜め式の弾＝HADOUKEN とは別モーション）・強攻撃 `heavy_lance` に `knockdown:true`。AI はデータ駆動の飛び道具牽制（Task 64）でこの弾を撃って zoning する。撮影は `-x p1char=fighter009` / `-x p2char=fighter009`。
 
 - (Task 70) `Character` に任意フィールド **`airThrowMove`**（Move・省略可）を追加。空中投げ（滞空中の相手専用のガード不能掴み・Task 70）で、`throwMove`（地上投げ）と同型の grab box を持つ。省略時はそのキャラは空中投げを持たない（後方互換）。検証は `throwMove` と同じ `validateThrowMove` を流用。例示として fighter004 Rai に `airThrowMove`（`sky_grab`・dmg110）を付与（高機動ラッシュ＋空対空の掴み）。戦闘仕様は BattleSystem.md「空中投げ（Task 70）」節を参照。
 - (Task 69) `Character` に任意フィールド **`airDashes`**（int・既定 0）を追加。空中ダッシュの回数（air dash・Task 69）で、`1` なら滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。省略時 0＝空中ダッシュなし（後方互換）。`getAirDashes()` が負値を 0 に丸める。例示として fighter004 Rai に `airDashes: 1` を付与（二段ジャンプ＋空中ダッシュ＝高機動ラッシュ型）。戦闘仕様は BattleSystem.md「空中ダッシュ（Task 69）」節を参照。

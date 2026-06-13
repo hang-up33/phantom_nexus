@@ -415,7 +415,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** attacker の active hitbox が defender に当たり、まだ未命中ならダメージ・のけぞりを適用する（Task 13 / Task 27 / Task 31 / Task 35）。 */
     private void resolveHit(Fighter attacker, Fighter defender) {
-        if (attacker.hasAttackConnected() || !CollisionSystem.isHitting(attacker, defender)) {
+        // 多段ヒット（Task 74）：単発技は 1 回、多段技は hits 回まで（hitGap 間隔で）ヒットを確定する。
+        // canHitNow() が残りヒット数と間隔を見るため、従来の「命中済みなら return」を一般化したもの。
+        if (!attacker.canHitNow() || !CollisionSystem.isHitting(attacker, defender)) {
             return;
         }
         // 投げは種別に応じて掴める相手の接地状態が決まる（Task 35 / 空中投げ Task 70）。

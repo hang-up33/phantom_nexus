@@ -138,6 +138,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 71 | カウンターヒット（相手の攻撃 startup 中に打撃を当てるとダメージ増＋のけぞり延長） | ✅ 完了 |
 | 72 | 9 体目キャラ追加（fighter009 Hayato・高 HP の charge zoner 型・JSON のみで追加） | ✅ 完了 |
 | 73 | 第3ステージ追加（stage003 Crimson Dusk・JSON のみで背景差し替え検証） | ✅ 完了 |
+| 74 | 多段ヒット技（1 つの技が active 中に複数回ヒット・JSON `hits`/`hitGap` でデータ化） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
