@@ -219,13 +219,14 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `hardKnockdown` | bool | 任意 | 受け身不能ダウン（Task 88）。`knockdown:true` の技にさらに付けると、食らった相手は受け身（Task 66）でクイック起き上がりできず必ずフルダウン＝起き攻め確定。省略時 `false`（後方互換）。`knockdown=false` では無意味 |
 | `wallBounce` | bool | 任意 | 壁バウンド（Task 101）。`true` で非ガードヒット時に相手を横へ強く吹き飛ばし、画面端（壁）で跳ね返らせて再び浮かせる＝画面端ジャグルの延長点。省略時 `false`（後方互換）。`knockdown` とは排他（ダウンが優先）・`launch` より優先 |
 | `groundBounce` | bool | 任意 | 床バウンド（Task 102）。`true` で非ガードヒット時に相手を打ち上げ、着地時に一度だけ跳ね返らせて再び浮かせる＝ジャグルの延長点（叩きつけ→跳ね上がり）。省略時 `false`（後方互換）。`knockdown` と排他・`wallBounce` の次・`launch` より優先 |
+| `superMove` | bool | 任意 | スーパー必殺技（Task 108）。`true` の必殺技は専用コマンド **236236＋攻撃**＋必殺技ゲージ満タン消費で発動し、発動時にスーパーフラッシュ（凍結演出）が入る。`command` は `"SUPER"` を指定。飛び道具/打撃いずれも可。省略時 `false`（後方互換） |
 
 ### Move（`specialMoves[]` 要素）
 
 | フィールド | 型 | 必須 | 意味 |
 |---|---|---|---|
 | `id` | string | ✅ | 技 ID |
-| `command` | string | ✅ | コマンド種別：`"HADOUKEN"` / `"CHARGE_SHOT"` / `"DOWN_ATTACK"`（`Command` enum の name） |
+| `command` | string | ✅ | コマンド種別：`"HADOUKEN"` / `"CHARGE_SHOT"` / `"DOWN_ATTACK"` / `"SUPER"`（236236・Task 108）（`Command` enum の name） |
 | `damage` | int | ✅ | ダメージ |
 | `startup` | int | ✅ | 発生フレーム |
 | `active` | int | ✅ | 持続フレーム |
@@ -342,6 +343,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 108) スーパー必殺技を追加。`Move` に任意 bool `superMove`（既定 false＝後方互換）、`Command` enum に `SUPER`（236236＝波動拳 2 回）、`CharacterLoader.VALID_COMMANDS` に `"SUPER"` を追加。`superMove:true` ＋ `command:"SUPER"` の必殺技は、専用コマンド（236236＋攻撃）＋必殺技ゲージ満タン消費で発動し、スーパーフラッシュ（`SUPER_FLASH_FRAMES` の凍結演出）が入る。fighter016（Enji）に飛び道具スーパー `inferno_wave`（dmg210）を追加。条件未達なら波動拳にフォールバック。戦闘仕様は BattleSystem.md「スーパー必殺技（Task 108）」節を参照。`Move` の specialMoves フィールド表に `superMove`・`command` 値に `SUPER` を追加。
 - (Task 107) 8 番目のステージ `Assets/Stages/stage008.json`（"Abyssal Cathedral"・暗い藍紫グラデの背景）を追加。`Stage` の JSON 仕様は不変（stage007 に続く 8 ステージ目）。撮影は `-x stage=stage008`。
 - (Task 103) 16 体目キャラ `Assets/Characters/fighter016.json`（"Enji"・HP880・**launch/床バウンド/壁バウンド/飛び道具を束ねた bounce-juggle 型**の vermilion `[228,92,48]`）＋プレースホルダ・スプライト `fighter016.png`（256×896）を追加。`Character` の JSON 仕様は不変（15 体目 fighter015 に続く 16 体目＝ロスター 16 体）。アーキタイプ：中攻撃 `rising_knee`（`launch:9.5`＝浮かせ・Task 83）、強攻撃 `meteor_drop`（`groundBounce:true`＝床バウンド・Task 102）、必殺技は飛び道具 `ember_shot`（HADOUKEN）＋打撃 `comet_smash`（CHARGE_SHOT・`wallBounce:true`＝壁バウンド・Task 101）、地上投げ＋空中投げ、`airJumps:1`＝バウンド機構でジャグルを伸ばす新型。撮影は `-x p1char=fighter016` / `-x p2char=fighter016`。
 - (Task 102) `Move` に任意 bool `groundBounce`（床バウンド・既定 false＝後方互換）を追加。`true` の技を非ガードヒットさせると相手を打ち上げ（`GROUND_BOUNCE_LAUNCH`）、着地時に一度だけ跳ね返って（`GROUND_BOUNCE_POP`）再び浮く＝ジャグル延長（叩きつけ→跳ね上がり）。`Fighter.applyGroundBounce` ＋ `update` 着地処理の跳ね返り分岐で実装。`knockdown` と排他・`wallBounce` の次・`launch` より優先。任意フィールドのためローダ追加検証なし。例示として fighter012（Daichi）の `lift_kick`（medium）を `launch` から `groundBounce:true` へ変更。戦闘仕様は BattleSystem.md「床バウンド（Task 102）」節を参照。`Move` の normal/special 両フィールド表に `groundBounce` を追加。

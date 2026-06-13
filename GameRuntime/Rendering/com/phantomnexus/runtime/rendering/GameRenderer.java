@@ -131,6 +131,7 @@ public class GameRenderer {
     private static final String STATE_LABEL_COUNTER_SUFFIX = " (CH)"; // カウンターヒット被弾の付加表示（Task 71）
     private static final String STATE_LABEL_ARMOR_SUFFIX = " [ARMOR]"; // スーパーアーマー有効中の付加表示（Task 80）
     private static final String STATE_LABEL_JUST_SUFFIX = " [JUST]"; // ジャストガード成立の付加表示（Task 81）
+    private static final String STATE_LABEL_SUPER_SUFFIX = " [SUPER]"; // スーパー必殺技中の付加表示（Task 108）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
     private static final float INPUT_DISPLAY_SCALE = 0.9f; // 入力表示 HUD の文字倍率（Task 96）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
@@ -823,6 +824,10 @@ public class GameRenderer {
         // EX 必殺技中（メーター消費の強化版・Task 54）は [EX] を付す（金色 strike と対）。
         if (f.isExAttack()) {
             stateLabel = stateLabel + STATE_LABEL_EX_SUFFIX;
+        }
+        // スーパー必殺技中（メーター満タン消費・Task 108）は [SUPER] を付す（発動時にスーパーフラッシュ凍結）。
+        if (f.isAttacking() && f.getCurrentMove() != null && f.getCurrentMove().isSuper()) {
+            stateLabel = stateLabel + STATE_LABEL_SUPER_SUFFIX;
         }
         // カウンターヒット被弾中（Task 71）は (CH) を付す（差し返された証跡）。
         if (f.isCounterHit()) {

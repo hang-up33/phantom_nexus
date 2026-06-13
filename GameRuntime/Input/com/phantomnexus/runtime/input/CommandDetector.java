@@ -17,6 +17,8 @@ public final class CommandDetector {
 
     /** コマンド方向入力を遡って探索する窓（フレーム）。 */
     private static final int MOTION_WINDOW = 14;
+    /** スーパー必殺技（236236＝波動拳 2 回）を遡って探索する窓（フレーム・Task 108）。2 モーション分なので広め。 */
+    private static final int SUPER_MOTION_WINDOW = 28;
     /** 溜め成立に必要な「後」入力の最小保持フレーム。 */
     public static final int CHARGE_FRAMES = 30;
     /** 溜め解放（前+攻撃）を受け付ける、溜め終了からの猶予フレーム。 */
@@ -30,6 +32,10 @@ public final class CommandDetector {
     public static Command detect(InputHistory h) {
         if (!h.attackEdgeAgo(0)) {
             return Command.NONE;
+        }
+        // スーパー（236236）は波動拳（236）を内包するため、より厳しいこちらを先に評価する（Task 108）。
+        if (isSuper(h)) {
+            return Command.SUPER;
         }
         if (isHadouken(h)) {
             return Command.HADOUKEN;
@@ -67,6 +73,43 @@ public final class CommandDetector {
                     return true;
                 }
             }
+        }
+        return false;
+    }
+
+    /**
+     * スーパー（236236＋攻撃・Task 108）：攻撃時に前(6/3)で、窓内に「下→前」の波動拳要素が <b>2 回</b> 遡って見つかる。
+     * 新しい順に走査し、前(6)＋その直後（過去側）の下(2/1/3)を 1 モーションと数え、2 モーション以上で成立。
+     * 純判定（履歴のみ）で乱数なし。
+     */
+    private static boolean isSuper(InputHistory h) {
+        int now = h.dirAgo(0);
+        if (now != 6 && now != 3) {
+            return false;
+        }
+        int motions = 0;
+        int back = 0;
+        while (back < SUPER_MOTION_WINDOW && back < InputHistory.CAPACITY) {
+            if (h.dirAgo(back) == 6) {
+                // この前(6)より過去側（数フレーム以内）に下要素があれば 1 モーション成立。
+                int downAt = -1;
+                for (int b2 = back + 1; b2 <= back + 8 && b2 < SUPER_MOTION_WINDOW && b2 < InputHistory.CAPACITY; b2++) {
+                    int d = h.dirAgo(b2);
+                    if (d == 2 || d == 1 || d == 3) {
+                        downAt = b2;
+                        break;
+                    }
+                }
+                if (downAt >= 0) {
+                    motions++;
+                    if (motions >= 2) {
+                        return true;
+                    }
+                    back = downAt + 1; // この下より過去から次のモーションを探す
+                    continue;
+                }
+            }
+            back++;
         }
         return false;
     }
