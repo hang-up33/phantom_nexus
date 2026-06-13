@@ -406,6 +406,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                     target.applyGuard(p.getDamage(), knockbackDir);
                 } else {
                     target.applyHit(p.getDamage(), GameConstants.HITSTUN_FRAMES, knockbackDir);
+                    target.addStun(p.getDamage()); // めまい蓄積（Task 79・飛び道具ヒットも蓄積）
                 }
                 float sparkY = target.getY() + target.getDef().getHeight() / 2f;
                 spawnDamagePopup(before - target.getCurrentHp(), blocked, p.getX(), sparkY);
@@ -497,6 +498,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         } else {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
             defender.applyHit(dealtDamage, hitstun, knockbackDir);
+        }
+        if (!blocked) {
+            defender.addStun(dealtDamage); // めまい蓄積（Task 79・通常ヒット。閾値超えで dizzy。stunThreshold=0 なら no-op）
         }
         if (counter) {
             defender.markCounterHit(); // 被弾ラベルに (CH) を付す（差し返しの証跡）

@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78・79 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -22,7 +22,7 @@
 
 `idle / walk / jump / jump_attack(空中攻撃) / attack / throw(投げ) / crouch_attack(しゃがみ攻撃) / hitstun(のけぞり) / guard / crouch / crouch_walk / crouch_guard / KO`。
 空中ガード（Task 59）は専用の `AnimationState` を持たず JUMP ポーズ＋青オーバーレイを流用し、ラベル `air_guard` で識別する。
-ダウン（Task 60）も専用 `AnimationState` を持たず HITSTUN ポーズを流用し、ラベル `knockdown` で識別する（ダウン中は被弾無敵）。受け身（Task 66）成立中は `knockdown(ukemi)` ラベルでクイック起き上がりを識別する（ポーズは HITSTUN 流用のまま）。
+ダウン（Task 60）も専用 `AnimationState` を持たず HITSTUN ポーズを流用し、ラベル `knockdown` で識別する（ダウン中は被弾無敵）。めまい（Task 79）も同様に HITSTUN ポーズ流用＋ラベル `dizzy`（ただし被弾無敵ではない＝コンボ可）。受け身（Task 66）成立中は `knockdown(ukemi)` ラベルでクイック起き上がりを識別する（ポーズは HITSTUN 流用のまま）。
 ダッシュ攻撃（Task 65）も専用 `AnimationState` を持たず ATTACK ポーズを流用し、ラベル `dash_attack:<区間>` で識別する（ダッシュ中の攻撃で出る突進打撃）。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
@@ -413,6 +413,25 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **判定（`resolveHit`）**：従来の「命中済みなら return」を `!canHitNow()` に置き換えただけ。多段は active 中に `hitGap` 間隔で `markAttackConnected` を繰り返す。
 - **コンボ整合**：サブヒットのたびに `applyHit` が呼ばれ、相手は hitstun 継続中なので `comboCount` が加算され `N HITS!` 表示＋ダメージ補正が乗る（例：fighter009 の `twin_thrust`＝`hits:2` で **2 HITS**）。
 - **決定性**：命中回数とフレームカウンタのみで決まり乱数なし（入力リプレイと両立）。投げ・飛び道具は対象外（body hitbox の打撃のみ。`hits` は body hitbox のヒット解決で参照）。
+
+---
+
+## めまい（dizzy / stun）（Task 79）
+
+被弾を短時間に重ねると**スタン値**が蓄積し、`Character.stunThreshold` を超えると**めまい**（dizzy）に陥る。めまいは「のけぞりより長く・ダウンと違い被弾無敵ではない」無防備硬直＝**フルコンボ確定**の大きな隙で、畳みかける連係への見返りになる。**データ駆動**（`stunThreshold` を設定したキャラだけがめまいする・既定 0＝無効＝後方互換）。
+
+| 項目 | 仕様 |
+|---|---|
+| 蓄積 | 通常ヒット / 飛び道具ヒットのたびに与ダメージ量だけスタン値が増える（ガード chip は加算しない） |
+| 自然減衰 | 中立（のけぞり / ダウン / めまいでない）な間は `STUN_DECAY_PER_FRAME`(2)/frame で抜ける＝間合いを離せば回復 |
+| 発生 | スタン値 ≥ `stunThreshold`（キャラ任意・既定 0＝無効）でめまい。スタン値は 0 リセット |
+| めまい中 | `DIZZY_FRAMES`(100) 無防備行動不能。**被弾無敵ではない**（ダウン Task 60 と対照的）＝コンボ可。被弾で hitstun が上書きされても `dizzyFrames` が独立に拘束を保つ |
+| 表示 | 状態ラベル `dizzy`（HITSTUN ポーズを流用） |
+
+- **実装（`Fighter`）**：`stunMeter`（蓄積）＋ `dizzyFrames`（拘束）。`addStun(amount)` がしきい値超えで `dizzyFrames = DIZZY_FRAMES`＋`stunMeter=0`。inert 分岐の条件を `hitstunFrames > 0 || dizzyFrames > 0` に拡張（めまい中も無防備行動不能）。`canStartAction()`／`guarding` 算出に `dizzyFrames <= 0` を追加。`dizzyFrames` は `update()` 冒頭で減衰、スタン減衰も中立時のみ。`reset()` でクリア。
+- **wiring（`PhantomNexusGame`）**：`resolveHit` の非ガードヒット・`updateProjectiles` の非ガードヒットで `defender.addStun(dealtDamage)`。投げ・ダウン技は加算しない（既に大きな disable）。
+- **決定性**：被弾ダメージ量とフレームカウンタのみで決まり**乱数なし**（入力リプレイと両立）。`stunThreshold=0` のキャラは `addStun` が即 return＝従来挙動を完全に維持（後方互換）。
+- **実例**：fighter010 Yuki（`stunThreshold:180`＝紙耐久）に 3 ヒットチェイン（≈190 蓄積）でめまい、fighter009 Hayato（`stunThreshold:340`＝タンク）は崩れにくい。
 
 ---
 
@@ -821,6 +840,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 79) めまい（dizzy / stun）を追記。`Character` に任意 int `stunThreshold`（既定 0＝無効・後方互換）・`GameConstants` に `DIZZY_FRAMES`(100)・`STUN_DECAY_PER_FRAME`(2) を追加。`Fighter` に `stunMeter`／`dizzyFrames`＋`addStun()`／`isDizzy()` を追加し、inert 分岐を `hitstunFrames>0 || dizzyFrames>0` に拡張（めまいは無防備＝被弾無敵ではない・コンボ確定）、`canStartAction()`／`guarding` に `dizzyFrames<=0` を追加、`update()` 冒頭で dizzy 減衰＋中立時のスタン自然減衰。`resolveHit`／`updateProjectiles` の非ガードヒットで `addStun(dealtDamage)`（投げ・ダウン技は除外）。`GameRenderer` が `dizzy` ラベルを hitstun より先に表示。fighter009（340）/ fighter010（180）に `stunThreshold` を付与。`stunThreshold=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、`stunThreshold>0` のキャラを連係で崩す既存リプレイはめまいで結果が変わり得る（戦闘仕様変更）。「めまい（dizzy / stun）（Task 79）」節・ステート一覧・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 78) 実行時 AI 難易度切替を追記。`AiController.cycleDifficulty()`（EASY→NORMAL→HARD 循環）を追加し、Core が F3 押下で呼ぶ＋HUD ラベル（`buildControlsHint()` に抽出）を再構築。**リプレイ記録/再生中は無視**（難易度を per-frame に記録しない＝format 不変・決定性維持。F2 を再生中に無視するのと同じ作法）。通常プレイのみ切替可。Task 56 で「起動時固定」としていた難易度の実行時メニュー化（将来候補だったもの）。HUD に `[F3] difficulty` を追加。
 - (Task 75) AI 受け身（ukemi）を追記。`AiController.control()` の最優先に「HARD かつ `self.isKnockedDown() && !self.canStartAction()`（行動不能のダウン中）の間は毎フレーム行動入力を出して return」する早期分岐を追加。受け身の受付窓（Task 66・Fighter 側）内なら最早フレームでクイック起き上がりが成立する＝起き攻めへの対抗。`!canStartAction()` で起き上がり確定フレームを除外し通常技の暴発を防ぐ。HARD のみ（NORMAL/EASY はフルダウン）。Fighter/Core/GameConstants は無改修（Task 66 を流用）。乱数なし＝決定的（自分のダウン状態のみ・入力リプレイと両立）。「AI 受け身（ukemi・Task 75）」節・AI 節見出し・冒頭サマリを追加。
 - (Task 71) カウンターヒットを追記。`GameConstants` に `COUNTER_HIT_DAMAGE_SCALE`(1.3)・`COUNTER_HIT_BONUS_HITSTUN`(8)・`COUNTER_HIT_LABEL_FRAMES` を追加。`Fighter` に表示専用 `counterHitFrames`＋`markCounterHit()`/`isCounterHit()` を追加（`update()` 冒頭で減衰・`reset()` でクリア）。`PhantomNexusGame.resolveHit` の非ガード打撃分岐で被弾側が `STARTUP` 区間なら counter とし、ダメージを 1.3 倍・通常ヒットは hitstun を +8 して適用、`markCounterHit()` を呼ぶ（ダウン技は倍率のみ）。`GameRenderer.drawNameLabel` が被弾ラベルに `(CH)` を付す。グローバル機構（JSON 変更なし）・乱数なし・リプレイ format 不変だが、相手の startup を潰す既存リプレイはダメージ/hitstun が変わり得る（戦闘仕様変更）。「カウンターヒット（Task 71）」節・冒頭サマリを追加。

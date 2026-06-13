@@ -33,6 +33,11 @@ public class Character {
      * 1 なら滞空中に方向二度押しで水平ダッシュ（バーストで前/後へ滑空）できる（接地で回復）。機動型キャラの差別化。
      */
     private int airDashes;
+    /**
+     * めまい（dizzy / stun・Task 79）の発生しきい値。被弾で蓄積したスタン値がこの値以上になるとめまいに陥る。
+     * 任意・既定 0＝<b>めまい無効</b>（後方互換＝この値を設定したキャラだけがめまいする）。値が小さいほどめまいしやすい。
+     */
+    private int stunThreshold;
     /** 表示色 RGB（0..1, 任意）。スプライト未指定時のプレースホルダ矩形色。未設定なら描画側の既定色。 */
     private float[] color;
     /** スプライト（描画用画像）定義（任意）。未設定なら従来どおりプレースホルダ矩形で描画する（Task 34）。 */
@@ -110,6 +115,11 @@ public class Character {
     /** 空中ダッシュの回数（air dash・既定 0＝空中ダッシュなし、Task 69）。負値は 0 に丸める。 */
     public int getAirDashes() {
         return Math.max(0, airDashes);
+    }
+
+    /** めまい発生しきい値（Task 79・既定 0＝めまい無効＝後方互換）。負値は 0 に丸める。 */
+    public int getStunThreshold() {
+        return Math.max(0, stunThreshold);
     }
 
     /** 描画 / 当たり判定に用いる横幅（px）。 */
