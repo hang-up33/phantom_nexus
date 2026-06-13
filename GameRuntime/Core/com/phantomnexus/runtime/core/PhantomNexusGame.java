@@ -88,7 +88,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private static final String[] ROSTER_IDS = {
         "fighter001", "fighter002", "fighter003", "fighter004", "fighter005", "fighter006",
         "fighter007", "fighter008", "fighter009", "fighter010", "fighter011", "fighter012",
-        "fighter013", "fighter014", "fighter015", "fighter016", "fighter017", "fighter018"
+        "fighter013", "fighter014", "fighter015", "fighter016", "fighter017", "fighter018",
+        "fighter019"
     };
     /** キャラクター選択グリッドの列数（Task 117）。 */
     private static final int ROSTER_COLS = 6;

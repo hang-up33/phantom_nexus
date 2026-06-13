@@ -1,0 +1,124 @@
+{
+  "id": "fighter019",
+  "name": "Mei",
+  "hp": 880,
+  "walkSpeed": 6.2,
+  "jumpPower": 15.0,
+  "airJumps": 1,
+  "airDashes": 1,
+  "color": [0.353, 0.863, 0.706],
+  "width": 78,
+  "height": 200,
+  "sprite": {
+    "path": "Characters/fighter019.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "quick_jab",
+      "button": "light",
+      "damage": 38,
+      "startup": 3,
+      "active": 3,
+      "recovery": 7,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 124,
+      "hitboxWidth": 76,
+      "hitboxHeight": 28
+    },
+    {
+      "id": "elbow",
+      "button": "medium",
+      "damage": 58,
+      "startup": 6,
+      "active": 3,
+      "recovery": 12,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 105,
+      "hitboxWidth": 84,
+      "hitboxHeight": 40
+    },
+    {
+      "id": "low_slice",
+      "button": "heavy",
+      "guardHeight": "low",
+      "launch": 8.5,
+      "damage": 80,
+      "startup": 9,
+      "active": 4,
+      "recovery": 18,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 12,
+      "hitboxWidth": 98,
+      "hitboxHeight": 32
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "gale_shot",
+      "command": "HADOUKEN",
+      "damage": 70,
+      "startup": 10,
+      "active": 3,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 112,
+      "hitboxWidth": 48,
+      "hitboxHeight": 48,
+      "projectile": true,
+      "projectileSpeed": 11.0
+    },
+    {
+      "id": "tempest_rush",
+      "command": "SUPER",
+      "superMove": true,
+      "hits": 6,
+      "hitGap": 3,
+      "damage": 38,
+      "startup": 7,
+      "active": 20,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 95,
+      "hitboxWidth": 150,
+      "hitboxHeight": 70
+    }
+  ],
+  "throwMove": {
+    "id": "wind_throw",
+    "damage": 118,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 138
+  },
+  "airThrowMove": {
+    "id": "sky_spiral",
+    "damage": 104,
+    "startup": 3,
+    "active": 3,
+    "recovery": 22,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 50,
+    "hitboxWidth": 54,
+    "hitboxHeight": 116
+  }
+}
