@@ -58,6 +58,8 @@ public final class AiController {
     private static final float GUARD_RANGE = 200f;
     /** この距離（中心間, px）以下でガード中の相手を投げで崩す。掴みの届く近接に限定する。 */
     private static final float THROW_RANGE = 130f;
+    /** 端攻め（Task 124）：相手の中心 X がいずれかの壁からこの距離（px）以内なら「追い詰めた」と見なす。 */
+    private static final float CORNER_RANGE = 180f;
     /**
      * この距離（中心間, px）以下で相手の投げに反応して投げ抜け窓をアームする（Task 51）。{@link #THROW_RANGE} より少し広く取り、
      * 掴みが成立する前（startup 中）に窓を立てて、active で掴まれた瞬間に抜けられるようにする。
@@ -220,6 +222,9 @@ public final class AiController {
         }
         float dx = opponent.getX() - self.getX();
         float distance = Math.abs(dx);
+        // 端攻め（Task 124）：相手がいずれかの壁の近く（CORNER_RANGE 以内）に追い詰められているか。
+        boolean opponentCornered = opponent.getX() <= CORNER_RANGE
+                || opponent.getX() >= GameConstants.WORLD_WIDTH - CORNER_RANGE;
         int towardDir = dx >= 0 ? 1 : -1; // 相手の方向
         int backDir = -towardDir;          // 後退（ガード）方向
         boolean hasThrow = self.getDef().getThrowMove() != null;
@@ -351,6 +356,14 @@ public final class AiController {
             boolean opponentLow = opponent.isCrouchAttacking()
                     || (oppMove != null && oppMove.getGuardHeight() == GuardHeight.LOW);
             crouchGuard = advanced && opponentLow;
+            dashTapStep = 0;
+        } else if (advanced && opponentCornered && opponent.isGrounded() && hasThrow
+                && distance <= THROW_RANGE && cooldown == 0 && self.canStartAction()) {
+            // 端攻め（Task 124・HARD のみ）：相手を画面端に追い詰めたら、ガード偏重でなくても投げ択を仕掛けて崩す。
+            // 端は逃げ場（バックステップ/後退）が狭く、ガード不能の投げが刺さりやすい＝コーナーでの攻めの厚みを表現する。
+            // 通常の投げ崩し（ガード偏重相手・下の分岐）より優先。空中の相手は掴めない（接地のみ）。乱数なし＝決定的。
+            throwReq = true;
+            cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
         } else if (defends && opponent.isGuarding() && opponent.isGrounded() && hasThrow
                 && distance <= THROW_RANGE && cooldown == 0 && self.canStartAction()) {
