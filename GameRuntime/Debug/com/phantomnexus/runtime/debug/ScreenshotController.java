@@ -282,6 +282,18 @@ public final class ScreenshotController {
         return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.movelist")));
     }
 
+    /**
+     * 撮影モードでの開始画面（Task 116/117）：{@code -x startscreen=title|charselect|battle}。撮影は既定 {@code battle}
+     * （既存スクショレシピの後方互換＝frame1 から戦闘）。title/charselect 指定時のみ各画面を撮れる。通常起動は無関係（タイトル固定）。
+     */
+    public String startScreen(String fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.startscreen"));
+        return v != null ? v : fallback;
+    }
+
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
         addTokens(spec, p1Hold, p2Hold);
