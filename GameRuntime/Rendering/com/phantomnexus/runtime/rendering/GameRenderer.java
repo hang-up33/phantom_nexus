@@ -816,8 +816,8 @@ public class GameRenderer {
                     : (f.isCrouchAttacking() ? "crouch_attack" : "attack");
             stateLabel = prefix + ":" + f.getAttackPhase().name().toLowerCase();
         } else if (f.isDashing()) {
-            // ダッシュ（二度押しステップ・Task 49）。歩行アニメを流用しつつラベルで識別する。
-            stateLabel = "dash";
+            // ダッシュ（二度押しステップ・Task 49）／ラン（Task 123）。歩行アニメを流用しつつラベルで識別する。
+            stateLabel = f.isRunning() ? "run" : "dash";
         } else if (f.isAirGuarding()) {
             // 空中ガード（Task 59）。滞空のため JUMP ポーズを流用しつつ、青オーバーレイとこのラベルで識別する。
             stateLabel = "air_guard";

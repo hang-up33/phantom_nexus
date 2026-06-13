@@ -162,6 +162,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `jumpPower` | float | ✅ | ジャンプ初速（px/frame, 上向き正） |
 | `airJumps` | int | 任意 | 空中での追加ジャンプ回数（二段ジャンプ, Task 68）。省略時 `0`＝空中ジャンプなし（後方互換）。`1` で地上ジャンプ後に空中でもう一度跳べる（接地で回復）。負値は 0 に丸め |
 | `airDashes` | int | 任意 | 空中ダッシュの回数（air dash, Task 69）。省略時 `0`＝空中ダッシュなし（後方互換）。`1` で滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。負値は 0 に丸め |
+| `canRun` | bool | 任意 | ラン（run, Task 123）。`true` で前ダッシュ（二度押し）中に前方を保持し続けるとダッシュが継続して走り続ける（離すと停止・バックステップは固定長）。省略時 `false`（後方互換＝固定長の前ステップ） |
 | `stunThreshold` | int | 任意 | めまい（dizzy / stun, Task 79）の発生しきい値。被弾で蓄積したスタン値がこの値以上になると**めまい**（長い無防備硬直＝フルコンボ確定）に陥る。省略時 `0`＝**めまい無効**（後方互換＝設定したキャラだけがめまいする）。負値は 0 に丸め |
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
@@ -343,6 +344,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 123) `Character` に任意 bool `canRun`（ラン・既定 false＝後方互換）を追加。`true` のキャラは前ダッシュ（二度押し）中に前方を保持し続けるとダッシュが継続して走り続ける（離すと停止・バックステップは固定長）。`Fighter` のダッシュ分岐で `canRun && grounded && 前ダッシュ && 前方保持` のとき `dashFrames` を更新して継続、ラベル `run`。例示として fighter019（Mei）に `canRun:true`。`Character` フィールド表に `canRun` を追加。
 - (Task 120) 20 体目キャラ `Assets/Characters/fighter020.json`（"Genji"・HP1020・**全ツール装備の万能 shoto 型**の grape `[160,60,200]`）＋スプライト `fighter020.png`（256×896）を追加。`ROSTER_IDS` にも追記＝**ロスター計 20 体到達**。アーキタイプ：飛び道具 `ki_blast`（HADOUKEN）、無敵対空 `dragon_rise`（CHARGE_SHOT・`invincibleFrames`＋`launch`）、**飛び道具スーパー `phantom_nova`（`superMove`＋`hardKnockdown`・dmg250）**、overhead `overhead_chop`（`knockdown`）、地上/空中投げ。撮影は `-x p1char=fighter020 -x p1meter=100`。
 - (Task 119) 10 番目のステージ `Assets/Stages/stage010.json`（"Starlit Shrine"・深い藍の夜空）を追加。`Stage` の JSON 仕様は不変（stage009 に続く 10 ステージ目＝計 10 ステージ）。撮影は `-x stage=stage010`。
 - (Task 118) 19 体目キャラ `Assets/Characters/fighter019.json`（"Mei"・HP880・**機動力特化の高速 rushdown 型**の mint `[90,220,180]`）＋スプライト `fighter019.png`（256×896）を追加。`PhantomNexusGame.ROSTER_IDS` にも追記（キャラ選択に出す・Task 117）。アーキタイプ：`walkSpeed6.2`・`airJumps:1`・`airDashes:1` の最速機動、弱 `quick_jab`（startup3）、低段浮かせ `low_slice`（`guardHeight:low`＋`launch`）、高速飛び道具 `gale_shot`、多段ビームスーパー `tempest_rush`（`superMove`・hits6＝38×6＝228）、地上/空中投げ。撮影は `-x p1char=fighter019`。

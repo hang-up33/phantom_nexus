@@ -73,6 +73,7 @@ public class Fighter {
     private boolean dashTapGrounded; // 1 度目のタップをアームした時の接地状態（空中ダッシュは空中アーム窓のみ消費・Task 69）
     private int dashFrames;    // ダッシュ継続の残りフレーム（>0 でダッシュ中・Task 49）
     private int dashDir;       // ダッシュ方向（-1=左 / +1=右・Task 49）
+    private boolean running;   // ラン中か（canRun キャラが前方保持でダッシュ継続中・表示用・Task 123）
 
     public Fighter(Character def, float spawnX, boolean facingRight) {
         this.def = def;
@@ -356,6 +357,14 @@ public class Fighter {
                 this.moveDir = dashDir;
                 x += dashDir * def.getWalkSpeed() * GameConstants.DASH_SPEED_MULTIPLIER;
                 clampToStage();
+                // ラン（Task 123）：canRun キャラが前ダッシュ中に前方を保持し続けている限りダッシュを更新して走り続ける
+                // （前方を離すと dashFrames が減衰して停止）。前ダッシュ限定（バックステップは固定長）。grounded のみ。
+                // forwardDir は update 冒頭（パリィ判定・Task 105）で宣言済みのものを再利用する（同 update 内で facing 不変）。
+                int runForwardDir = facingRight ? 1 : -1;
+                running = def.isCanRun() && grounded && dashDir == runForwardDir && moveDir == runForwardDir;
+                if (running) {
+                    dashFrames = GameConstants.DASH_FRAMES;
+                }
                 if (jumpPressed && grounded) {
                     velocityY = def.getJumpPower();
                     grounded = false;
@@ -999,6 +1008,11 @@ public class Fighter {
     /** ダッシュ（二度押しステップ）中か（Task 49）。 */
     public boolean isDashing() {
         return dashFrames > 0;
+    }
+
+    /** ラン中か（canRun キャラが前ダッシュ中に前方保持で走り続けている・Task 123）。表示ラベルを "run" にする判定。 */
+    public boolean isRunning() {
+        return running && dashFrames > 0;
     }
 
     /**
