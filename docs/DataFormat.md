@@ -218,6 +218,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `otg` | bool | 任意 | OTG（追い打ち・Task 85）。`true` なら**ダウン中（Task 60）の相手にも当たる**（通常はダウン中無敵で当たらない）。省略時 `false`（後方互換）。無敵リバーサル中の相手は貫通しない |
 | `hardKnockdown` | bool | 任意 | 受け身不能ダウン（Task 88）。`knockdown:true` の技にさらに付けると、食らった相手は受け身（Task 66）でクイック起き上がりできず必ずフルダウン＝起き攻め確定。省略時 `false`（後方互換）。`knockdown=false` では無意味 |
 | `wallBounce` | bool | 任意 | 壁バウンド（Task 101）。`true` で非ガードヒット時に相手を横へ強く吹き飛ばし、画面端（壁）で跳ね返らせて再び浮かせる＝画面端ジャグルの延長点。省略時 `false`（後方互換）。`knockdown` とは排他（ダウンが優先）・`launch` より優先 |
+| `groundBounce` | bool | 任意 | 床バウンド（Task 102）。`true` で非ガードヒット時に相手を打ち上げ、着地時に一度だけ跳ね返らせて再び浮かせる＝ジャグルの延長点（叩きつけ→跳ね上がり）。省略時 `false`（後方互換）。`knockdown` と排他・`wallBounce` の次・`launch` より優先 |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -341,6 +342,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 102) `Move` に任意 bool `groundBounce`（床バウンド・既定 false＝後方互換）を追加。`true` の技を非ガードヒットさせると相手を打ち上げ（`GROUND_BOUNCE_LAUNCH`）、着地時に一度だけ跳ね返って（`GROUND_BOUNCE_POP`）再び浮く＝ジャグル延長（叩きつけ→跳ね上がり）。`Fighter.applyGroundBounce` ＋ `update` 着地処理の跳ね返り分岐で実装。`knockdown` と排他・`wallBounce` の次・`launch` より優先。任意フィールドのためローダ追加検証なし。例示として fighter012（Daichi）の `lift_kick`（medium）を `launch` から `groundBounce:true` へ変更。戦闘仕様は BattleSystem.md「床バウンド（Task 102）」節を参照。`Move` の normal/special 両フィールド表に `groundBounce` を追加。
 - (Task 101) `Move` に任意 bool `wallBounce`（壁バウンド・既定 false＝後方互換）を追加。`true` の技を非ガードヒットさせると相手を強い水平初速（`WALL_BOUNCE_SPEED`）で横へ飛ばし、画面端で跳ね返って（`WALL_BOUNCE_REBOUND_SCALE`）再び浮く（`WALL_BOUNCE_POP`）＝画面端ジャグルの延長。`Fighter.applyWallBounce` ＋ `update` 内の壁接触検出で実装。`knockdown` と排他・`launch` より優先。任意フィールドのためローダ追加検証なし。例示として fighter012（Daichi）の `stone_fist`（heavy）に `wallBounce:true`。戦闘仕様は BattleSystem.md「壁バウンド（Task 101）」節を参照。`Move` の normal/special 両フィールド表に `wallBounce` を追加。
 - (Task 99) 15 体目キャラ `Assets/Characters/fighter015.json`（"Aki"・HP900・**多段/浮かせ/二系統必殺技の万能 shoto 型**の lime）＋プレースホルダ・スプライト `fighter015.png` を追加。`Character` の JSON 仕様は不変（14 体目 fighter014 に続く 15 体目＝ロスター 15 体到達）。アーキタイプ：弱攻撃 `double_jab`（`hits:2`＝多段・Task 74）、中攻撃 `rising_kick`（`launch:9.5`＝浮かせ・Task 83）、強攻撃 `crescent`（`knockdown`）、飛び道具 `leaf_shot`＋無敵リバーサル `whirl_uppercut`（CHARGE_SHOT・`invincibleFrames`＋`launch`）の二系統必殺技、地上投げ＋空中投げ、`airJumps:1`＝既存の新機構を一通り束ねた万能型。撮影は `-x p1char=fighter015` / `-x p2char=fighter015`。
 - (Task 95) 14 体目キャラ `Assets/Characters/fighter014.json`（"Gan"・HP1250＝ロスター最高・**確定投げ＋アーマーのコマンド投げ grappler 型**の navy）＋プレースホルダ・スプライト `fighter014.png` を追加。`Character` の JSON 仕様は不変（13 体目 fighter013 に続く 14 体目）。アーキタイプ：最遅 `walkSpeed3.4`・`stunThreshold:380`、中攻撃 `armor_ram`（`armorHits:1`）で押し込み、強攻撃 `guillotine`（overhead＋`knockdown`＋`hardKnockdown`）、無敵リバーサル `titan_rise`（CHARGE_SHOT・飛び道具なし）、そして **`noTech:true`（Task 94）の `atomic_buster`（dmg185＝ロスター最大）**＝抜けられない確定の掴み。撮影は `-x p1char=fighter014` / `-x p2char=fighter014`。

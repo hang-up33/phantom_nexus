@@ -43,7 +43,7 @@
     {
       "id": "lift_kick",
       "button": "medium",
-      "launch": 9.0,
+      "groundBounce": true,
       "damage": 62,
       "startup": 8,
       "active": 4,

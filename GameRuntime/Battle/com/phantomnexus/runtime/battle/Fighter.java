@@ -49,6 +49,8 @@ public class Fighter {
     private int counterHitFrames;       // カウンターヒットを受けた直後の表示フレーム（ラベルに (CH) を付す・Task 71）
     private boolean wallBounceArmed;    // 壁バウンド技を食らい、まだ壁に当たって跳ね返っていない状態（Task 101）
     private int wallBounceFrames;       // 壁バウンド成立（跳ね返り）直後の表示フレーム（ラベル wall_bounce・Task 101）
+    private boolean groundBounceArmed;  // 床バウンド技を食らい、まだ着地して跳ね返っていない状態（Task 102）
+    private int groundBounceFrames;     // 床バウンド成立（跳ね返り）直後の表示フレーム（ラベル ground_bounce・Task 102）
     private int stunMeter;              // 蓄積中のスタン値（被弾で増え非被弾で減衰・しきい値超えでめまい・Task 79）
     private int dizzyFrames;            // めまい（dizzy）の無防備行動不能フレーム（被弾無敵ではない＝フルコンボ確定・Task 79）
     private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
@@ -103,6 +105,10 @@ public class Fighter {
         // 壁バウンド成立（跳ね返り）の表示フレームを減衰（Task 101・ラベル表示専用・拘束は hitstunFrames が担う）。
         if (wallBounceFrames > 0) {
             wallBounceFrames--;
+        }
+        // 床バウンド成立（跳ね返り）の表示フレームを減衰（Task 102・ラベル表示専用）。
+        if (groundBounceFrames > 0) {
+            groundBounceFrames--;
         }
         // ジャストガード成立の表示フレームを減衰（Task 81。ラベルの [JUST] 表示専用）。
         if (justGuardFrames > 0) {
@@ -339,13 +345,25 @@ public class Fighter {
         y += velocityY;
 
         if (y <= GameConstants.GROUND_Y) {
-            y = GameConstants.GROUND_Y;
-            velocityY = 0f;
-            grounded = true;
-            airJumpsRemaining = def.getAirJumps();   // 接地で空中ジャンプ回数を回復（Task 68）
-            airDashesRemaining = def.getAirDashes();  // 接地で空中ダッシュ回数を回復（Task 69）
-            if (!wasGrounded && dashFrames > 0) {
-                dashFrames = 0; // 着地で空中ダッシュを終了（地上ダッシュへ持ち越さない・Task 69）
+            // 床バウンド（Task 102）：床バウンド技を食らって浮いた相手が、のけぞり中に着地したら一度だけ跳ね返る。
+            // 接地せず POP で再び浮かせ、のけぞりを延長＝叩きつけ→跳ね上がりの追撃が成立する。armed を倒して一度限りに。
+            if (groundBounceArmed && hitstunFrames > 0) {
+                y = GameConstants.GROUND_Y;
+                velocityY = GameConstants.GROUND_BOUNCE_POP;
+                grounded = false;
+                hitstunFrames += GameConstants.GROUND_BOUNCE_BONUS_HITSTUN;
+                groundBounceArmed = false;
+                groundBounceFrames = GameConstants.GROUND_BOUNCE_LABEL_FRAMES;
+            } else {
+                y = GameConstants.GROUND_Y;
+                velocityY = 0f;
+                grounded = true;
+                groundBounceArmed = false; // 跳ね返らずに通常着地したら保留中の床バウンドを破棄（残留での遅延暴発防止・Task 102）
+                airJumpsRemaining = def.getAirJumps();   // 接地で空中ジャンプ回数を回復（Task 68）
+                airDashesRemaining = def.getAirDashes();  // 接地で空中ダッシュ回数を回復（Task 69）
+                if (!wasGrounded && dashFrames > 0) {
+                    dashFrames = 0; // 着地で空中ダッシュを終了（地上ダッシュへ持ち越さない・Task 69）
+                }
             }
         }
     }
@@ -384,6 +402,8 @@ public class Fighter {
         counterHitFrames = 0;
         wallBounceArmed = false;
         wallBounceFrames = 0;
+        groundBounceArmed = false;
+        groundBounceFrames = 0;
         stunMeter = 0;
         dizzyFrames = 0;
         guarding = false;
@@ -458,6 +478,7 @@ public class Fighter {
         guarding = false;    // 被弾で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;      // 被弾でダッシュをキャンセル（Task 49）
         wallBounceArmed = false; // 新たな被弾で保留中の壁バウンドをキャンセル（Task 101。applyWallBounce はこの後に再アーム）
+        groundBounceArmed = false; // 新たな被弾で保留中の床バウンドをキャンセル（Task 102。applyGroundBounce はこの後に再アーム）
     }
 
     /**
@@ -480,6 +501,22 @@ public class Fighter {
         applyHit(damage, hitstun, knockbackDir);
         velocityX = knockbackDir * GameConstants.WALL_BOUNCE_SPEED; // 強い水平吹き飛ばし（壁へ向かう）
         wallBounceArmed = true; // applyHit の後に立てる（applyHit がクリアするため）
+    }
+
+    /**
+     * 床バウンド（ground bounce・Task 102）を適用する。{@link #applyHit} に加えて相手を上方初速で打ち上げ、
+     * 落下して着地した瞬間に {@code update} 内で一度だけ跳ね返って再び浮く（ジャグルの延長）。
+     * {@code applyHit} が各種クリアを行うため、{@code groundBounceArmed} はその後に立てる。
+     */
+    public void applyGroundBounce(int damage, int hitstun, int knockbackDir) {
+        applyHit(damage, hitstun, knockbackDir);
+        velocityY = GameConstants.GROUND_BOUNCE_LAUNCH; // 打ち上げ（重力で落下→着地で跳ね返る）
+        grounded = false;
+        // 跳ね返り判定（着地時 hitstunFrames>0）に必要な拘束を確保する。通常 hitstun(18f) では打ち上げ→着地の滞空
+        // （≈ 2×launch/gravity フレーム）の途中で切れて跳ね返らないため、滞空フレーム＋余裕まで hitstun を延長する。
+        int airborneFrames = (int) Math.ceil(2f * GameConstants.GROUND_BOUNCE_LAUNCH / GameConstants.GRAVITY);
+        hitstunFrames = Math.max(hitstunFrames, airborneFrames + 4);
+        groundBounceArmed = true; // applyHit の後に立てる（applyHit がクリアするため）
     }
 
     /**
@@ -518,6 +555,7 @@ public class Fighter {
         guarding = false;
         dashFrames = 0;
         wallBounceArmed = false; // ダウンで保留中の壁バウンドをキャンセル（Task 101）
+        groundBounceArmed = false; // ダウンで保留中の床バウンドをキャンセル（Task 102）
         // ダッシュ二度押しの受付状態もクリア（Task 60・CodeRabbit 指摘）。ダウン中は dash 検出ブロック（else 側）が
         // 走らず dashTapWindow が減衰しないため、被弾前にアームされた 1 回目のタップが 60F 温存され、起き上がり後の
         // 最初の方向入力で暴発ダッシュになる。窓・方向・前フレーム方向をニュートラルへ戻して保留タップを破棄する。
@@ -611,6 +649,11 @@ public class Fighter {
     /** 直近に壁バウンド（跳ね返り）が成立したか（表示ラベルを "wall_bounce" にするための判定・Task 101）。 */
     public boolean isWallBounced() {
         return wallBounceFrames > 0;
+    }
+
+    /** 直近に床バウンド（跳ね返り）が成立したか（表示ラベルを "ground_bounce" にするための判定・Task 102）。 */
+    public boolean isGroundBounced() {
+        return groundBounceFrames > 0;
     }
 
     /**

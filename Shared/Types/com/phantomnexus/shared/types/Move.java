@@ -103,6 +103,13 @@ public class Move {
      */
     private boolean wallBounce = false;
     /**
+     * 床バウンド（ground bounce・Task 102）。{@code true} の技を非ガードでヒットさせると、相手を打ち上げてから
+     * <b>着地時に一度だけ跳ね返らせて</b>再び浮かせる＝ジャグルの延長点になる（叩きつけ→跳ね上がりの追撃）。
+     * のけぞり中＝無防備なので跳ね返り際を追撃できる。既定 {@code false}（後方互換）。ダウン技（{@code knockdown}）とは
+     * 排他（ダウンが優先）。壁バウンド（{@code wallBounce}）より後・浮かせ（{@code launch}）より優先して解決する。
+     */
+    private boolean groundBounce = false;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -261,6 +268,11 @@ public class Move {
     /** 壁バウンド（Task 101）か。{@code true} なら相手を横へ吹き飛ばし画面端で跳ね返らせる（画面端ジャグル延長）。既定 {@code false}（後方互換）。 */
     public boolean isWallBounce() {
         return wallBounce;
+    }
+
+    /** 床バウンド（Task 102）か。{@code true} なら相手を打ち上げ着地時に一度だけ跳ね返らせる（ジャグル延長）。既定 {@code false}（後方互換）。 */
+    public boolean isGroundBounce() {
+        return groundBounce;
     }
 
     /**

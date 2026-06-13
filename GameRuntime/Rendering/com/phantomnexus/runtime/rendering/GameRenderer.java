@@ -782,6 +782,9 @@ public class GameRenderer {
         } else if (f.isWallBounced()) {
             // 壁バウンド成立（Task 101）。HITSTUN を流用しつつ wall_bounce ラベルで跳ね返りを識別する。
             stateLabel = "wall_bounce";
+        } else if (f.isGroundBounced()) {
+            // 床バウンド成立（Task 102）。HITSTUN を流用しつつ ground_bounce ラベルで跳ね返りを識別する。
+            stateLabel = "ground_bounce";
         } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {
