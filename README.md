@@ -158,6 +158,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 91 | 13 体目キャラ追加（fighter013 Mizu・高低段の崩し footsies 型・JSON のみで追加） | ✅ 完了 |
 | 92 | スタンゲージ HUD（めまい蓄積を可視化・`stunThreshold>0` のキャラのみ表示） | ✅ 完了 |
 | 93 | 第6ステージ追加（stage006 Sakura Court・JSON のみで背景差し替え検証） | ✅ 完了 |
+| 94 | 投げ抜け不能投げ（command throw・投げ抜けできない確定の掴み・JSON `noTech` でデータ化） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
