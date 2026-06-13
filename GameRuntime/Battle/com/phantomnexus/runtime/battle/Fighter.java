@@ -46,6 +46,7 @@ public class Fighter {
     private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
+    private int comboDamage;            // 現在のコンボで受けた累計ダメージ（補正後の実ダメージ和・新規コンボで上書き・Task 121）
     private int counterHitFrames;       // カウンターヒットを受けた直後の表示フレーム（ラベルに (CH) を付す・Task 71）
     private boolean wallBounceArmed;    // 壁バウンド技を食らい、まだ壁に当たって跳ね返っていない状態（Task 101）
     private int wallBounceFrames;       // 壁バウンド成立（跳ね返り）直後の表示フレーム（ラベル wall_bounce・Task 101）
@@ -428,6 +429,7 @@ public class Fighter {
         throwTechWindow = 0;
         throwTechFrames = 0;
         comboCount = 0;
+        comboDamage = 0;
         counterHitFrames = 0;
         wallBounceArmed = false;
         wallBounceFrames = 0;
@@ -511,7 +513,7 @@ public class Fighter {
         // 連続ヒット計数（Task 39）：既に hitstun 中の被弾はコンボ継続（+1）、neutral からの被弾は新規コンボ（=1）。
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
         // コンボダメージ補正（Task 46）：2 ヒット目以降は与ダメージを段階的に減衰させる（1 ヒット目は等倍）。
-        applyDamage(scaledComboDamage(damage));
+        applyComboDamage(damage);
         hitstunFrames = hitstun;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED;
         attackPhase = AttackPhase.NONE;
@@ -586,7 +588,7 @@ public class Fighter {
      */
     public void applyKnockdown(int damage, int knockbackDir, boolean hard) {
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
-        applyDamage(scaledComboDamage(damage));
+        applyComboDamage(damage);
         hitstunFrames = 0;                 // のけぞりではなくダウンへ（ラベル / 優先順が knockdown を表示）
         knockdownFrames = GameConstants.KNOCKDOWN_FRAMES;
         hardKnockdown = hard;              // 受け身可否（Task 88）
@@ -626,7 +628,7 @@ public class Fighter {
         // 連続ヒット計数（Task 39）：hitstun 中の相手を掴んだら（空中コンボ等）コンボ継続、neutral からは新規。
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
         // コンボダメージ補正（Task 46）：コンボ中の投げも 2 段目以降は減衰する（1 段目は等倍）。
-        applyDamage(scaledComboDamage(damage));
+        applyComboDamage(damage);
         hitstunFrames = GameConstants.THROW_HITSTUN_FRAMES;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * GameConstants.THROW_KNOCKBACK_SCALE;
         attackPhase = AttackPhase.NONE;
@@ -772,7 +774,7 @@ public class Fighter {
      */
     public void absorbArmorHit(int damage, int knockbackDir) {
         comboCount = hitstunFrames > 0 ? comboCount + 1 : 1;
-        applyDamage(scaledComboDamage(damage));
+        applyComboDamage(damage);
         armorHitsUsed++;
         velocityX = knockbackDir * GameConstants.KNOCKBACK_SPEED * 0.25f; // のけぞらず軽く押されるだけ
     }
@@ -1086,6 +1088,17 @@ public class Fighter {
         return Math.max(1, Math.round(baseDamage * scale));
     }
 
+    /**
+     * コンボ補正後の実ダメージを適用しつつ、現在のコンボの累計ダメージ（{@link #comboDamage}・Task 121）を更新する。
+     * {@code comboCount} はこのメソッドを呼ぶ前に加算済みなので、{@code comboCount > 1}（継続）なら加算、新規コンボ
+     * （{@code comboCount <= 1}）なら上書き＝前のコンボの値をリセットする（明示的なリセット不要）。表示専用（HP 計算は applyDamage）。
+     */
+    private void applyComboDamage(int baseDamage) {
+        int dealt = scaledComboDamage(baseDamage);
+        comboDamage = comboCount > 1 ? comboDamage + dealt : dealt;
+        applyDamage(dealt);
+    }
+
     /** ガード中か（後退方向保持・非のけぞり・非攻撃）。立ち / しゃがみ / 空中いずれも含む（接地は不要・Task 59）。 */
     public boolean isGuarding() {
         return guarding;
@@ -1261,5 +1274,10 @@ public class Fighter {
     /** 現在このファイターが受けている連続ヒット数（コンボ数）。hitstun が切れると 0 に戻る（Task 39）。 */
     public int getComboCount() {
         return comboCount;
+    }
+
+    /** 現在のコンボで受けた累計ダメージ（補正後の実ダメージ和・Task 121）。コンボカウンター HUD の表示用。 */
+    public int getComboDamage() {
+        return comboDamage;
     }
 }
