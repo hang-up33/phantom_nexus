@@ -303,4 +303,19 @@ public final class GameConstants {
 
     /** 壁バウンド成立の表示フレーム数（Task 101）。状態ラベルに wall_bounce を出す表示専用カウンタの寿命。 */
     public static final int WALL_BOUNCE_LABEL_FRAMES = 20;
+
+    /**
+     * 床バウンド（ground bounce・Task 102）の初期打ち上げ初速（px/frame・上向き）。{@code Move.groundBounce=true} の技を
+     * 非ガードヒットさせると相手をこの初速で打ち上げ、落下して着地した瞬間に {@link #GROUND_BOUNCE_POP} で一度だけ跳ね返る。
+     */
+    public static final float GROUND_BOUNCE_LAUNCH = 10f;
+
+    /** 床バウンドで着地時に跳ね返る上方初速（px/frame・Task 102）。再び浮かせて追撃の猶予を作る。 */
+    public static final float GROUND_BOUNCE_POP = 9f;
+
+    /** 床バウンド成立（跳ね返り）時に上乗せするのけぞりフレーム数（Task 102）。跳ね返り際の追撃が間に合う猶予。 */
+    public static final int GROUND_BOUNCE_BONUS_HITSTUN = 18;
+
+    /** 床バウンド成立の表示フレーム数（Task 102）。状態ラベルに ground_bounce を出す表示専用カウンタの寿命。 */
+    public static final int GROUND_BOUNCE_LABEL_FRAMES = 20;
 }
