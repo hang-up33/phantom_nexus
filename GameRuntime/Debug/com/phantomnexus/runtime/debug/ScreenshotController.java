@@ -263,6 +263,17 @@ public final class ScreenshotController {
         return v != null ? v : fallback;
     }
 
+    /**
+     * トレーニングモード（Task 90）を起動時から有効にするか。撮影モードで {@code training=true} 指定時のみ。
+     * 通常起動・未指定時は {@code fallback}（F4 トグルの初期値）。HP 無限のダミー相手でコンボ練習の見え方を撮る用。
+     */
+    public boolean trainingEnabled(boolean fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.training")));
+    }
+
     /** {@code phantom.screenshot.hold} を解釈して p1/p2 の強制押下集合へ振り分ける。 */
     private void parseHold(String spec) {
         addTokens(spec, p1Hold, p2Hold);
