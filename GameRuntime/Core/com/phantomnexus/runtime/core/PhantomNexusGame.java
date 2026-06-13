@@ -520,6 +520,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
             triggerHitstop(false); // ヒットストップ（Task 86・投げ成立）
             return;
         }
+        // パリィ（Task 105）：被攻撃側が前方タップの受付窓内なら、打撃をダメージ・chip・のけぞりなしで完全に弾く。
+        // 攻撃側の硬直を反撃確定にできる committal な防御テク（投げは上で処理済み＝パリィ対象外・markAttackConnected は上で済み）。
+        if (defender.canParry()) {
+            defender.applyParry();
+            // いなしの火花（ノーダメージなのでダメージ数値ポップアップは出さない）。
+            spawnHitSpark(true, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+            triggerHitstop(true); // 軽いヒットストップ（いなし感・ガード相当）
+            return;
+        }
         // ガード高さ属性（Task 33）で成立可否を決める：
         //   low（下段／しゃがみ通常技。Task 31）   → しゃがみガードのみ成立（立ちガード貫通）
         //   overhead（上段）                        → 立ちガードのみ成立（しゃがみガード貫通）
