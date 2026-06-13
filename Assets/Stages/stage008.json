@@ -1,0 +1,7 @@
+{
+  "id": "stage008",
+  "name": "Abyssal Cathedral",
+  "skyTop": [0.04, 0.03, 0.10],
+  "skyBottom": [0.18, 0.10, 0.34],
+  "groundColor": [0.08, 0.06, 0.16]
+}
