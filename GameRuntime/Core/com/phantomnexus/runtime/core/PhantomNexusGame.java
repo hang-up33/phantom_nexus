@@ -229,6 +229,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 if (aiProjectile != null) {
                     spawnProjectile(fighter2, aiProjectile, false);
                 }
+                // AI がスーパー必殺技（Task 110）を発動していたら、メーター消費・スーパーフラッシュ凍結・
+                // （飛び道具なら）弾生成を Core が行う（AI は updateFighterInput を通らないため・Task 108 の人間経路と対）。
+                Move aiSuper = p2Ai.consumePendingSuper();
+                if (aiSuper != null) {
+                    fighter2.spendFullMeter();
+                    superFlashFrames = GameConstants.SUPER_FLASH_FRAMES;
+                    if (aiSuper.isProjectile()) {
+                        spawnProjectile(fighter2, aiSuper, false);
+                    }
+                }
             } else {
                 updateFighterInput(fighter2, p2Input, history2, 2);
             }
