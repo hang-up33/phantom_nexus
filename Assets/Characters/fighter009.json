@@ -40,11 +40,13 @@
       "hitboxHeight": 32
     },
     {
-      "id": "long_poke",
+      "id": "twin_thrust",
       "button": "medium",
-      "damage": 75,
+      "damage": 45,
+      "hits": 2,
+      "hitGap": 4,
       "startup": 9,
-      "active": 4,
+      "active": 9,
       "recovery": 18,
       "hitboxOffsetX": 0,
       "hitboxOffsetY": 100,

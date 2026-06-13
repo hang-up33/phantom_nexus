@@ -28,7 +28,8 @@ public class Fighter {
     private AttackPhase attackPhase = AttackPhase.NONE;
     private int attackFrame;
     private Move currentMove;  // 進行中の技（攻撃中のみ非 null）
-    private boolean attackConnected;
+    private int attackHits;             // 進行中の技がこれまでに命中した回数（多段ヒット・Task 74。0=未命中）
+    private int attackHitGap;           // 次のサブヒットを許可するまでの待機フレーム（多段ヒットの間隔・Task 74）
     private int hitstunFrames;
     private int knockdownFrames;        // ダウン（knockdown）の行動不能フレーム。ダウン中は被弾無敵（Task 60）
     private boolean knockdownInertThisFrame; // このフレームの update 処理前にダウン中だったか（被弾ゲートの 1F ラッチ・Task 60）
@@ -320,7 +321,8 @@ public class Fighter {
         attackPhase = AttackPhase.NONE;
         attackFrame = 0;
         currentMove = null;
-        attackConnected = false;
+        attackHits = 0;
+        attackHitGap = 0;
         hitstunFrames = 0;
         knockdownFrames = 0;
         knockdownInertThisFrame = false;
@@ -560,7 +562,7 @@ public class Fighter {
         return grounded
                 && currentMove != null
                 && currentMove.getButton() != null // 通常技のみ（必殺技/投げからはキャンセルしない）
-                && attackConnected
+                && attackHits > 0                  // 接触済み（空振りキャンセル不可・Task 74 で多段カウンタに統一）
                 && (attackPhase == AttackPhase.ACTIVE || attackPhase == AttackPhase.RECOVERY);
     }
 
@@ -603,7 +605,8 @@ public class Fighter {
         currentMove = move;
         attackPhase = AttackPhase.STARTUP;
         attackFrame = 0;
-        attackConnected = false;
+        attackHits = 0;     // 多段ヒットの命中回数をリセット（Task 74。新技は改めて命中判定される）
+        attackHitGap = 0;
         exAttack = false; // 既定は非 EX。EX 必殺技のみ startSpecial(move, true) が beginAttack 後に true へ立てる（Task 54）。
         guarding = false; // 攻撃開始フレームにガード状態を残さない（同フレームの被弾が誤って applyGuard になるのを防ぐ）
         dashFrames = 0;   // 攻撃でダッシュをキャンセル（ダッシュ攻撃は通常攻撃として出る・Task 49）
@@ -611,6 +614,9 @@ public class Fighter {
 
     /** 攻撃の経過フレームを 1 進め、startup/active/recovery の境界で区間を遷移させる（終了で NONE）。 */
     private void advanceAttack() {
+        if (attackHitGap > 0) {
+            attackHitGap--; // 多段ヒットのサブヒット間隔を減衰（Task 74。0 で次のヒットを許可）
+        }
         attackFrame++;
         Move move = currentMove;
         int startup = move.getStartup();
@@ -893,12 +899,27 @@ public class Fighter {
         return false;
     }
 
+    /** 進行中の技が一度でも命中したか（チェーン / 特殊キャンセルの「接触済み」判定に使う・Task 74）。 */
     public boolean hasAttackConnected() {
-        return attackConnected;
+        return attackHits > 0;
     }
 
+    /**
+     * 進行中の技が「今このフレームに」ヒット判定を確定できるか（Task 74・多段ヒット対応）。
+     * 単発技（{@code hits == 1}）は 1 回まで、多段技は {@code hits} 回まで、かつ前ヒットから {@code hitGap}
+     * フレーム空いていれば true。{@link CollisionSystem#isHitting} と AND して resolveHit が判定する。
+     */
+    public boolean canHitNow() {
+        return currentMove != null && attackHits < currentMove.getHits() && attackHitGap <= 0;
+    }
+
+    /**
+     * 命中（または投げ whiff）を 1 回消費する。多段ヒット数を加算し、次ヒットまでの待機フレーム（{@code hitGap}）を立てる。
+     * 単発技では 1 回呼べば {@link #canHitNow()} が false になり多段ヒットを防ぐ（従来の attackConnected と同じ挙動）。
+     */
     public void markAttackConnected() {
-        attackConnected = true;
+        attackHits++;
+        attackHitGap = currentMove != null ? currentMove.getHitGap() : 0;
     }
 
     public boolean isInHitstun() {
