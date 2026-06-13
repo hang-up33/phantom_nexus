@@ -87,6 +87,7 @@
   ],
   "throwMove": {
     "id": "power_bomb",
+    "noTech": true,
     "damage": 160,
     "startup": 4,
     "active": 2,

@@ -260,6 +260,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `hitboxHeight` | float | ✅ | grab box 高さ（px） |
 
 > 投げは空中の相手を掴めない（相手がジャンプ中なら不成立 = 隙）。`button`/`command`/`guardHeight` を持たない点が `normalMoves`/`specialMoves` との違い。
+> 任意の `noTech: true`（Task 94）を付けると**投げ抜け不能**（command throw）になり、相手が投げ抜け（Task 36）入力をしていても抜けられない確定の掴みになる（既定 false＝抜け可能）。`airThrowMove` にも付けられる。
 
 ### Move（`dashAttack` オブジェクト・Task 65）
 
@@ -339,6 +340,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 94) `Move` に任意 bool `noTech`（投げ抜け不能・command throw・既定 false＝後方互換）を追加。投げ技（`throwMove`/`airThrowMove`）に付けると、相手が投げ抜け（Task 36）入力をしていても抜けられない確定の掴みになる。`PhantomNexusGame.resolveHit` の投げ抜け判定を `!move.isNoTech()` でゲート。任意フィールドのためローダ追加検証なし（投げ専用の解釈）。例示として fighter011 の `power_bomb` に `noTech:true`（グラップラーの確定投げ）。戦闘仕様は BattleSystem.md「投げ抜け（Task 36）」節の noTech 追記を参照。`throwMove` 節に `noTech` を追記。
 - (Task 91) 13 体目キャラ `Assets/Characters/fighter013.json`（"Mizu"・HP880・**高低段の崩し footsies 型**の cyan）＋プレースホルダ・スプライト `fighter013.png` を追加。`Character` の JSON 仕様は不変（12 体目 fighter012 に続く 13 体目）。アーキタイプ：中攻撃 `low_slice`（`guardHeight:low`＝下段）と強攻撃 `overhead_chop`（`guardHeight:overhead`＋`knockdown`＝上段）で**高低の二択**を迫る、飛び道具 `water_shot`、投げ `tide_throw`。撮影は `-x p1char=fighter013` / `-x p2char=fighter013`。
 - (Task 88) `Move` に任意 bool `hardKnockdown`（受け身不能ダウン・既定 false＝後方互換）を追加。`knockdown:true` の技に付けると食らった相手は受け身（Task 66）でクイック起き上がりできず必ずフルダウン（起き攻め確定）。`Fighter.applyKnockdown(damage,dir,hard)` オーバーロード＋`hardKnockdown` フィールドで、ukemi 短縮分岐を `!hardKnockdown` でゲート。`GameRenderer` が `knockdown(hard)` ラベルを表示。任意フィールドのためローダ追加検証なし。例示として fighter011 の `overhead_smash` に `hardKnockdown:true`。`knockdown=false` の技では無意味。戦闘仕様は BattleSystem.md「ダウン（knockdown）（Task 60）」節の受け身不能追記を参照。`Move` の normal/special 両フィールド表に `hardKnockdown` を追加。
 - (Task 87) 12 体目キャラ `Assets/Characters/fighter012.json`（"Daichi"・HP860・**浮かせ＋空中機動の juggle 型**の brown）＋プレースホルダ・スプライト `fighter012.png` を追加。`Character` の JSON 仕様は不変（11 体目 fighter011 に続く 12 体目）。アーキタイプ：`airJumps:1` の機動、中攻撃 `lift_kick` に **`launch:9.0`（Task 83）** で打ち上げ→空中コンボの起点、飛び道具 `boulder_shot`、地上投げ＋空中投げ。撮影は `-x p1char=fighter012` / `-x p2char=fighter012`。

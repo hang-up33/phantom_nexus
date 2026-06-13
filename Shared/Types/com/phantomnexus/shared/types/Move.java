@@ -90,6 +90,12 @@ public class Move {
      */
     private boolean hardKnockdown = false;
     /**
+     * 投げ抜け不能（command throw・Task 94）。投げ技（{@code throwMove}/{@code airThrowMove}）にこれを付けると、
+     * 相手が投げ抜け（throw tech・Task 36）入力をしていても抜けられない＝確定の掴み（グラップラーの代名詞）。
+     * 既定 {@code false}（後方互換＝通常の投げは抜け可能）。打撃 / 飛び道具では無意味（投げ成立判定でのみ参照）。
+     */
+    private boolean noTech = false;
+    /**
      * ガード高さ属性（Task 33）の JSON 生トークン（{@code "overhead"} / {@code "mid"} / {@code "low"}）。
      * 正準値と意味は {@link GuardHeight} に集約し、本フィールドは LibGDX {@code Json} が書き込む生値を保持する。
      * 未指定（旧 JSON はキー無し）はフィールド初期化子の {@code "mid"} を保つ（後方互換）。なお、しゃがみ中に
@@ -238,6 +244,11 @@ public class Move {
     /** 受け身不能ダウン（hard knockdown・Task 88）か。{@code true} なら食らった相手は受け身できずフルダウンする。既定 {@code false}。 */
     public boolean isHardKnockdown() {
         return hardKnockdown;
+    }
+
+    /** 投げ抜け不能（command throw・Task 94）か。{@code true} なら相手は投げ抜け（Task 36）できない確定の掴み。既定 {@code false}。 */
+    public boolean isNoTech() {
+        return noTech;
     }
 
     /**
