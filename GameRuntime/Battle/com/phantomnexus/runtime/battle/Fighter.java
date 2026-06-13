@@ -43,6 +43,7 @@ public class Fighter {
     private int throwTechWindow;        // 投げ抜け猶予窓（投げボタン押下でアーム・毎フレーム減衰）（Task 36）
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
+    private int counterHitFrames;       // カウンターヒットを受けた直後の表示フレーム（ラベルに (CH) を付す・Task 71）
     private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
@@ -85,6 +86,10 @@ public class Fighter {
         // ガードクラッシュの表示/拘束フレームを減衰（Task 43。拘束自体は hitstunFrames が担う）。
         if (guardBreakFrames > 0) {
             guardBreakFrames--;
+        }
+        // カウンターヒット被弾の表示フレームを減衰（Task 71。ラベルの (CH) 表示専用・拘束は hitstunFrames が担う）。
+        if (counterHitFrames > 0) {
+            counterHitFrames--;
         }
         // ダウンの被弾無敵ラッチ（Task 60・Codex 指摘）：この update の処理前にダウン中だったか（＝このフレームは inert か）を
         // 記録する。減算は下の inert 分岐内で行い 60F の行動不能を確保しつつ、当たり判定の被弾ゲート（isKnockedDown）は
@@ -328,6 +333,7 @@ public class Fighter {
         throwTechWindow = 0;
         throwTechFrames = 0;
         comboCount = 0;
+        counterHitFrames = 0;
         guarding = false;
         guardGauge = GameConstants.GUARD_GAUGE_MAX;
         guardBreakFrames = 0;
@@ -486,6 +492,20 @@ public class Fighter {
     /** 投げ抜けの硬直中か（表示ラベルを "tech" にするための判定）（Task 36）。 */
     public boolean isThrowTeched() {
         return throwTechFrames > 0;
+    }
+
+    /**
+     * カウンターヒット（Task 71）を受けたことを記録する（表示用）。{@code resolveHit} が、相手の攻撃 startup 中に
+     * 打撃を当てた（＝差し返した）ときに {@link #applyHit} / {@link #applyKnockdown} の直後に呼ぶ。被弾ラベルに
+     * {@code (CH)} を付すための表示専用カウンタを立てるだけで、ダメージ / 拘束は呼び出し側が既に適用している。
+     */
+    public void markCounterHit() {
+        counterHitFrames = GameConstants.COUNTER_HIT_LABEL_FRAMES;
+    }
+
+    /** 直近にカウンターヒットを受けたか（表示ラベルに {@code (CH)} を付すための判定・Task 71）。 */
+    public boolean isCounterHit() {
+        return counterHitFrames > 0;
     }
 
     /**

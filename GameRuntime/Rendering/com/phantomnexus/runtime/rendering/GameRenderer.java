@@ -123,6 +123,7 @@ public class GameRenderer {
     private static final String STATE_LABEL_GUARD_BREAK = "guard_break"; // 名前下の状態ラベル（ハードコード回避）
     private static final String STATE_LABEL_INVINCIBLE_SUFFIX = " [INV]"; // 無敵フレーム中の付加表示（Task 53）
     private static final String STATE_LABEL_EX_SUFFIX = " [EX]"; // EX 必殺技中の付加表示（Task 54）
+    private static final String STATE_LABEL_COUNTER_SUFFIX = " (CH)"; // カウンターヒット被弾の付加表示（Task 71）
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
@@ -759,6 +760,10 @@ public class GameRenderer {
         // EX 必殺技中（メーター消費の強化版・Task 54）は [EX] を付す（金色 strike と対）。
         if (f.isExAttack()) {
             stateLabel = stateLabel + STATE_LABEL_EX_SUFFIX;
+        }
+        // カウンターヒット被弾中（Task 71）は (CH) を付す（差し返された証跡）。
+        if (f.isCounterHit()) {
+            stateLabel = stateLabel + STATE_LABEL_COUNTER_SUFFIX;
         }
         drawCentered(stateLabel, centerX, top + 12f);
     }
