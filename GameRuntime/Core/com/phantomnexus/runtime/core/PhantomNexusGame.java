@@ -503,7 +503,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             defender.applyKnockdown(dealtDamage, knockbackDir);
         } else {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
-            defender.applyHit(dealtDamage, hitstun, knockbackDir);
+            float launch = attacker.getCurrentMove() != null ? attacker.getCurrentMove().getLaunch() : 0f;
+            if (launch > 0f) {
+                // 浮かせ技（Task 83）：相手を打ち上げて空中やられ（ジャグル起点）にする。
+                defender.applyLaunch(dealtDamage, hitstun, knockbackDir, launch);
+            } else {
+                defender.applyHit(dealtDamage, hitstun, knockbackDir);
+            }
         }
         if (!blocked && !armored) {
             defender.addStun(dealtDamage); // めまい蓄積（Task 79・通常ヒット。閾値超えで dizzy。stunThreshold=0 なら no-op）

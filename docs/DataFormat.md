@@ -214,6 +214,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `hits` | int | 任意 | 多段ヒット数（Task 74）。active 区間中に最大何回ヒットさせるか。省略時 `1`（単発・後方互換）。2 以上で `hitGap` 間隔の多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る） |
 | `hitGap` | int | 任意 | 多段ヒットのサブヒット間隔（フレーム数・Task 74）。省略時 `4`。`hits == 1`（単発）では無視。`active` は `hitGap × (hits-1)` 以上が必要（全段当てるため） |
 | `armorHits` | int | 任意 | スーパーアーマー数（Task 80）。技の **startup 中**に被弾してものけぞらず継続できる回数。省略時 `0`＝アーマーなし（後方互換）。ダメージは受けるが hitstun に入らない。投げ（ガード不能）は貫通する |
+| `launch` | float | 任意 | 浮かせ（launch・Task 83）の上方初速（px/frame）。`> 0` で非ガードヒット時に相手を打ち上げて空中やられ（ジャグル起点）にする。省略時 `0`＝打ち上げなし（後方互換）。`knockdown` とは排他（ダウンが優先） |
 
 ### Move（`specialMoves[]` 要素）
 
@@ -336,6 +337,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 83) `Move` に任意 float `launch`（既定 0＝打ち上げなし・後方互換）を追加。`> 0` の技を非ガードヒットさせると相手を上方初速 `launch` で打ち上げて空中やられ（ジャグル起点）にする。`getLaunch()` が負値を 0 に丸める。任意フィールドのためローダ追加検証なし。`knockdown` とは排他（ダウンが優先）。例示として fighter010 の `rising_slash` に `launch:11.0`（rising 系の打ち上げ）。戦闘仕様は BattleSystem.md「浮かせ（launch / ジャグル）（Task 83）」節を参照。`Move` の normal/special 両フィールド表に `launch` を追加。
 - (Task 80) `Move` に任意 int `armorHits`（既定 0＝アーマーなし・後方互換）を追加。技の startup 中に被弾してものけぞらず継続できる回数（スーパーアーマー）。ダメージは受けるが hitstun に入らない。投げは貫通。`getArmorHits()` が負値を 0 に丸める。任意フィールドのためローダ追加検証なし。例示として fighter009 の `heavy_lance` に `armorHits:2`（タンクの armored 強攻撃）。戦闘仕様は BattleSystem.md「スーパーアーマー（Task 80）」節を参照。`Move` の normal/special 両フィールド表に `armorHits` を追加。
 - (Task 79) `Character` に任意 int `stunThreshold`（既定 0＝めまい無効・後方互換）を追加。被弾で蓄積したスタン値がこの値以上になるとめまい（dizzy・`GameConstants.DIZZY_FRAMES`(100) の無防備硬直＝フルコンボ確定）に陥る。`getStunThreshold()` が負値を 0 に丸める。例示として fighter009 に `stunThreshold:340`（タンク）・fighter010 に `stunThreshold:180`（紙耐久＝崩れやすい）を付与。戦闘仕様は BattleSystem.md「めまい（dizzy / stun）（Task 79）」節を参照。
 - (Task 76) 10 体目キャラ `Assets/Characters/fighter010.json`（"Yuki"・HP780・**多段ヒット rapid jab の高速 rushdown 型**の silver）＋プレースホルダ・スプライト `fighter010.png` を追加。`Character` の JSON 仕様は不変（9 体目 fighter009 に続く 10 体目）。アーキタイプ：速い `walkSpeed6.2`＋`airJumps:1` の機動、弱攻撃 `rapid_jab` を **`hits:3`（Task 74）の 3 段刻み**にした rushdown、高速飛び道具 `frost_shard`、地上投げ＋空中投げ。低 HP で手数型。撮影は `-x p1char=fighter010` / `-x p2char=fighter010`。

@@ -439,6 +439,17 @@ public class Fighter {
     }
 
     /**
+     * 浮かせ（launch, Task 83）を適用する。通常被弾（{@link #applyHit}）に加えて相手を上方初速 {@code launchVelocity} で
+     * 打ち上げ、空中やられ（のけぞり中＝無防備）にする＝空中コンボ（ジャグル）の起点。打ち上がった相手は重力で落下し、
+     * のけぞりが切れるか着地するまで追撃可能。{@link #applyHit} のダメージ / コンボ計数 / 水平 knockback を流用する。
+     */
+    public void applyLaunch(int damage, int hitstun, int knockbackDir, float launchVelocity) {
+        applyHit(damage, hitstun, knockbackDir);
+        velocityY = launchVelocity; // 上方初速で打ち上げ（重力は update 末尾で毎フレーム適用＝弧を描いて落下）
+        grounded = false;
+    }
+
+    /**
      * ダウン（knockdown, Task 60）を適用する。{@code Move.knockdown=true} の技を非ガードで食らったときに
      * {@link #applyHit} の代わりに呼ぶ。通常のけぞりより長い {@link GameConstants#KNOCKDOWN_FRAMES} の行動不能と
      * 強い knockback（{@link GameConstants#KNOCKDOWN_KNOCKBACK_SCALE} 倍）を与え、ダウン中は被弾無敵になる

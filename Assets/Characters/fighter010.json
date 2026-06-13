@@ -58,6 +58,7 @@
     {
       "id": "rising_slash",
       "button": "heavy",
+      "launch": 11.0,
       "damage": 88,
       "startup": 8,
       "active": 5,
