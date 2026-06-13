@@ -1,0 +1,99 @@
+{
+  "id": "fighter014",
+  "name": "Gan",
+  "hp": 1250,
+  "walkSpeed": 3.4,
+  "jumpPower": 11.0,
+  "width": 96,
+  "height": 234,
+  "color": [0.20, 0.26, 0.54],
+  "stunThreshold": 380,
+  "sprite": {
+    "path": "Characters/fighter014.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "jab",
+      "button": "light",
+      "damage": 50,
+      "startup": 6,
+      "active": 3,
+      "recovery": 12,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 118,
+      "hitboxWidth": 82,
+      "hitboxHeight": 38
+    },
+    {
+      "id": "armor_ram",
+      "button": "medium",
+      "armorHits": 1,
+      "damage": 80,
+      "startup": 12,
+      "active": 4,
+      "recovery": 20,
+      "hitboxOffsetX": 18,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 110,
+      "hitboxHeight": 54
+    },
+    {
+      "id": "guillotine",
+      "button": "heavy",
+      "guardHeight": "overhead",
+      "knockdown": true,
+      "hardKnockdown": true,
+      "damage": 130,
+      "startup": 18,
+      "active": 4,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 60,
+      "hitboxWidth": 96,
+      "hitboxHeight": 110
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "titan_rise",
+      "command": "CHARGE_SHOT",
+      "invincibleFrames": 9,
+      "damage": 120,
+      "startup": 5,
+      "active": 6,
+      "recovery": 32,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 50,
+      "hitboxWidth": 94,
+      "hitboxHeight": 120
+    }
+  ],
+  "throwMove": {
+    "id": "atomic_buster",
+    "noTech": true,
+    "damage": 185,
+    "startup": 5,
+    "active": 2,
+    "recovery": 26,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 58,
+    "hitboxHeight": 160
+  }
+}
