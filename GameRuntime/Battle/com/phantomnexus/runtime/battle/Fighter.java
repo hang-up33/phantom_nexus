@@ -231,8 +231,10 @@ public class Fighter {
             // dizzy（地上の無防備）は対象外（hitstunFrames>0 を要求）。被弾無敵ではない（受け身狩りが成立する）。
             // ガードクラッシュ（Task 43・`guardBreakFrames`）と投げ抜け硬直（Task 36・`throwTechFrames`）は hitstun を
             // 流用するため、これらを空中受け身で抜けられないよう除外する（空中ガードクラッシュ等の確定反撃時間を守る・Codex 指摘）。
+            // めまい（Task 79・`dizzyFrames`）も除外する：launch/バウンドでしきい値を超えると空中で dizzy と hitstun が併存し得るが、
+            // めまいは「フルコンボ確定」の無防備硬直なので空中受け身で hitstun/コンボ/バウンドだけリセットされてはならない（Codex 指摘）。
             boolean airTechInput = attackButton != null || jumpPressed || throwReq;
-            if (!grounded && hitstunFrames > 0 && guardBreakFrames <= 0 && throwTechFrames <= 0
+            if (!grounded && hitstunFrames > 0 && dizzyFrames <= 0 && guardBreakFrames <= 0 && throwTechFrames <= 0
                     && airHitstunElapsed >= GameConstants.AIR_TECH_MIN_FRAMES && airTechInput) {
                 hitstunFrames = 0;
                 wallBounceArmed = false;   // 受け身でジャグル（壁/床バウンド）を打ち切る
