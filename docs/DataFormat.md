@@ -162,6 +162,7 @@ MVP では 1 キャラ = 1 JSON ファイルに必要要素を内包する形を
 | `jumpPower` | float | ✅ | ジャンプ初速（px/frame, 上向き正） |
 | `airJumps` | int | 任意 | 空中での追加ジャンプ回数（二段ジャンプ, Task 68）。省略時 `0`＝空中ジャンプなし（後方互換）。`1` で地上ジャンプ後に空中でもう一度跳べる（接地で回復）。負値は 0 に丸め |
 | `airDashes` | int | 任意 | 空中ダッシュの回数（air dash, Task 69）。省略時 `0`＝空中ダッシュなし（後方互換）。`1` で滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。負値は 0 に丸め |
+| `stunThreshold` | int | 任意 | めまい（dizzy / stun, Task 79）の発生しきい値。被弾で蓄積したスタン値がこの値以上になると**めまい**（長い無防備硬直＝フルコンボ確定）に陥る。省略時 `0`＝**めまい無効**（後方互換＝設定したキャラだけがめまいする）。負値は 0 に丸め |
 | `width` | float | ✅ | キャラ矩形の横幅（px。描画 / 当たり判定の基準） |
 | `height` | float | ✅ | キャラ矩形の高さ（px。描画 / 当たり判定の基準） |
 | `color` | float[3] | 任意 | 表示色 RGB（0..1）。`sprite` 未指定時のプレースホルダ矩形色（未設定なら描画側の既定色） |
@@ -334,6 +335,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 79) `Character` に任意 int `stunThreshold`（既定 0＝めまい無効・後方互換）を追加。被弾で蓄積したスタン値がこの値以上になるとめまい（dizzy・`GameConstants.DIZZY_FRAMES`(100) の無防備硬直＝フルコンボ確定）に陥る。`getStunThreshold()` が負値を 0 に丸める。例示として fighter009 に `stunThreshold:340`（タンク）・fighter010 に `stunThreshold:180`（紙耐久＝崩れやすい）を付与。戦闘仕様は BattleSystem.md「めまい（dizzy / stun）（Task 79）」節を参照。
 - (Task 76) 10 体目キャラ `Assets/Characters/fighter010.json`（"Yuki"・HP780・**多段ヒット rapid jab の高速 rushdown 型**の silver）＋プレースホルダ・スプライト `fighter010.png` を追加。`Character` の JSON 仕様は不変（9 体目 fighter009 に続く 10 体目）。アーキタイプ：速い `walkSpeed6.2`＋`airJumps:1` の機動、弱攻撃 `rapid_jab` を **`hits:3`（Task 74）の 3 段刻み**にした rushdown、高速飛び道具 `frost_shard`、地上投げ＋空中投げ。低 HP で手数型。撮影は `-x p1char=fighter010` / `-x p2char=fighter010`。
 - (Task 74) `Move` に任意 int `hits`（既定 1・後方互換）・`hitGap`（既定 4）を追加。`hits >= 2` の技は active 区間中に `hitGap` フレーム間隔で複数回ヒットする多段技になる（各サブヒットはコンボに加算＝コンボ補正 Task 46 が乗る）。`getHits()` は最小 1・`getHitGap()` は最小 0 に丸める。任意フィールドのためローダ追加検証なし（旧 JSON はキー無しで単発）。例示として fighter009 の中攻撃を 2 段技 `twin_thrust`（`hits:2`・`hitGap:4`・active9）に。戦闘仕様は BattleSystem.md「多段ヒット技（Task 74）」節を参照。`Move` の normal/special 両フィールド表に `hits`/`hitGap` を追加。
 - (Task 72) 9 体目キャラ `Assets/Characters/fighter009.json`（"Hayato"・HP1050・**高 HP の charge zoner 型**の gold）＋プレースホルダ・スプライト `fighter009.png` を追加。`Character` の JSON 仕様は不変で、JSON＋PNG の追加だけでキャラが動作する（8 体目 fighter008 に続く 9 体目）。アーキタイプ：遅い `walkSpeed4.2`・長射程の通常技（`jab`/`twin_thrust`/`heavy_lance`）・`CHARGE_SHOT` 飛び道具 `charge_beam`（溜め式の弾＝HADOUKEN とは別モーション）・強攻撃 `heavy_lance` に `knockdown:true`。AI はデータ駆動の飛び道具牽制（Task 64）でこの弾を撃って zoning する。撮影は `-x p1char=fighter009` / `-x p2char=fighter009`。

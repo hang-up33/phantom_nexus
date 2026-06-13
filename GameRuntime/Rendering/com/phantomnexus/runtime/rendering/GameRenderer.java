@@ -735,6 +735,9 @@ public class GameRenderer {
         } else if (f.isGuardBroken()) {
             // ガードクラッシュも hitstun を流用するため、ラベルは guard_break を hitstun より先に表示する（Task 43）。
             stateLabel = STATE_LABEL_GUARD_BREAK;
+        } else if (f.isDizzy()) {
+            // めまい（Task 79）。HITSTUN ポーズを流用しつつ dizzy ラベルで識別（被弾無敵ではない無防備硬直）。
+            stateLabel = "dizzy";
         } else if (f.isInHitstun()) {
             stateLabel = "hitstun " + f.getHitstunFrames();
         } else if (f.isAttacking()) {

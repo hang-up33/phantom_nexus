@@ -242,4 +242,17 @@ public final class GameConstants {
      * のけぞりと同程度で十分（カウンター被弾＝差し返された証跡をスクショで読めるようにする）。
      */
     public static final int COUNTER_HIT_LABEL_FRAMES = HITSTUN_FRAMES + COUNTER_HIT_BONUS_HITSTUN;
+
+    /**
+     * めまい（dizzy / stun・Task 79）の行動不能フレーム数。スタン値が {@code Character.stunThreshold} を超えると
+     * この長さだけ<b>無防備</b>に硬直する（のけぞりと違い長く、ダウンと違い被弾無敵ではない＝フルコンボ確定の隙）。
+     * 60fps 基準で約 1.7 秒。スタンを蓄積させる連係への大きな見返りになる。
+     */
+    public static final int DIZZY_FRAMES = 100;
+
+    /**
+     * スタン値の毎フレーム自然減衰量（Task 79）。被弾していない（のけぞり / ダウン / めまいでない）間にスタンが
+     * この量ずつ抜けていく。これにより「短時間に畳みかけて」蓄積した時だけめまいに至り、間合いを離せば回復する。
+     */
+    public static final int STUN_DECAY_PER_FRAME = 2;
 }

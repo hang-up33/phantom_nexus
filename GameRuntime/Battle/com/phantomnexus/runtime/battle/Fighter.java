@@ -45,6 +45,8 @@ public class Fighter {
     private int throwTechFrames;        // 投げ抜け成立後の硬直/表示フレーム（ノーダメージ・hitstun と併走）（Task 36）
     private int comboCount;             // 現在受けている連続ヒット数（hitstun 継続中の被弾で加算・回復で 0）（Task 39）
     private int counterHitFrames;       // カウンターヒットを受けた直後の表示フレーム（ラベルに (CH) を付す・Task 71）
+    private int stunMeter;              // 蓄積中のスタン値（被弾で増え非被弾で減衰・しきい値超えでめまい・Task 79）
+    private int dizzyFrames;            // めまい（dizzy）の無防備行動不能フレーム（被弾無敵ではない＝フルコンボ確定・Task 79）
     private boolean guarding;  // 後退方向保持でガード中か（接地/滞空＝空中ガード・Task 27/59）
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
@@ -92,6 +94,15 @@ public class Fighter {
         if (counterHitFrames > 0) {
             counterHitFrames--;
         }
+        // めまい（Task 79）の行動不能フレームを減衰。dizzyFrames が拘束の真の長さで、被弾で短い hitstun に上書き
+        // されても独立に減るため「めまい中はずっと無防備」が保たれる（コンボでリセットされない）。
+        if (dizzyFrames > 0) {
+            dizzyFrames--;
+        }
+        // スタン値の自然減衰：完全に中立（のけぞり / ダウン / めまいでない）な間だけ抜けていく（Task 79）。
+        if (hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0 && stunMeter > 0) {
+            stunMeter = Math.max(0, stunMeter - GameConstants.STUN_DECAY_PER_FRAME);
+        }
         // ダウンの被弾無敵ラッチ（Task 60・Codex 指摘）：この update の処理前にダウン中だったか（＝このフレームは inert か）を
         // 記録する。減算は下の inert 分岐内で行い 60F の行動不能を確保しつつ、当たり判定の被弾ゲート（isKnockedDown）は
         // このラッチ ‖ knockdownFrames>0 で判定する。これにより、ダウンが解ける最終フレーム（inert 分岐で knockdownFrames が
@@ -104,7 +115,8 @@ public class Fighter {
         // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30。しゃがみは接地時のみ）。低姿勢判定は crouching を併用。
         // 滞空中の後退保持は空中ガード（air guard）＝立ち扱い（crouching=false）で、飛び道具・中段/上段を chip で凌ぐ（Task 59）。
         int backDir = facingRight ? -1 : 1;
-        guarding = hitstunFrames <= 0 && knockdownFrames <= 0 && attackPhase == AttackPhase.NONE
+        guarding = hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0
+                   && attackPhase == AttackPhase.NONE
                    && moveDir != 0 && moveDir == backDir;
         // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43。ガード中は減る一方）。
         if (!guarding && guardBreakFrames <= 0 && guardGauge < GameConstants.GUARD_GAUGE_MAX) {
@@ -140,13 +152,17 @@ public class Fighter {
             if (Math.abs(velocityX) < 0.1f) {
                 velocityX = 0f;
             }
-        } else if (hitstunFrames > 0) {
+        } else if (hitstunFrames > 0 || dizzyFrames > 0) {
+            // のけぞり（Task 13）＋めまい（Task 79）：いずれも無防備で行動不能。めまいは hitstun より長く、被弾で
+            // 短い hitstun に上書きされても dizzyFrames が独立に拘束を保つ（上で減衰済み）。被弾無敵ではない（ダウンと違う）。
             crouching = false;
             this.moveDir = 0;
-            hitstunFrames--;
-            // hitstun から復帰した瞬間にコンボを終了（次の被弾は新規コンボ＝1 から数え直す）（Task 39）。
-            if (hitstunFrames == 0) {
-                comboCount = 0;
+            if (hitstunFrames > 0) {
+                hitstunFrames--;
+                // hitstun から復帰した瞬間にコンボを終了（次の被弾は新規コンボ＝1 から数え直す）（Task 39）。
+                if (hitstunFrames == 0) {
+                    comboCount = 0;
+                }
             }
             x += velocityX;
             clampToStage();
@@ -336,6 +352,8 @@ public class Fighter {
         throwTechFrames = 0;
         comboCount = 0;
         counterHitFrames = 0;
+        stunMeter = 0;
+        dizzyFrames = 0;
         guarding = false;
         guardGauge = GameConstants.GUARD_GAUGE_MAX;
         guardBreakFrames = 0;
@@ -511,6 +529,34 @@ public class Fighter {
     }
 
     /**
+     * スタン値を加算する（Task 79）。通常ヒットの被弾時に与ダメージ量を渡す。{@code stunThreshold} が 0（既定）の
+     * キャラはめまい無効＝何もしない（後方互換）。しきい値以上になると<b>めまい</b>（{@link GameConstants#DIZZY_FRAMES}
+     * の無防備行動不能）に陥り、スタン値は 0 にリセットされる。既にめまい中は加算しない（多重発生を防ぐ）。
+     * 乱数なし（被弾ダメージ量のみで決まる＝決定的）。
+     */
+    public void addStun(int amount) {
+        int threshold = def.getStunThreshold();
+        if (threshold <= 0 || amount <= 0 || dizzyFrames > 0) {
+            return;
+        }
+        stunMeter += amount;
+        if (stunMeter >= threshold) {
+            stunMeter = 0;
+            dizzyFrames = GameConstants.DIZZY_FRAMES; // 長い無防備硬直（hitstun と独立＝コンボでリセットされない）
+        }
+    }
+
+    /** めまい（dizzy）中か（Task 79）。無防備な長硬直（被弾無敵ではない＝フルコンボ確定の隙）。表示ラベルにも使う。 */
+    public boolean isDizzy() {
+        return dizzyFrames > 0;
+    }
+
+    /** 現在の蓄積スタン値（HUD / デバッグ用・Task 79）。 */
+    public int getStunMeter() {
+        return stunMeter;
+    }
+
+    /**
      * 指定の必殺技を開始する（Task 20/24）。接地・非攻撃・非のけぞり時のみ。
      *
      * @param move 発動する必殺技（{@code Character.getSpecialMoves()} から選んだもの）
@@ -550,7 +596,8 @@ public class Fighter {
     public boolean canStartAction() {
         // knockdownFrames も見る（Task 60）：ダウン中は startSpecial が update の外から呼ばれても発動させない。
         // 見落とすと STARTUP が凍結保持され、起き上がりと同時に必殺技が暴発する（ノー startup の起き上がりリバーサル）。
-        return grounded && attackPhase == AttackPhase.NONE && hitstunFrames <= 0 && knockdownFrames <= 0;
+        return grounded && attackPhase == AttackPhase.NONE && hitstunFrames <= 0 && knockdownFrames <= 0
+                && dizzyFrames <= 0;
     }
 
     /**
