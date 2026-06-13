@@ -103,6 +103,11 @@ public final class AiController {
      * 読み取りで {@code null} に戻す（1 フレーム 1 発）。
      */
     private Move pendingProjectile;
+    /**
+     * 前フレームにダウン（Task 60）していたか（起き上がりリバーサル・Task 97 の検出用）。前フレーム down かつ
+     * このフレーム行動可能＝「起き上がった瞬間」を一度だけ捉えて無敵リバーサルを置く。
+     */
+    private boolean wasKnockedDown;
 
     /** ラウンド間リセット（クールダウン・ダッシュ進行・保留中の弾を消去して次ラウンド開始時の行動可否を初期化する）。 */
     public void reset() {
@@ -110,6 +115,7 @@ public final class AiController {
         dashTapStep = 0;
         jumpingIn = false;
         pendingProjectile = null;
+        wasKnockedDown = false;
     }
 
     /**
@@ -162,6 +168,10 @@ public final class AiController {
         if (cooldown > 0) {
             cooldown--;
         }
+        // 起き上がりリバーサル（Task 97）検出用：前フレームの down 状態を退避してから今フレームの状態へ更新する
+        // （ukemi の早期 return を跨いでも必ず更新されるよう、ここで先に行う）。
+        boolean prevKnockedDown = wasKnockedDown;
+        wasKnockedDown = self.isKnockedDown();
         // AI 受け身（ukemi・Task 75・HARD のみ）：ダウン中（行動不能）の間は毎フレーム行動入力を出し、受付窓
         // （Task 66・Fighter 側が持つ）内なら最早フレームでクイック起き上がりする＝起き攻めへの対抗。窓は AI から
         // 見えないが、Fighter が窓外の入力を無視するので「ダウン中は入力し続ける」だけで成立する。`!canStartAction()`
@@ -218,6 +228,15 @@ public final class AiController {
             // AI はコマンド検出（updateFighterInput）を経由しないので、自分で startSpecial を直接呼ぶ。
             // 打撃必殺技なので飛び道具生成・メーター消費は不要＝Core 無改修で成立。直後の self.update が技を進める。
             // 乱数なし＝決定的（相手の空中状態・下降・距離のみで判断）。
+            self.startSpecial(antiAir);
+            cooldown = ATTACK_COOLDOWN;
+            dashTapStep = 0;
+        } else if (advanced && prevKnockedDown && self.canStartAction() && antiAir != null
+                && distance <= GUARD_RANGE) {
+            // 起き上がりリバーサル（Task 97・HARD のみ）：ダウンから起き上がった瞬間（前フレーム down・今行動可能）に、
+            // 相手が起き攻めの間合い（GUARD_RANGE 内）にいれば無敵打撃必殺技を置いて切り返す（昇龍拳タイプの wakeup DP）。
+            // 起き上がりの 1 フレームだけ発火（prevKnockedDown が次フレームには false）＝乱発しない。乱数なし＝決定的。
+            // 空振り / ガードされれば長 recovery で手痛い反確＝リスク/リターンの読み合い（撃たない選択は人間側のフェイント）。
             self.startSpecial(antiAir);
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
