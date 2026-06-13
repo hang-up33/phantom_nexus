@@ -255,4 +255,17 @@ public final class GameConstants {
      * この量ずつ抜けていく。これにより「短時間に畳みかけて」蓄積した時だけめまいに至り、間合いを離せば回復する。
      */
     public static final int STUN_DECAY_PER_FRAME = 2;
+
+    /**
+     * ジャストガード（Task 81）の受付窓（フレーム数）。後退方向を保持し始めてからこのフレーム数以内に攻撃を
+     * ガードすると「ジャストガード」成立＝chip ダメージなし・ガードゲージを削らない・メーター獲得・最小 knockback。
+     * 押しっぱなしのガード（ターン）では成立せず、ヒット直前に合わせて入力した反応ガードのみ成立する（小さく＝シビア）。
+     */
+    public static final int JUST_GUARD_WINDOW = 4;
+
+    /** ジャストガード成立時に獲得する必殺技ゲージ量（Task 81）。リスクを取った反応ガードへの見返り。 */
+    public static final float JUST_GUARD_METER = 12f;
+
+    /** ジャストガード成立の表示フレーム数（Task 81）。状態ラベルに {@code [JUST]} を付す表示専用カウンタの寿命。 */
+    public static final int JUST_GUARD_LABEL_FRAMES = 16;
 }

@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜80 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜81 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -288,6 +288,23 @@ Task 26 で 1 ラウンド制をベスト・オブ 3（先取 2 ラウンド）�
 - **Core の `update()`**：戦闘ブロックのガードを `!isBetweenRounds() && !isRoundIntro()` に拡張し、イントロ中は操作・判定を止めて `round.update()` だけを進める。
 - **撮影モードの後方互換**：撮影モードでは既定でイントロを**スキップ**（`screenshot.roundIntroEnabled(true)` が撮影時 false を返し `introFrames=0`）。既存スクショレシピ（frame1 から戦闘前提）を壊さないため。`-x intro=true` 指定時のみ有効化して開始演出コマを撮れる。通常起動・リプレイ（記録/再生とも同一のイントロ長で決定的）はイントロ ON。
 - **描画**：イントロ中は中央に "ROUND N"（白）または "FIGHT!"（赤・拡大）バナーを表示。色・倍率は共有状態のため描画後に白・等倍へ戻す（コンボ表示と同様）。新規 `AnimationState` は追加せず、ファイターは idle のまま静止する。
+
+---
+
+## ジャストガード（Task 81）
+
+後退方向を保持し始めてから {@code JUST_GUARD_WINDOW}(4f) 以内に攻撃をガードすると**ジャストガード**成立＝chip ダメージなし・ガードゲージを削らない・必殺技ゲージ獲得・最小 knockback の完全防御。押しっぱなしのターンでは成立せず、ヒット直前に合わせた反応ガードのみ成立する（リスクを取った防御への見返り）。
+
+| 項目 | 仕様 |
+|---|---|
+| 受付 | ガード保持開始から `JUST_GUARD_WINDOW`(4f) 以内のガード成立 |
+| 効果 | chip なし・ガードゲージ削りなし・`JUST_GUARD_METER`(12) 獲得・knockback 最小 |
+| 非成立 | 連続保持（ターン）は `guardHeldFrames` が窓を超え通常ガード（chip＋ゲージ削り） |
+| 表示 | 成立直後は状態ラベルに `[JUST]`（`isJustGuarding()`・表示専用カウンタ） |
+
+- **実装（`Fighter`）**：`guardHeldFrames`（毎フレーム guarding なら +1・非ガードで 0）。`applyGuard` 冒頭で `guardHeldFrames <= JUST_GUARD_WINDOW` ならジャストガード分岐（メーター獲得・最小 knockback・`justGuardFrames` 表示・**early return**＝ダメージ / ゲージ削りなし）、それ以外は従来の chip ガード。Core は変更不要（`blocked` のままで `applyGuard` 内が分岐）。
+- **決定性**：保持フレーム数のみで決まり**乱数なし**（入力リプレイと両立）。
+- **読み合い**：ターン（押しっぱ）は安全だが chip とゲージ削りを受け続けガードクラッシュ（Task 43）に至る一方、ジャストガードはノーリスク完全防御だが入力がシビア。守りの択に技術介入を足す。
 
 ---
 
@@ -859,6 +876,7 @@ Task 24 で技定義を 1 件から配列に拡張した。
 
 ## 変更履歴
 
+- (Task 81) ジャストガードを追記。`GameConstants` に `JUST_GUARD_WINDOW`(4)・`JUST_GUARD_METER`(12)・`JUST_GUARD_LABEL_FRAMES`(16) を追加。`Fighter` に `guardHeldFrames`（guarding 連続保持カウンタ・top で更新）／`justGuardFrames`（表示）を追加し、`applyGuard` 冒頭で `guardHeldFrames <= JUST_GUARD_WINDOW` ならメーター獲得＋最小 knockback で early return（chip / ゲージ削りなし）。`GameRenderer` が `[JUST]` を付す。Core 無改修（`blocked` のまま `applyGuard` 内で分岐）。グローバル機構（JSON 不変）。乱数なし・リプレイ format 不変だが、ヒット直前に後退を入れる既存リプレイはジャストガードで chip / メーターが変わり得る（戦闘仕様変更）。「ジャストガード（Task 81）」節・冒頭サマリを追加。
 - (Task 80) スーパーアーマーを追記。`Move` に任意 int `armorHits`（既定 0＝なし・後方互換）を追加。`Fighter` に `armorHitsUsed`＋`isArmorActive()`（STARTUP かつ残あり）／`absorbArmorHit()`（ダメージのみ受けて中断しない・軽 knockback）を追加（`beginAttack`/`reset` でリセット）。`PhantomNexusGame.resolveHit` の非ガードヒットで `defender.isArmorActive()` なら `absorbArmorHit` を呼び `applyHit`/`applyKnockdown` を呼ばない（のけぞらせない）＝アーマー吸収はカウンター・スタン蓄積の対象外。投げはアーマーを貫通（上で処理）。`GameRenderer` がアーマー残あり中に `[ARMOR]` を付す。fighter009 の `heavy_lance` に `armorHits:2`。`armorHits=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、アーマー技を出している既存リプレイは被弾結果が変わり得る（戦闘仕様変更）。「スーパーアーマー（Task 80）」節・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 79) めまい（dizzy / stun）を追記。`Character` に任意 int `stunThreshold`（既定 0＝無効・後方互換）・`GameConstants` に `DIZZY_FRAMES`(100)・`STUN_DECAY_PER_FRAME`(2) を追加。`Fighter` に `stunMeter`／`dizzyFrames`＋`addStun()`／`isDizzy()` を追加し、inert 分岐を `hitstunFrames>0 || dizzyFrames>0` に拡張（めまいは無防備＝被弾無敵ではない・コンボ確定）、`canStartAction()`／`guarding` に `dizzyFrames<=0` を追加、`update()` 冒頭で dizzy 減衰＋中立時のスタン自然減衰。`resolveHit`／`updateProjectiles` の非ガードヒットで `addStun(dealtDamage)`（投げ・ダウン技は除外）。`GameRenderer` が `dizzy` ラベルを hitstun より先に表示。fighter009（340）/ fighter010（180）に `stunThreshold` を付与。`stunThreshold=0` のキャラは従来挙動を維持。乱数なし・リプレイ format 不変だが、`stunThreshold>0` のキャラを連係で崩す既存リプレイはめまいで結果が変わり得る（戦闘仕様変更）。「めまい（dizzy / stun）（Task 79）」節・ステート一覧・冒頭サマリを追加（DataFormat.md にもフィールド/変更履歴を追加）。
 - (Task 78) 実行時 AI 難易度切替を追記。`AiController.cycleDifficulty()`（EASY→NORMAL→HARD 循環）を追加し、Core が F3 押下で呼ぶ＋HUD ラベル（`buildControlsHint()` に抽出）を再構築。**リプレイ記録/再生中は無視**（難易度を per-frame に記録しない＝format 不変・決定性維持。F2 を再生中に無視するのと同じ作法）。通常プレイのみ切替可。Task 56 で「起動時固定」としていた難易度の実行時メニュー化（将来候補だったもの）。HUD に `[F3] difficulty` を追加。
