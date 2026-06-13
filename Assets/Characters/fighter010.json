@@ -8,6 +8,7 @@
   "width": 78,
   "height": 206,
   "color": [0.80, 0.82, 0.88],
+  "stunThreshold": 180,
   "sprite": {
     "path": "Characters/fighter010.png",
     "frameWidth": 64,

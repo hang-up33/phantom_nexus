@@ -143,6 +143,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 76 | 10 体目キャラ追加（fighter010 Yuki・多段ヒット rapid jab の高速 rushdown 型・JSON のみで追加） | ✅ 完了 |
 | 77 | 第4ステージ追加（stage004 Frozen Peak・JSON のみで背景差し替え検証） | ✅ 完了 |
 | 78 | 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環・リプレイ中は無効） | ✅ 完了 |
+| 79 | めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・JSON `stunThreshold` でデータ化） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
