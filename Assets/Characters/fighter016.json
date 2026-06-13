@@ -94,6 +94,21 @@
       "hitboxOffsetY": 80,
       "hitboxWidth": 70,
       "hitboxHeight": 80
+    },
+    {
+      "id": "inferno_wave",
+      "command": "SUPER",
+      "superMove": true,
+      "damage": 210,
+      "startup": 8,
+      "active": 4,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 105,
+      "hitboxWidth": 64,
+      "hitboxHeight": 70,
+      "projectile": true,
+      "projectileSpeed": 10.5
     }
   ],
   "throwMove": {

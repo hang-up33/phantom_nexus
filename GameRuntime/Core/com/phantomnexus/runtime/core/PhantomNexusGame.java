@@ -73,6 +73,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private float spawnX1;
     private float spawnX2;
     private int hitstopFrames; // ヒットストップ（命中時に両者を凍結する残りフレーム・Task 86）
+    private int superFlashFrames; // スーパーフラッシュ（スーパー必殺技発動時に両者を凍結する残りフレーム・Task 108）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
@@ -210,6 +211,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
             hitstopFrames--;
             return;
         }
+        // スーパーフラッシュ（Task 108）：スーパー必殺技の発動演出として両者・判定・タイマーを凍結する（ヒットストップの長尺版）。
+        // エフェクト aging は上で済ませてあるので火花/数字は動き続ける。固定値＝決定的。
+        if (superFlashFrames > 0) {
+            superFlashFrames--;
+            return;
+        }
         // ラウンド間インターバル中・ラウンド開始イントロ（"ROUND N"/"FIGHT!"）中は
         // ファイター操作・判定を停止し、カウントダウンのみ進める。
         if (!round.isBetweenRounds() && !round.isRoundIntro()) {
@@ -272,6 +279,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         damagePopups.clear();
         hitSparks.clear();
         hitstopFrames = 0; // ヒットストップ（Task 86）もラウンド間でクリア
+        superFlashFrames = 0; // スーパーフラッシュ（Task 108）もラウンド間でクリア
         p1Inputs.clear(); // 入力表示ログ（Task 96）もラウンド間でクリア
         lastInputToken = "";
         p2Ai.reset();
@@ -383,6 +391,30 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (throwReq) {
             // 投げ要求時は通常攻撃を抑止（発動は throwReq として Fighter.update へ渡す）。
             attackButton = null;
+        } else if (cmd == Command.SUPER && anyAttack) {
+            // スーパー必殺技（Task 108）：236236＋攻撃。super 技を所持しメーター満タンなら消費して発動＋スーパーフラッシュ凍結。
+            // 条件を満たさなければ波動拳（HADOUKEN）にフォールバック（236236 は 236 を内包するため・満タンなら EX 波動拳）。
+            Move superMove = findSpecialMove(f.getDef(), Command.SUPER);
+            if (superMove != null && superMove.isSuper() && f.hasFullMeter() && f.startSpecial(superMove, false)) {
+                f.spendFullMeter();
+                superFlashFrames = GameConstants.SUPER_FLASH_FRAMES;
+                if (superMove.isProjectile()) {
+                    spawnProjectile(f, superMove, false);
+                }
+                attackButton = null;
+            } else {
+                Move hado = findSpecialMove(f.getDef(), Command.HADOUKEN);
+                boolean ex = hado != null && f.hasFullMeter();
+                if (hado != null && f.startSpecial(hado, ex)) {
+                    if (ex) {
+                        f.spendFullMeter();
+                    }
+                    if (hado.isProjectile()) {
+                        spawnProjectile(f, hado, ex);
+                    }
+                    attackButton = null;
+                }
+            }
         } else if (cmd != Command.NONE && anyAttack) {
             // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
             Move special = findSpecialMove(f.getDef(), cmd);

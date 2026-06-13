@@ -42,7 +42,7 @@ public final class CharacterLoader {
      * 新コマンドを {@code Command} enum に追加したら本セットも同時に更新すること。
      */
     private static final Set<String> VALID_COMMANDS = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK")));
+            new HashSet<>(Arrays.asList("HADOUKEN", "CHARGE_SHOT", "DOWN_ATTACK", "SUPER")));
 
     /**
      * 旧形式モーション記法 → {@code Command.name()} の変換テーブル（後方互換マイグレーション用）。

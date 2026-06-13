@@ -344,4 +344,11 @@ public final class GameConstants {
 
     /** パリィ成立の表示フレーム数（Task 105）。状態ラベル "parry" を出す表示専用カウンタの寿命（行動はロックしない＝即反撃可）。 */
     public static final int PARRY_LABEL_FRAMES = 14;
+
+    /**
+     * スーパーフラッシュ（super flash・Task 108）の凍結フレーム数。スーパー必殺技の発動時、両ファイター・判定・タイマーを
+     * このフレーム数だけ凍結して発動演出（暗転フラッシュ）を見せる。ヒットストップ（{@link #HITSTOP_FRAMES}）の長尺版。
+     * 固定値で乱数なし＝決定的。60fps 基準で約 0.5 秒。
+     */
+    public static final int SUPER_FLASH_FRAMES = 30;
 }

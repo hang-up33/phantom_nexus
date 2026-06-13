@@ -14,7 +14,9 @@ public enum Command {
     /** 溜め：後を一定フレーム溜めてから前 + 攻撃。 */
     CHARGE_SHOT,
     /** 同時押し：下 + 攻撃を同フレームに。 */
-    DOWN_ATTACK;
+    DOWN_ATTACK,
+    /** スーパー必殺技：波動拳コマンドを 2 回（236236）＋攻撃。満タンメーター消費で発動（Task 108）。 */
+    SUPER;
 
     /** 表示用ラベル。 */
     public String label() {
@@ -25,6 +27,8 @@ public enum Command {
                 return "CHARGE (hold 4, 6+A)";
             case DOWN_ATTACK:
                 return "DOWN+A";
+            case SUPER:
+                return "SUPER (236236+A)";
             default:
                 return "-";
         }
