@@ -878,6 +878,11 @@ public class Fighter {
         return max > 0 ? Math.max(0f, Math.min(1f, currentHp / (float) max)) : 0f;
     }
 
+    /** HP を最大まで回復する（トレーニングモードの無限 HP ダミー用・Task 90）。 */
+    public void restoreFullHp() {
+        currentHp = def.getHp();
+    }
+
     public void applyDamage(int amount) {
         if (amount <= 0) {
             return;
