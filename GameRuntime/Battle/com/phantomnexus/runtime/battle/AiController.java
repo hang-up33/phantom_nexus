@@ -130,6 +130,7 @@ public final class AiController {
         dashTapStep = 0;
         jumpingIn = false;
         pendingProjectile = null;
+        pendingSuper = null;
         wasKnockedDown = false;
     }
 
@@ -141,6 +142,21 @@ public final class AiController {
     public Move consumePendingProjectile() {
         Move m = pendingProjectile;
         pendingProjectile = null;
+        return m;
+    }
+
+    /**
+     * AI が発動したスーパー必殺技（Task 110）。{@link #control} 内で {@code startSpecial} 直呼びした super 技を 1 フレーム保持し、
+     * Core が制御後にこれを読んで <b>メーター消費・スーパーフラッシュ凍結・（飛び道具なら）弾生成</b> を行う（飛び道具の
+     * {@link #consumePendingProjectile()} と同型＝AI は updateFighterInput を通らないため meter / flash / 弾生成を Core に委ねる）。
+     * 読み取りで {@code null} に戻す（1 フレーム 1 発）。
+     */
+    private Move pendingSuper;
+
+    /** Core がスーパー発動を消費する（メーター消費・スーパーフラッシュ・弾生成を行う・Task 110）。読み取りで null に戻す。 */
+    public Move consumePendingSuper() {
+        Move m = pendingSuper;
+        pendingSuper = null;
         return m;
     }
 
@@ -209,6 +225,8 @@ public final class AiController {
         boolean hasThrow = self.getDef().getThrowMove() != null;
         // 牽制に使える飛び道具（Task 64）。無ければ null＝そのキャラは AI 飛び道具を撃たない（grappler/charge 専用キャラ）。
         Move projectile = findProjectileMove(self);
+        // スーパー必殺技（Task 110）。メーター満タンで間合い内なら発動する（HARD のみ）。持たないキャラは null。
+        Move superMove = findSuperMove(self);
         // 相手が打撃中か（投げはガード不能なのでガード反応の対象外）。
         boolean opponentStriking = opponent.isAttacking() && !opponent.isThrowing();
 
@@ -292,6 +310,20 @@ public final class AiController {
                 self.cancelDash();
             }
             self.armThrowTech();
+            dashTapStep = 0;
+        } else if (advanced && superMove != null && self.hasFullMeter() && self.isGrounded()
+                && opponent.isGrounded() && distance <= GUARD_RANGE && cooldown == 0 && self.canStartAction()) {
+            // スーパー必殺技（Task 110・HARD のみ）：メーター満タン＋間合い内（GUARD_RANGE）で発動する。AI は
+            // updateFighterInput を通らないので startSpecial を直呼びし、メーター消費・スーパーフラッシュ凍結・
+            // （飛び道具なら）弾生成は Core が consumePendingSuper() を読んで行う（飛び道具牽制・Task 64 と同型）。
+            // 乱数なし＝決定的（メーター・距離・接地・クールダウンのみ）。持たないキャラは superMove==null でスキップ。
+            if (self.isDashing()) {
+                self.cancelDash();
+            }
+            if (self.startSpecial(superMove)) {
+                pendingSuper = superMove;
+                cooldown = ATTACK_COOLDOWN;
+            }
             dashTapStep = 0;
         } else if (advanced && parryHold > 0 && self.canStartAction()) {
             // パリィ commit（Task 106・HARD のみ）：上で立てた parryHold の間、前方を押し続けて相手の active を
@@ -419,6 +451,20 @@ public final class AiController {
         }
         for (Move m : specials) {
             if (m != null && m.isProjectile()) {
+                return m;
+            }
+        }
+        return null;
+    }
+
+    /** スーパー必殺技（{@code superMove:true}・Task 108）を {@code specialMoves[]} から探す（Task 110）。無ければ null。 */
+    private static Move findSuperMove(Fighter self) {
+        Move[] specials = self.getDef().getSpecialMoves();
+        if (specials == null) {
+            return null;
+        }
+        for (Move m : specials) {
+            if (m != null && m.isSuper()) {
                 return m;
             }
         }
