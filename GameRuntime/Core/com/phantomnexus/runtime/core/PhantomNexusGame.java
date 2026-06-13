@@ -72,6 +72,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private ReplayController replay;
     private float spawnX1;
     private float spawnX2;
+    private int hitstopFrames; // ヒットストップ（命中時に両者を凍結する残りフレーム・Task 86）
 
     /** 検出コマンドを HUD に表示し続けるフレーム数。 */
     private static final int COMMAND_DISPLAY_FRAMES = 90;
@@ -185,6 +186,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (round.isFinished()) {
             return;
         }
+        // ヒットストップ（Task 86）：命中直後の数フレーム、ファイター更新・判定・タイマー・アニメを凍結して
+        // 衝撃を演出する（エフェクトの aging は上で済ませてあるので、火花/数字は止まらず動き続ける）。固定値＝決定的。
+        if (hitstopFrames > 0) {
+            hitstopFrames--;
+            return;
+        }
         // ラウンド間インターバル中・ラウンド開始イントロ（"ROUND N"/"FIGHT!"）中は
         // ファイター操作・判定を停止し、カウントダウンのみ進める。
         if (!round.isBetweenRounds() && !round.isRoundIntro()) {
@@ -240,6 +247,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         projectiles.clear();
         damagePopups.clear();
         hitSparks.clear();
+        hitstopFrames = 0; // ヒットストップ（Task 86）もラウンド間でクリア
         p2Ai.reset();
     }
 
@@ -412,6 +420,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 spawnDamagePopup(before - target.getCurrentHp(), blocked, p.getX(), sparkY);
                 spawnHitSpark(blocked, p.getX(), sparkY);
                 awardMeter(p.getOwner(), target, blocked);
+                triggerHitstop(blocked); // ヒットストップ（Task 86）
                 p.kill();
             }
             if (!p.isAlive()) {
@@ -451,6 +460,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 attacker.applyThrowTech(-knockbackDir);
                 // 掴みが弾かれた接触点に火花（ノーダメージなのでポップアップは出さない）。
                 spawnHitSpark(false, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
+                triggerHitstop(false); // ヒットストップ（Task 86・投げ抜けの弾き合い）
                 return;
             }
             // 投げ成立：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
@@ -461,6 +471,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             // 投げ成立はフルダメージの攻撃なので、通常ヒットと同様にメーターを貯める（ダメージ＝メーターの一貫性）。
             // 非加算はノーダメージの outcome のみ（投げ抜け＝上の return / 空中 whiff＝markAttackConnected で先に return）。
             awardMeter(attacker, defender, false);
+            triggerHitstop(false); // ヒットストップ（Task 86・投げ成立）
             return;
         }
         // ガード高さ属性（Task 33）で成立可否を決める：
@@ -523,12 +534,21 @@ public class PhantomNexusGame extends ApplicationAdapter {
         spawnDamagePopup(before - defender.getCurrentHp(), blocked, sparkX, sparkY);
         spawnHitSpark(blocked, sparkX, sparkY);
         awardMeter(attacker, defender, blocked);
+        triggerHitstop(blocked); // ヒットストップ（Task 86・打撃命中 / ガード）
     }
 
     /**
      * 攻撃の決着で攻防両者の必殺技ゲージを貯める（Task 44）。命中は攻撃側が多く・防御側が少なく、
      * ガードは両者わずかに貯まる。固定値のみで乱数なし（入力リプレイの決定性を保つ）。
      */
+    /** ヒットストップ（Task 86）を発生させる（命中=長め / ガード=短め）。既存値より長い場合のみ更新する。 */
+    private void triggerHitstop(boolean blocked) {
+        int frames = blocked ? GameConstants.HITSTOP_BLOCK_FRAMES : GameConstants.HITSTOP_FRAMES;
+        if (frames > hitstopFrames) {
+            hitstopFrames = frames;
+        }
+    }
+
     private static void awardMeter(Fighter attacker, Fighter defender, boolean blocked) {
         if (blocked) {
             attacker.gainMeter(GameConstants.METER_GAIN_ON_GUARD);

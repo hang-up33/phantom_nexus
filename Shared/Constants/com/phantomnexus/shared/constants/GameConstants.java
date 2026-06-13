@@ -275,4 +275,13 @@ public final class GameConstants {
      * ヒット（{@code applyHit}/{@code applyThrow}/{@code applyKnockdown}）は通常どおり 0 まで削れる（KO 可能）。
      */
     public static final boolean CHIP_DAMAGE_CAN_KO = false;
+
+    /**
+     * ヒットストップ（hit-stop・Task 86）：打撃 / 投げ / 飛び道具が<b>命中</b>したとき、両ファイターを
+     * このフレーム数だけ凍結して衝撃を演出する（攻守ともに一瞬止まり手応えが増す）。固定値で乱数なし＝決定的。
+     */
+    public static final int HITSTOP_FRAMES = 4;
+
+    /** ガード成立時のヒットストップ（Task 86）。命中より短く、ガードの「いなし」感を出す。 */
+    public static final int HITSTOP_BLOCK_FRAMES = 2;
 }
