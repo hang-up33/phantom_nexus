@@ -332,6 +332,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 71) 9 体目キャラ **fighter009 Hayate**（空中特化型・HP760 のグラスキャノン）を **JSON＋スプライト PNG の 2 ファイルだけ**で追加（コード変更なし）。`airJumps:2`（Task 68）＋`airDashes:1`（Task 69）＋`airThrowMove`（Task 70）を**すべてデータで複合**し、新機動をコード変更なしで享受する実例（データ駆動設計の到達点）。高速な軽量通常技＋飛び道具（`wind_needle`）＋地上投げ（`wind_toss`）＋空中投げ（`sky_spiral`）を持つ。スプライト色は azure/sky-cyan（`90 204 242`）。新フィールドの追加はなし（既存の任意フィールドの組み合わせのみ）。
 - (Task 70) `Character` に任意フィールド **`airThrowMove`**（Move・省略可）を追加。空中投げ（滞空中の相手専用のガード不能掴み・Task 70）で、`throwMove`（地上投げ）と同型の grab box を持つ。省略時はそのキャラは空中投げを持たない（後方互換）。検証は `throwMove` と同じ `validateThrowMove` を流用。例示として fighter004 Rai に `airThrowMove`（`sky_grab`・dmg110）を付与（高機動ラッシュ＋空対空の掴み）。戦闘仕様は BattleSystem.md「空中投げ（Task 70）」節を参照。
 - (Task 69) `Character` に任意フィールド **`airDashes`**（int・既定 0）を追加。空中ダッシュの回数（air dash・Task 69）で、`1` なら滞空中の方向二度押しで水平バーストダッシュ（接地で回復）。省略時 0＝空中ダッシュなし（後方互換）。`getAirDashes()` が負値を 0 に丸める。例示として fighter004 Rai に `airDashes: 1` を付与（二段ジャンプ＋空中ダッシュ＝高機動ラッシュ型）。戦闘仕様は BattleSystem.md「空中ダッシュ（Task 69）」節を参照。
 - (Task 68) `Character` に任意フィールド **`airJumps`**（int・既定 0）を追加。空中での追加ジャンプ回数（二段ジャンプ・Task 68）で、`1` なら地上ジャンプ後に空中でもう一度跳べる（接地で回復）。省略時 0＝空中ジャンプなし（後方互換）。`getAirJumps()` が負値を 0 に丸める。例示として fighter004 Rai に `airJumps: 1` を付与（高速ラッシュ＋空中機動）。戦闘仕様は BattleSystem.md「二段ジャンプ（Task 68）」節を参照。
