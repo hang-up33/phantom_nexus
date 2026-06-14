@@ -70,6 +70,13 @@ public class GameRenderer {
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
     private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
+
+    // 足元の影（純描画演出。Task 130）。床に置く半透明の楕円で、滞空高さに応じて縮小・減光する。
+    private static final Color SHADOW_COLOR = new Color(0f, 0f, 0f, 0.34f);
+    private static final float SHADOW_WIDTH_SCALE = 1.05f; // 影の横径＝キャラ幅 × これ（接地時）
+    private static final float SHADOW_HEIGHT = 13f;        // 影の縦径（楕円の薄さ・接地時）
+    private static final float SHADOW_AIR_FALLOFF = 240f;  // 滞空高さに対する縮小・減光の基準（px）
+    private static final float SHADOW_MIN_SCALE = 0.45f;   // 滞空時に縮む下限
     // ヒットスパーク（Task 38）：通常ヒット=暖色（白寄りの黄）/ ガード=寒色（青）。放射スポーク数と寸法。
     private static final Color SPARK_HIT_COLOR = new Color(1f, 0.95f, 0.55f, 1f);
     private static final Color SPARK_GUARD_COLOR = new Color(0.60f, 0.85f, 1f, 1f);
@@ -155,6 +162,8 @@ public class GameRenderer {
     private final Color sparkColor = new Color();
     // ミラーマッチの P2 パレット / 被弾フラッシュ合成用の作業色（毎フレームの再確保を避ける。Task 62）。
     private final Color tintColor = new Color();
+    // 足元の影描画用の作業色（毎フレームの再確保を避ける。Task 130）。
+    private final Color shadowColor = new Color();
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -221,6 +230,9 @@ public class GameRenderer {
         // 地面（床）。
         shapes.setColor(groundColor);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+        // 足元の影：キャラスプライト（パス 2）の前に床へ落とし、その上に立つ見栄えにする（Task 130）。
+        drawGroundShadow(p1);
+        drawGroundShadow(p2);
         shapes.end();
 
         // ミラーマッチ（同キャラ対戦）なら P2 にパレットスワップを適用して識別する（Task 62）。
@@ -579,6 +591,26 @@ public class GameRenderer {
         if (tinted) {
             batch.setColor(Color.WHITE);
         }
+    }
+
+    /**
+     * ファイターの足元に楕円の影を落とす（純描画演出。Task 130）。
+     *
+     * <p>影は常に床（{@link GameConstants#GROUND_Y}）上に置き、滞空高さ（{@code getY() - GROUND_Y}）に
+     * 応じて横径・縦径・不透明度を一様に縮める＝高く跳ぶほど小さく薄くなり、奥行き感を出す。
+     * 背景 / 床と同じパス 1（{@link ShapeRenderer.ShapeType#Filled}）内で、スプライト描画（パス 2）より
+     * 前に呼ぶことでキャラが影の上に立つ。乱数なし・戦闘ロジックや位置に干渉しない純粋な演出。
+     */
+    private void drawGroundShadow(Fighter f) {
+        Character d = f.getDef();
+        float air = Math.max(0f, f.getY() - GameConstants.GROUND_Y);
+        float scale = Math.max(SHADOW_MIN_SCALE, SHADOW_AIR_FALLOFF / (SHADOW_AIR_FALLOFF + air));
+        float w = d.getWidth() * SHADOW_WIDTH_SCALE * scale;
+        float h = SHADOW_HEIGHT * scale;
+        shadowColor.set(SHADOW_COLOR);
+        shadowColor.a = SHADOW_COLOR.a * scale;
+        shapes.setColor(shadowColor);
+        shapes.ellipse(f.getX() - w / 2f, GameConstants.GROUND_Y - h / 2f, w, h);
     }
 
     /**
