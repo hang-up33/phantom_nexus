@@ -153,6 +153,12 @@ public final class GameConstants {
     public static final int HIT_SPARK_FRAMES = 12;
 
     /**
+     * 着地の砂煙（landing dust）の表示フレーム数（Task 131）。ジャンプ / 浮かせからの着地（滞空→接地の
+     * 遷移）で足元に出す土埃の寿命。純粋な視覚演出で戦闘結果には影響しない（決定的・乱数なし）。
+     */
+    public static final int LANDING_DUST_FRAMES = 16;
+
+    /**
      * ラウンド開始イントロ（"ROUND N" → "FIGHT!" 演出）の総フレーム数（Task 42）。各ラウンド開始時、
      * この間はファイター操作・判定・タイマーを停止して開始演出を表示し、0 になった瞬間から戦闘開始。
      * 60fps 基準で約 1.5 秒。撮影モードでは既定でスキップ（{@code -x intro=true} で有効化）し、
