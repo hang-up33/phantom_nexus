@@ -9,6 +9,24 @@
 
 ---
 
+## スクリーンショット
+
+`./gradlew run` で **タイトル → モード選択 →（対戦なら）キャラクター選択 → バトル** と進む。
+
+| スタート画面 | キャラクター選択 |
+|---|---|
+| ![スタート画面](docs/screenshots/116-title.png) | ![キャラクター選択](docs/screenshots/117-charselect.png) |
+| タイトルで **VERSUS / TRAINING** を選択（通常起動はここから） | 全 20 キャラから P1 / P2 を選んでバトル開始 |
+
+| 対戦画面 | パーフェクト KO |
+|---|---|
+| ![対戦画面](docs/screenshots/67-fighter008-roster.png) | ![パーフェクト KO](docs/screenshots/127-perfect.png) |
+| HP / 必殺技ゲージ / 勝利ドット / ステージ名つきの対戦画面（スプライト描画） | ノーダメージでラウンドを取ると金色 **PERFECT!** 演出 |
+
+> 各タスクの動作証跡（当たり判定・各機構の静止画）は [docs/screenshots/](docs/screenshots/) に全 150 枚以上を収録。
+
+---
+
 ## ビルドと実行
 
 ```sh
