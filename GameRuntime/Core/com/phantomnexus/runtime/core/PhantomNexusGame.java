@@ -79,8 +79,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
 
-    /** 画面状態（Task 116/117）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
-    enum Screen { TITLE, CHARACTER_SELECT, BATTLE }
+    /** 画面状態（Task 116/117/128）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
+    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
     private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング・Task 116）
 
@@ -100,6 +100,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean charP1Locked;   // P1 が確定して P2 選択中か（Task 117）
     private BattleRules battleRules; // 対戦からの再開（charselect→battle）でラウンドを作り直すため保持（Task 117）
     private int introFramesValue;    // 同上（ラウンド開始イントロ長・Task 117）
+
+    /** ステージ選択（Task 128）の全ステージ ID。新ステージを足したらここにも追記する。 */
+    private static final String[] STAGE_IDS = {
+        "stage001", "stage002", "stage003", "stage004", "stage005",
+        "stage006", "stage007", "stage008", "stage009", "stage010"
+    };
+    /** ステージ選択グリッドの列数（Task 128）。 */
+    private static final int STAGE_COLS = 5;
+    private String[] stageNames;    // ステージの表示名（遅延ロード・stageselect に入ったとき構築・Task 128）
+    private int stageCursor;        // ステージ選択カーソルの現在 index（Task 128）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -187,7 +197,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
     }
 
-    /** 撮影オーバーライドの開始画面トークンを {@link Screen} へ解釈する（Task 116/117。既定/未知は BATTLE）。 */
+    /** 撮影オーバーライドの開始画面トークンを {@link Screen} へ解釈する（Task 116/117/128。既定/未知は BATTLE）。 */
     private static Screen parseStartScreen(String token) {
         if (token == null) {
             return Screen.BATTLE;
@@ -197,6 +207,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return Screen.TITLE;
             case "charselect":
                 return Screen.CHARACTER_SELECT;
+            case "stageselect":
+                return Screen.STAGE_SELECT;
             default:
                 return Screen.BATTLE;
         }
@@ -279,13 +291,62 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 charP1Locked = true;
             } else {
                 charSelP2 = charCursor;
-                startBattle(ROSTER_IDS[charSelP1], ROSTER_IDS[charSelP2]);
+                // 両者確定後はステージ選択（Task 128）へ遷移し、選んだステージでバトルを開始する。
+                enterStageSelect();
             }
         }
     }
 
-    /** 選んだ 2 キャラでバトルを開始する（Task 117）。ファイター・アニメ・ラウンド・AI を作り直して BATTLE へ。 */
-    private void startBattle(String p1Id, String p2Id) {
+    /** ステージ選択画面へ入る（Task 128）。ステージ名を遅延ロードし、カーソルを先頭に戻す。 */
+    private void enterStageSelect() {
+        ensureStagesLoaded();
+        stageCursor = 0;
+        screen = Screen.STAGE_SELECT;
+    }
+
+    /** ステージの表示名を（未ロードなら）構築する。各ステージ JSON を読み名前を取り出す（Task 128）。 */
+    private void ensureStagesLoaded() {
+        if (stageNames != null) {
+            return;
+        }
+        stageNames = new String[STAGE_IDS.length];
+        for (int i = 0; i < STAGE_IDS.length; i++) {
+            stageNames[i] = StageLoader.load(STAGE_IDS[i]).getName();
+        }
+    }
+
+    /**
+     * ステージ選択画面の入力処理（Task 128）。矢印/WASD でカーソル移動、ENTER/SPACE/J で確定。
+     * 確定で選んだステージを背景に設定し、確定済みの 2 キャラでバトルを開始する。純 UI・乱数なし。
+     */
+    private void updateStageSelect() {
+        int n = STAGE_IDS.length;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            stageCursor = (stageCursor + 1) % n;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+            stageCursor = (stageCursor - 1 + n) % n;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+            stageCursor = Math.min(n - 1, stageCursor + STAGE_COLS);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+            stageCursor = Math.max(0, stageCursor - STAGE_COLS);
+        }
+        boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+        if (confirm) {
+            startBattle(ROSTER_IDS[charSelP1], ROSTER_IDS[charSelP2], STAGE_IDS[stageCursor]);
+        }
+    }
+
+    /**
+     * 選んだ 2 キャラ・ステージでバトルを開始する（Task 117 / Task 128）。背景を選択ステージへ差し替え、
+     * ファイター・アニメ・ラウンド・AI を作り直して BATTLE へ遷移する。
+     */
+    private void startBattle(String p1Id, String p2Id, String stageId) {
+        renderer.setStage(StageLoader.load(stageId)); // 選んだステージを背景に設定（Task 128）
         fighter1 = new Fighter(CharacterLoader.load(p1Id), spawnX1, true);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
         fighter1.setMeter(0f);
@@ -317,6 +378,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
             updateCharacterSelect();
             if (screen == Screen.CHARACTER_SELECT) { // 確定でバトルへ遷移していなければ描画
                 renderer.renderCharacterSelect(rosterNames, charCursor, charSelP1, charSelP2, charP1Locked, ROSTER_COLS);
+                screenshot.maybeCapture();
+                return;
+            }
+        }
+        // ステージ選択画面（Task 128）：キャラ確定後に遷移。全ステージから選んで確定でバトル開始。
+        // 撮影で表示するときは create() で -x startscreen=stageselect 指定（ステージ名を先にロードしておく）。
+        if (screen == Screen.STAGE_SELECT) {
+            ensureStagesLoaded();
+            updateStageSelect();
+            if (screen == Screen.STAGE_SELECT) { // 確定でバトルへ遷移していなければ描画
+                renderer.renderStageSelect(stageNames, stageCursor, STAGE_COLS);
                 screenshot.maybeCapture();
                 return;
             }
