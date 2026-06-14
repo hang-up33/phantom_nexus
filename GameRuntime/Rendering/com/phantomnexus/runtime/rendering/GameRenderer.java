@@ -1013,6 +1013,44 @@ public class GameRenderer {
     }
 
     /**
+     * ステージ選択画面を描く（Task 128）。全ステージ名をグリッド表示し、カーソル（黄）を強調する。
+     * キャラ選択（Task 117）と同じグリッド作法。確定で選んだステージが対戦の背景になる。独立した clear + テキストパス。
+     */
+    public void renderStageSelect(String[] names, int cursor, int cols) {
+        ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        camera.update();
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(1.6f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("STAGE SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
+        font.getData().setScale(1.1f);
+        font.setColor(Color.WHITE);
+        drawCentered("choose your stage", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 130f);
+        font.getData().setScale(0.95f);
+        float gridLeft = 90f;
+        float gridTop = 420f;
+        float cellW = 220f;
+        float rowH = 80f;
+        for (int i = 0; i < names.length; i++) {
+            int col = i % cols;
+            int row = i / cols;
+            float cx = gridLeft + col * cellW + cellW / 2f;
+            float cy = gridTop - row * rowH;
+            font.setColor(i == cursor ? Color.YELLOW : Color.WHITE);
+            String label = i == cursor ? "[" + names[i] + "]" : names[i];
+            drawCentered(label, cx, cy);
+        }
+        font.getData().setScale(1.0f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("Stage: " + names[cursor], GameConstants.WORLD_WIDTH / 2f, 150f);
+        font.setColor(Color.WHITE);
+        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
+        font.getData().setScale(1.0f);
+        batch.end();
+    }
+
+    /**
      * コマンド表 HUD（Task 112）：両ファイターの技/コマンド一覧を画面左右に描く（F5 トグル）。
      * データはキャラ定義（{@link Character}）から組み立てる純表示。通常技はボタン（L/M/H）、必殺技はコマンド表記、
      * 投げ・スーパーも列挙する。トレーニング / 観戦時の参照用。
