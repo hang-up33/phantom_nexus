@@ -541,6 +541,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             if (commandTimer2 > 0) {
                 commandTimer2--;
             }
+            // 着地の砂煙（Task 131）：このフレームに滞空→接地へ遷移したファイターの足元に土埃を出す。
+            // 物理（着地）は上の fighter.update 内で済んでいるので、被弾処理（resolveHit / updateProjectiles）
+            // より前に遷移を検出する＝着地と同フレームに launch/groundBounce で再び滞空にされても砂煙を逃さない。純演出・乱数なし。
+            detectLanding(fighter1, p1WasGrounded);
+            detectLanding(fighter2, p2WasGrounded);
+            p1WasGrounded = fighter1.isGrounded();
+            p2WasGrounded = fighter2.isGrounded();
             // 押し合い解消（pushbox の重なりを左右へ分離）。
             CollisionSystem.resolvePush(fighter1, fighter2);
             // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
@@ -548,12 +555,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
             resolveHit(fighter2, fighter1);
             // 飛び道具（必殺技）の更新と命中処理（Task 20）。
             updateProjectiles();
-            // 着地の砂煙（Task 131）：このフレームに滞空→接地へ遷移したファイターの足元に土埃を出す。
-            // 物理（着地）は上の fighter.update 内で済んでいるので、遷移をここで検出する。純演出・乱数なし。
-            detectLanding(fighter1, p1WasGrounded);
-            detectLanding(fighter2, p2WasGrounded);
-            p1WasGrounded = fighter1.isGrounded();
-            p2WasGrounded = fighter2.isGrounded();
         }
         // トレーニングモード（Task 90）：勝敗判定の前に両者の HP を満タンへ戻す＝無限 HP のダミーで KO せず練習できる。
         // ダメージ数値ポップアップ・コンボカウンターは被弾時に確定済みなので、コンボ練習の情報はそのまま見える。
