@@ -79,8 +79,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
 
-    /** 画面状態（Task 116/117）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
-    enum Screen { TITLE, CHARACTER_SELECT, BATTLE }
+    /** 画面状態（Task 116/117/128）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
+    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
     private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング・Task 116）
 
@@ -98,6 +98,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private int charSelP1 = -1;     // P1 が確定したキャラ index（未確定 -1・Task 117）
     private int charSelP2 = -1;     // P2 が確定したキャラ index（未確定 -1・Task 117）
     private boolean charP1Locked;   // P1 が確定して P2 選択中か（Task 117）
+
+    /** ステージ選択（Task 128）のステージ ID 一覧。新ステージを足したらここにも追記する。 */
+    private static final String[] STAGE_IDS = {
+        "stage001", "stage002", "stage003", "stage004", "stage005",
+        "stage006", "stage007", "stage008", "stage009", "stage010"
+    };
+    private Stage[] stageDefs;  // ステージ定義（遅延ロード・名前表示＋背景プレビュー用・Task 128）
+    private int stageCursor;    // ステージ選択カーソルの現在 index（Task 128）
+
     private BattleRules battleRules; // 対戦からの再開（charselect→battle）でラウンドを作り直すため保持（Task 117）
     private int introFramesValue;    // 同上（ラウンド開始イントロ長・Task 117）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
@@ -197,6 +206,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return Screen.TITLE;
             case "charselect":
                 return Screen.CHARACTER_SELECT;
+            case "stageselect":
+                return Screen.STAGE_SELECT;
             default:
                 return Screen.BATTLE;
         }
@@ -279,8 +290,52 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 charP1Locked = true;
             } else {
                 charSelP2 = charCursor;
-                startBattle(ROSTER_IDS[charSelP1], ROSTER_IDS[charSelP2]);
+                // 両キャラ確定。続いてステージ選択（Task 128）へ遷移する。
+                enterStageSelect();
             }
+        }
+    }
+
+    /** ステージ選択画面へ入る（Task 128）。ステージ定義を遅延ロードし、カーソルを初期化する。 */
+    private void enterStageSelect() {
+        ensureStagesLoaded();
+        stageCursor = 0;
+        screen = Screen.STAGE_SELECT;
+    }
+
+    /** ステージ定義を（未ロードなら）構築する。各ステージ JSON を読み名前・背景色を取り出す（Task 128）。 */
+    private void ensureStagesLoaded() {
+        if (stageDefs != null) {
+            return;
+        }
+        stageDefs = new Stage[STAGE_IDS.length];
+        for (int i = 0; i < STAGE_IDS.length; i++) {
+            stageDefs[i] = StageLoader.load(STAGE_IDS[i]);
+        }
+    }
+
+    /**
+     * ステージ選択画面の入力処理（Task 128）。矢印/WASD でカーソル移動、ENTER/SPACE/J で確定。
+     * 確定で選んだステージを背景に設定し、選択済みの 2 キャラでバトルを開始する。純 UI・乱数なし。
+     */
+    private void updateStageSelect() {
+        int n = STAGE_IDS.length;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)
+                || Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+            stageCursor = (stageCursor + 1) % n;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)
+                || Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+            stageCursor = (stageCursor - 1 + n) % n;
+        }
+        boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+        // 通常フローは必ず両キャラ確定後にこの画面へ来る。撮影で startscreen=stageselect を直接表示した等で
+        // キャラ未確定（-1）のときは確定を無効化する（撮影は forced 入力でメニューを駆動できない＝既定状態キャプチャ前提）。
+        if (confirm && charSelP1 >= 0 && charSelP2 >= 0) {
+            renderer.setStage(stageDefs[stageCursor]);
+            startBattle(ROSTER_IDS[charSelP1], ROSTER_IDS[charSelP2]);
         }
     }
 
@@ -317,6 +372,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
             updateCharacterSelect();
             if (screen == Screen.CHARACTER_SELECT) { // 確定でバトルへ遷移していなければ描画
                 renderer.renderCharacterSelect(rosterNames, charCursor, charSelP1, charSelP2, charP1Locked, ROSTER_COLS);
+                screenshot.maybeCapture();
+                return;
+            }
+        }
+        // ステージ選択画面（Task 128）：キャラ選択の後に遷移。ハイライト中のステージ背景をプレビューしつつ一覧から選ぶ。
+        // 確定で選んだステージを背景に設定してバトル開始。撮影で表示するときは -x startscreen=stageselect 指定。
+        if (screen == Screen.STAGE_SELECT) {
+            ensureStagesLoaded();
+            updateStageSelect();
+            if (screen == Screen.STAGE_SELECT) { // 確定でバトルへ遷移していなければ描画
+                renderer.renderStageSelect(stageDefs, stageCursor);
                 screenshot.maybeCapture();
                 return;
             }

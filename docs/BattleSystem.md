@@ -3,7 +3,7 @@
 本書は Phantom Nexus の戦闘ロジック仕様。戦闘仕様を変える PR では本書を同時に更新する（[CLAUDE.md](../CLAUDE.md) のルール）。
 実装は `GameRuntime/Battle` と当たり判定（Collision）が担当し、データは `Shared/Types` 経由で受け取る。
 
-> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜86・88・90〜92・94・97・101・102・104〜106・108・110〜112・115〜117・121・122・124・126・127 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）＋ 削り KO 禁止（chip では HP を 1 未満にしない）＋ 浮かせ（launch・打ち上げて空中やられ＝ジャグル起点・`Move.launch` でデータ化）＋ OTG（追い打ち・`Move.otg` でダウン中の相手にも当たる）＋ ヒットストップ（命中時に両者を数フレーム凍結する衝撃演出）＋ 受け身不能ダウン（hard knockdown・受け身でクイック起き上がりできないダウン）＋ トレーニングモード（F4・HP 無限ダミーでコンボ練習）＋ スタンゲージ HUD（めまい蓄積の可視化）＋ 投げ抜け不能投げ（command throw・`Move.noTech` で抜けられない確定の掴み）＋ AI 起き上がりリバーサル（HARD の AI がダウンからの起き上がりに無敵技で切り返す）＋ 壁バウンド（wall bounce・`Move.wallBounce` で相手を画面端で跳ね返らせて再び浮かせる＝画面端ジャグル延長）＋ 床バウンド（ground bounce・`Move.groundBounce` で着地時に跳ね返らせて再び浮かせる＝ジャグル延長）＋ 回復可能ダメージ（レッドライフ・ガード chip を赤ゲージ化し無被弾で白 HP へ回復・非ガード被弾で焼き切れ）＋ パリィ（parry・前方タップの反応で打撃を完全に弾き反撃確定）＋ AI パリィ反応（HARD の AI が相手打撃の startup 終盤を読んでパリィ）＋ スーパー必殺技（236236＋攻撃＋メーター満タンで発動・スーパーフラッシュ凍結）＋ AI スーパー必殺技（HARD の AI が満タンで発動）＋ プッシュブロック（ガード時に攻撃側も押し戻して間合いを作る）＋ コマンド表 HUD（F5 で技/コマンド一覧を表示）＋ KO スローモーション（決着の一撃をスロー再生）＋ タイトル画面（対戦/トレーニングのモード選択）＋ キャラクター選択画面（対戦で P1/P2 がロスターから選択）＋ コンボ累計ダメージ HUD（コンボ中の合計ダメージ表示）＋ ディレイ起き上がり（ダウン中の下押しで遅起き）＋ AI 端攻め（HARD の AI が画面端に追い詰めた相手へ投げ択）＋ 空中受け身（air recovery・空中やられ中の行動入力で受け身して脱出・最小窓後のみ・受け身狩り可）＋ パーフェクト KO 演出（PERFECT・勝者がノーダメージでラウンドを取ると金色で "PERFECT!" 表示）まで実装済み**の現状を反映している。
+> 本書は Task 8・10〜14・20・21・24〜33・35〜39・42〜47・49〜57・59・60・63〜66・68〜71・74・75・78〜86・88・90〜92・94・97・101・102・104〜106・108・110〜112・115〜117・121・122・124・126〜128 の各完了時に更新し、**MVP ＋ コマンド技/必殺技/AI ＋ 複数技（弱/中/強 + 複数必殺技）＋ しゃがみ ＋ しゃがみ攻撃 ＋ 複数ラウンド制（ベスト・オブ 3）＋ ガード ＋ しゃがみ移動（低速クロール）＋ しゃがみガード ＋ 下段判定 ＋ 空中攻撃 ＋ ガード高さ属性（overhead/mid/low）＋ 投げ技（ガード不能の近接掴み）＋ 投げ抜け（throw tech）＋ AI 読み合い反応（ガード/投げ崩し）＋ コンボカウンター ＋ ラウンド開始イントロ（"ROUND N"/"FIGHT!"）＋ ガードゲージ／ガードクラッシュ ＋ 必殺技ゲージ／EX 必殺技 ＋ チェーンコンボ（通常技キャンセル）＋ コンボダメージ補正 ＋ 特殊キャンセル（通常技→必殺技）＋ ダッシュ（二度押しステップ）＋ AI のダッシュ接近 ＋ AI の投げ抜け反応 ＋ 打撃必殺技／無敵リバーサル（対空）＋ EX 打撃必殺技（メーター消費でダメージ強化）＋ AI の無敵対空 ＋ AI 難易度（EASY/NORMAL/HARD）＋ AI のジャンプ攻撃（飛び込み）＋ 空中ガード（滞空中の後退保持で飛び道具・中段/上段を chip ガード）＋ ダウン（knockdown・特定技で相手を転ばせる・ダウン中無敵）＋ AI の下段読みしゃがみガード（相手の下段にしゃがみガードで対応・HARD のみ）＋ AI の飛び道具牽制（zoner・遠距離で飛び道具を撃つ・HARD のみ）＋ ダッシュ攻撃（ダッシュ中の攻撃で出る突進打撃・データ駆動）＋ 受け身（ukemi・ダウン直後の行動入力でクイック起き上がり）＋ 二段ジャンプ（air jump・`airJumps` でデータ化）＋ 空中ダッシュ（air dash・`airDashes` でデータ化）＋ 空中投げ（air throw・`airThrowMove` でデータ化）＋ カウンターヒット（相手の攻撃 startup を潰すとダメージ増＋のけぞり延長）＋ 多段ヒット技（`Move.hits`/`hitGap` でデータ化）＋ AI 受け身（HARD の AI がダウン直後にクイック起き上がり）＋ 実行時 AI 難易度切替（F3 で EASY/NORMAL/HARD を循環）＋ めまい（dizzy・スタン蓄積でフルコンボ確定の無防備硬直・`stunThreshold` でデータ化）＋ スーパーアーマー（startup 中にのけぞらず被弾を吸収・`Move.armorHits` でデータ化）＋ ジャストガード（ヒット直前の反応ガードで chip なし完全防御＋メーター獲得）＋ 削り KO 禁止（chip では HP を 1 未満にしない）＋ 浮かせ（launch・打ち上げて空中やられ＝ジャグル起点・`Move.launch` でデータ化）＋ OTG（追い打ち・`Move.otg` でダウン中の相手にも当たる）＋ ヒットストップ（命中時に両者を数フレーム凍結する衝撃演出）＋ 受け身不能ダウン（hard knockdown・受け身でクイック起き上がりできないダウン）＋ トレーニングモード（F4・HP 無限ダミーでコンボ練習）＋ スタンゲージ HUD（めまい蓄積の可視化）＋ 投げ抜け不能投げ（command throw・`Move.noTech` で抜けられない確定の掴み）＋ AI 起き上がりリバーサル（HARD の AI がダウンからの起き上がりに無敵技で切り返す）＋ 壁バウンド（wall bounce・`Move.wallBounce` で相手を画面端で跳ね返らせて再び浮かせる＝画面端ジャグル延長）＋ 床バウンド（ground bounce・`Move.groundBounce` で着地時に跳ね返らせて再び浮かせる＝ジャグル延長）＋ 回復可能ダメージ（レッドライフ・ガード chip を赤ゲージ化し無被弾で白 HP へ回復・非ガード被弾で焼き切れ）＋ パリィ（parry・前方タップの反応で打撃を完全に弾き反撃確定）＋ AI パリィ反応（HARD の AI が相手打撃の startup 終盤を読んでパリィ）＋ スーパー必殺技（236236＋攻撃＋メーター満タンで発動・スーパーフラッシュ凍結）＋ AI スーパー必殺技（HARD の AI が満タンで発動）＋ プッシュブロック（ガード時に攻撃側も押し戻して間合いを作る）＋ コマンド表 HUD（F5 で技/コマンド一覧を表示）＋ KO スローモーション（決着の一撃をスロー再生）＋ タイトル画面（対戦/トレーニングのモード選択）＋ キャラクター選択画面（対戦で P1/P2 がロスターから選択）＋ コンボ累計ダメージ HUD（コンボ中の合計ダメージ表示）＋ ディレイ起き上がり（ダウン中の下押しで遅起き）＋ AI 端攻め（HARD の AI が画面端に追い詰めた相手へ投げ択）＋ 空中受け身（air recovery・空中やられ中の行動入力で受け身して脱出・最小窓後のみ・受け身狩り可）＋ パーフェクト KO 演出（PERFECT・勝者がノーダメージでラウンドを取ると金色で "PERFECT!" 表示）＋ ステージ選択画面（対戦のキャラ選択後に全 10 ステージから選択・ハイライト中ステージを背景プレビュー）まで実装済み**の現状を反映している。
 > 戦闘仕様を変える今後の PR でも本書を同 PR で更新すること。
 
 ---
@@ -1040,12 +1040,12 @@ HARD の AI が、**必殺技ゲージ満タン**かつ間合い内（`GUARD_RAN
 
 ## 画面フロー：タイトル画面（Task 116）
 
-通常起動（`./gradlew run`）は**タイトル画面**から始まる。`Screen` enum（`TITLE`/`CHARACTER_SELECT`/`BATTLE`）で画面状態を管理し、`render()` 冒頭で状態に応じて分岐する。
+通常起動（`./gradlew run`）は**タイトル画面**から始まる。`Screen` enum（`TITLE`/`CHARACTER_SELECT`/`STAGE_SELECT`/`BATTLE`）で画面状態を管理し、`render()` 冒頭で状態に応じて分岐する。
 
 - タイトル：モード選択（**VERSUS**＝対戦／**TRAINING**＝トレーニング）。`UP`/`DOWN`（W/S）で選択、`ENTER`/`SPACE`/`J` で確定。
-  - VERSUS → `BATTLE`（P2 AI ON）。※ Task 117 で `CHARACTER_SELECT` を経由するよう拡張。
-  - TRAINING → `BATTLE`（**P2 は何もしない**＝AI OFF ＋ HP 無限練習）。
-- **後方互換**：撮影モード・リプレイ（記録/再生）は `create()` で `BATTLE` 直行（既存スクショレシピ・リプレイは frame1 から戦闘開始の前提）。撮影で各画面を撮るときだけ `-x startscreen=title|charselect|battle`（既定 `battle`）で開始画面を上書きできる。
+  - VERSUS → `CHARACTER_SELECT` → `STAGE_SELECT` → `BATTLE`（P2 AI ON。Task 117/128）。
+  - TRAINING → `BATTLE`（**P2 は何もしない**＝AI OFF ＋ HP 無限練習。キャラ/ステージ選択は経由せず既定キャラ/ステージ）。
+- **後方互換**：撮影モード・リプレイ（記録/再生）は `create()` で `BATTLE` 直行（既存スクショレシピ・リプレイは frame1 から戦闘開始の前提）。撮影で各画面を撮るときだけ `-x startscreen=title|charselect|stageselect|battle`（既定 `battle`）で開始画面を上書きできる。
 - メニューは `Gdx` キーを直接見る純 UI（戦闘ロジック・乱数に非干渉）。`GameRenderer.renderTitle(selection)` が独立した clear + テキストパスで描画。
 
 ## 画面フロー：キャラクター選択画面（Task 117）
@@ -1053,10 +1053,20 @@ HARD の AI が、**必殺技ゲージ満タン**かつ間合い内（`GUARD_RAN
 タイトルで **VERSUS** を確定すると **キャラクター選択画面**（`Screen.CHARACTER_SELECT`）へ遷移する。ロスター（全 18 キャラ）をグリッド表示し、**P1 → P2 の順**にキャラを選ぶ：
 
 - `ARROWS`/`WASD` でカーソル移動（index ベース・左右±1／上下±列数）、`ENTER`/`SPACE`/`J` で確定。
-- 1 人目の確定で P1 をロック（表示が「Player 2 : choose your fighter」へ）、2 人目の確定で**選んだ 2 キャラでバトル開始**（`startBattle` がファイター/アニメ/ラウンド/AI を作り直して `BATTLE` へ）。
+- 1 人目の確定で P1 をロック（表示が「Player 2 : choose your fighter」へ）、2 人目の確定で**ステージ選択へ遷移**（`enterStageSelect`・Task 128。両キャラの index は `charSelP1`/`charSelP2` に保持）。
 - カーソル＝黄、P1 確定＝シアン、P2 確定＝橙で色分け。
 - ロスター名は遷移時に遅延ロード（`ensureRosterLoaded`・各 JSON の `name`）。新キャラを足したら `ROSTER_IDS` に追記する。
 - トレーニングは既定キャラで即バトル（キャラ選択を経由しない）。撮影/リプレイは BATTLE 直行（`-x startscreen=charselect` でこの画面を撮れる）。
+- メニュー入力は `Gdx` キー直接参照の純 UI（戦闘ロジック・乱数に非干渉。撮影ハーネスの forced 入力では駆動しないため、撮影は既定状態のキャプチャ）。
+
+## 画面フロー：ステージ選択画面（Task 128）
+
+キャラクター選択で **P2 が確定**すると **ステージ選択画面**（`Screen.STAGE_SELECT`）へ遷移する。全 10 ステージを縦並びの一覧で表示し、**ハイライト中のステージの空グラデ＋地面を背景プレビュー**（薄い暗幕を重ねて一覧の可読性を確保）として描く：
+
+- `ARROWS`/`WASD` でカーソル移動（左/上＝−1・右/下＝+1 の巡回）、`ENTER`/`SPACE`/`J` で確定。
+- 確定で選んだステージを `renderer.setStage(...)` で背景に設定し、選択済みの 2 キャラで**バトル開始**（`startBattle`）。
+- ステージ定義は遷移時に遅延ロード（`ensureStagesLoaded`・各 JSON の `name`/背景色）。新ステージを足したら `STAGE_IDS` に追記する。
+- トレーニング・撮影/リプレイはこの画面を経由しない（既定 stage001 で BATTLE 直行）。`-x startscreen=stageselect` でこの画面を撮れる（カーソルは既定＝先頭ステージ）。
 - メニュー入力は `Gdx` キー直接参照の純 UI（戦闘ロジック・乱数に非干渉。撮影ハーネスの forced 入力では駆動しないため、撮影は既定状態のキャプチャ）。
 
 ## コンボ累計ダメージ HUD（Task 121）
@@ -1082,6 +1092,7 @@ HARD の AI が、相手を画面端（いずれかの壁から `CORNER_RANGE`=1
 
 ## 変更履歴
 
+- (Task 128) ステージ選択画面を追記。`Screen` enum に `STAGE_SELECT` 追加＋`STAGE_IDS`(10)/`stageDefs`(遅延)/`stageCursor`、`enterStageSelect`/`ensureStagesLoaded`/`updateStageSelect`、`render()` の STAGE_SELECT 分岐、`GameRenderer.renderStageSelect`（ハイライト中ステージの背景プレビュー＋名前一覧）。キャラ選択 P2 確定→ステージ選択→（確定で `setStage`）→バトル。トレーニング/撮影/リプレイは経由せず stage001 で BATTLE 直行（`-x startscreen=stageselect` でこの画面を撮れる）。`parseStartScreen` に `stageselect` トークン追加。純 UI＝戦闘無影響・決定的・既存レシピ/リプレイ不変。「画面フロー：ステージ選択画面（Task 128）」節・冒頭サマリ・画面フローを追加。
 - (Task 127) パーフェクト KO 演出（PERFECT）を追記。`RoundManager` に `roundPerfect` フィールド＋`isRoundPerfect()`＋`computeRoundPerfect`。ラウンド決着（KO/タイムアップ）で `roundWinner` 確定直後に勝者の `getCurrentHp()==getMaxHp()`（HP 満タン）なら `roundPerfect=true`、`startNewRound` でクリア。引き分けは false。`GameRenderer` がラウンド間/マッチ結果バナーで `isRoundPerfect()` のとき金色（`PERFECT_COLOR`）"PERFECT!" を決着理由の上に描く。HP 観測のみ＝決定的・純演出（戦闘結果に影響なし・新 JSON フィールドなし・後方互換）。「パーフェクト KO 演出（PERFECT）（Task 127）」節・冒頭サマリを追加。
 - (Task 126) 空中受け身（air recovery / air tech）を追記。`GameConstants.AIR_TECH_MIN_FRAMES`(8)/`AIR_TECH_RECOVERY_FRAMES`(16)。`Fighter` に `airHitstunElapsed`/`airTechRecovery` を追加し、のけぞり分岐で「滞空＋hitstun＋経過≥MIN＋行動入力」のとき `hitstunFrames=0`＋壁/床バウンド armed 解除＋`comboCount=0`＋`airTechRecovery` 起動。新設 `else if (airTechRecovery>0)` 分岐で行動不能の滞空落下。`airHitstunElapsed` は被弾（`applyHit`）で 0 リセット＝多段ジャグル中は受け身不可。着地ブロック・`reset()` でクリア。`isAirTeching()`＋`air_tech` ラベル（JUMP ポーズ流用・GameRenderer）。被弾無敵ではない（受け身狩り可）。地上の受け身（Task 66）／ディレイ起き上がり（Task 122）と対の空中版。グローバル機構（JSON 不要）・乱数なし・リプレイ format 不変だが、空中やられ中に行動入力を含む既存リプレイは結果が変わり得る（戦闘仕様変更）。「空中受け身（air recovery / air tech）（Task 126）」節・冒頭サマリを追加。
 - (Task 124) AI 端攻め（HARD のみ）を追記。`AiController.CORNER_RANGE`＋`opponentCornered` 判定で、相手を画面端に追い詰めたら通常の投げ崩しより前に proactive な投げ択を仕掛ける分岐を追加。HARD 限定・接地のみ・乱数なし。NORMAL/EASY は不発＝難易度差・後方互換。「AI 端攻め（Task 124）」節・冒頭サマリを追加。

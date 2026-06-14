@@ -160,6 +160,10 @@ public class GameRenderer {
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
     private final Color groundColor = new Color(GROUND_COLOR);
     private String stageName = "";
+    // ステージ選択画面（Task 128）のハイライト中ステージ背景プレビュー用の作業色（毎フレーム再確保を避ける）。
+    private final Color previewSkyTop = new Color();
+    private final Color previewSkyBottom = new Color();
+    private final Color previewGround = new Color();
 
     public GameRenderer() {
         camera = new OrthographicCamera();
@@ -1009,6 +1013,52 @@ public class GameRenderer {
         font.setColor(Color.WHITE);
         drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
         font.getData().setScale(1.0f);
+        batch.end();
+    }
+
+    /**
+     * ステージ選択画面を描く（Task 128）。ハイライト中のステージの空グラデ＋地面を背景プレビューとして描き、
+     * 一覧の可読性のため薄い暗幕を重ねたうえに、ステージ名一覧（カーソル＝黄）を表示する。
+     * 背景は shapes パス、文字は batch パスに分ける（同一フレーム内で begin/end を入れ子にしないため）。
+     */
+    public void renderStageSelect(Stage[] stages, int cursor) {
+        Stage hl = stages[cursor];
+        setColor(previewSkyTop, hl.getSkyTop());
+        setColor(previewSkyBottom, hl.getSkyBottom());
+        setColor(previewGround, hl.getGroundColor());
+        ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        camera.update();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        // --- パス 1: 背景プレビュー（空グラデ + 地面 + 薄い暗幕）---
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                previewSkyBottom, previewSkyBottom, previewSkyTop, previewSkyTop);
+        shapes.setColor(previewGround);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+        // 一覧テキストの可読性を上げる薄い暗幕（プレビューが透けて見える程度）。
+        shapes.setColor(0f, 0f, 0f, 0.40f);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+        shapes.end();
+        // --- パス 2: テキスト（タイトル + ステージ一覧 + 操作ガイド）---
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(1.6f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("STAGE SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
+        font.getData().setScale(1.1f);
+        float top = 480f;
+        float rowH = 38f;
+        for (int i = 0; i < stages.length; i++) {
+            boolean sel = i == cursor;
+            font.setColor(sel ? Color.YELLOW : Color.WHITE);
+            String label = (sel ? "> " : "   ") + stages[i].getName() + (sel ? " <" : "");
+            drawCentered(label, GameConstants.WORLD_WIDTH / 2f, top - i * rowH);
+        }
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 60f);
         batch.end();
     }
 
