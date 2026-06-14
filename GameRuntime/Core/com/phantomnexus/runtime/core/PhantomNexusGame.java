@@ -371,27 +371,30 @@ public class PhantomNexusGame extends ApplicationAdapter {
             screenshot.maybeCapture();
             return;
         }
-        // キャラクター選択画面（Task 117）：対戦モードで遷移。P1→P2 の順にロスターから選び、両者確定でバトル開始。
+        // キャラクター選択画面（Task 117）：対戦モードで遷移。P1→P2 の順にロスターから選び、両者確定でステージ選択へ。
         // 撮影で表示するときは create() で -x startscreen=charselect 指定（ロスター名を先にロードしておく）。
+        // このフレームで遷移しても必ず return する（タイトル画面と同じ作法）。さもないと確定入力（ENTER 等）が
+        // 同一 render() 内で後続のステージ選択にも再消費され、ステージを選ばず即バトルしてしまう（Codex 指摘）。
         if (screen == Screen.CHARACTER_SELECT) {
             ensureRosterLoaded();
             updateCharacterSelect();
-            if (screen == Screen.CHARACTER_SELECT) { // 確定でバトルへ遷移していなければ描画
+            if (screen == Screen.CHARACTER_SELECT) { // ステージ選択へ遷移していなければ描画
                 renderer.renderCharacterSelect(rosterNames, charCursor, charSelP1, charSelP2, charP1Locked, ROSTER_COLS);
                 screenshot.maybeCapture();
-                return;
             }
+            return; // 遷移したフレームはここで終了し、次フレームから新画面を処理（確定入力の再消費を防ぐ）。
         }
         // ステージ選択画面（Task 128）：キャラ確定後に遷移。全ステージから選んで確定でバトル開始。
         // 撮影で表示するときは create() で -x startscreen=stageselect 指定（ステージ名を先にロードしておく）。
+        // キャラ選択と同様、遷移しても必ず return して確定入力をバトル開始フレームへ持ち越さない。
         if (screen == Screen.STAGE_SELECT) {
             ensureStagesLoaded();
             updateStageSelect();
-            if (screen == Screen.STAGE_SELECT) { // 確定でバトルへ遷移していなければ描画
+            if (screen == Screen.STAGE_SELECT) { // バトルへ遷移していなければ描画
                 renderer.renderStageSelect(stageNames, stageCursor, STAGE_COLS);
                 screenshot.maybeCapture();
-                return;
             }
+            return; // 遷移したフレームはここで終了し、次フレームからバトルを処理。
         }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
