@@ -7,6 +7,7 @@ import com.phantomnexus.runtime.battle.AiController;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.DamagePopup;
 import com.phantomnexus.runtime.battle.HitSpark;
+import com.phantomnexus.runtime.battle.LandingDust;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -65,6 +66,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private final List<DamagePopup> damagePopups = new ArrayList<>();
     // ヒットスパーク（命中位置に出す火花の手応え演出。Task 38）。
     private final List<HitSpark> hitSparks = new ArrayList<>();
+    // 着地の砂煙（滞空→接地の遷移で足元に出す土埃の演出。Task 131）。
+    private final List<LandingDust> landingDusts = new ArrayList<>();
+    // 着地検出用：前フレームの接地状態（false→true の遷移＝着地で砂煙を出す。Task 131）。
+    private boolean p1WasGrounded = true;
+    private boolean p2WasGrounded = true;
     private final AiController p2Ai = new AiController();
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
@@ -465,8 +471,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
-        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks, round,
-                debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
+        renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
+                landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
@@ -478,6 +484,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         updateDamagePopups();
         // ヒットスパークも同様に凍結ガードより前で aging（KO を決めた一撃の火花が最後まで弾ける）。
         updateHitSparks();
+        // 着地の砂煙も凍結ガードより前で aging（凍結中も土埃は広がり続ける。Task 131）。
+        updateLandingDust();
         // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
         if (round.isFinished()) {
             return;
@@ -540,6 +548,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
             resolveHit(fighter2, fighter1);
             // 飛び道具（必殺技）の更新と命中処理（Task 20）。
             updateProjectiles();
+            // 着地の砂煙（Task 131）：このフレームに滞空→接地へ遷移したファイターの足元に土埃を出す。
+            // 物理（着地）は上の fighter.update 内で済んでいるので、遷移をここで検出する。純演出・乱数なし。
+            detectLanding(fighter1, p1WasGrounded);
+            detectLanding(fighter2, p2WasGrounded);
+            p1WasGrounded = fighter1.isGrounded();
+            p2WasGrounded = fighter2.isGrounded();
         }
         // トレーニングモード（Task 90）：勝敗判定の前に両者の HP を満タンへ戻す＝無限 HP のダミーで KO せず練習できる。
         // ダメージ数値ポップアップ・コンボカウンターは被弾時に確定済みなので、コンボ練習の情報はそのまま見える。
@@ -581,6 +595,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         projectiles.clear();
         damagePopups.clear();
         hitSparks.clear();
+        landingDusts.clear(); // 着地の砂煙（Task 131）もラウンド間でクリア
+        p1WasGrounded = true;  // リセット直後は両者接地＝次フレームで誤検出しないよう接地で初期化
+        p2WasGrounded = true;
         hitstopFrames = 0; // ヒットストップ（Task 86）もラウンド間でクリア
         superFlashFrames = 0; // スーパーフラッシュ（Task 108）もラウンド間でクリア
         koSlowFrames = 0; // KO スローモーション（Task 115）もラウンド間でクリア
@@ -616,6 +633,27 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void spawnHitSpark(boolean blocked, float centerX, float centerY) {
         hitSparks.add(new HitSpark(blocked ? HitSpark.Kind.GUARD : HitSpark.Kind.HIT,
                 centerX, centerY, GameConstants.HIT_SPARK_FRAMES));
+    }
+
+    /** 着地の砂煙を 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出。Task 131）。 */
+    private void updateLandingDust() {
+        for (Iterator<LandingDust> it = landingDusts.iterator(); it.hasNext(); ) {
+            LandingDust d = it.next();
+            d.update();
+            if (d.isExpired()) {
+                it.remove();
+            }
+        }
+    }
+
+    /**
+     * 着地（滞空→接地の遷移）を検出し、足元に砂煙を 1 件生成する（Task 131）。
+     * 前フレームが滞空（{@code !wasGrounded}）で今フレームが接地なら着地とみなす。純演出・乱数なし。
+     */
+    private void detectLanding(Fighter f, boolean wasGrounded) {
+        if (!wasGrounded && f.isGrounded()) {
+            landingDusts.add(new LandingDust(f.getX(), f.getY(), GameConstants.LANDING_DUST_FRAMES));
+        }
     }
 
     /**

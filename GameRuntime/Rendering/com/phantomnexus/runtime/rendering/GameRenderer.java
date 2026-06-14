@@ -16,6 +16,7 @@ import com.phantomnexus.runtime.battle.AttackPhase;
 import com.phantomnexus.runtime.battle.CollisionSystem;
 import com.phantomnexus.runtime.battle.DamagePopup;
 import com.phantomnexus.runtime.battle.HitSpark;
+import com.phantomnexus.runtime.battle.LandingDust;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
@@ -80,6 +81,13 @@ public class GameRenderer {
     // ヒットスパーク（Task 38）：通常ヒット=暖色（白寄りの黄）/ ガード=寒色（青）。放射スポーク数と寸法。
     private static final Color SPARK_HIT_COLOR = new Color(1f, 0.95f, 0.55f, 1f);
     private static final Color SPARK_GUARD_COLOR = new Color(0.60f, 0.85f, 1f, 1f);
+
+    // 着地の砂煙（足元の土埃。Task 131）。複数の小さな丸を左右へ広げ・上昇させ・フェードする純演出。
+    private static final Color DUST_COLOR = new Color(0.82f, 0.77f, 0.64f, 0.62f);
+    private static final int DUST_PUFFS = 6;          // 土埃の粒数（左右交互）
+    private static final float DUST_SPREAD = 30f;      // 横へ広がる最大距離（px）
+    private static final float DUST_RISE = 12f;        // 上昇する高さ（px）
+    private static final float DUST_PUFF_RADIUS = 7f;  // 粒の基準半径（px）
     // コンボカウンター（Task 39）の文字色（鮮やかなオレンジ）と表示倍率。
     private static final Color COMBO_COLOR = new Color(1f, 0.62f, 0.18f, 1f);
     private static final float COMBO_SCALE = 1.7f;
@@ -164,6 +172,8 @@ public class GameRenderer {
     private final Color tintColor = new Color();
     // 足元の影描画用の作業色（毎フレームの再確保を避ける。Task 130）。
     private final Color shadowColor = new Color();
+    // 着地の砂煙描画用のフェード色（毎フレームの再確保を避ける。Task 131）。
+    private final Color dustColor = new Color();
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -210,7 +220,8 @@ public class GameRenderer {
      */
     public void renderScene(Fighter p1, Fighter p2, FighterAnimator anim1, FighterAnimator anim2,
                             List<Projectile> projectiles, List<DamagePopup> popups, List<HitSpark> sparks,
-                            RoundManager round, DebugOverlay debug, String controlsHint, String statusLine,
+                            List<LandingDust> dusts, RoundManager round, DebugOverlay debug,
+                            String controlsHint, String statusLine,
                             List<String> p1Inputs, boolean moveListVisible) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
         camera.update();
@@ -254,6 +265,8 @@ public class GameRenderer {
         drawProjectiles(projectiles);
         // ヒットスパーク（命中位置で拡大＋フェードする火花。Task 38）。
         drawHitSparks(sparks);
+        // 着地の砂煙（足元で広がり上昇しフェードする土埃。Task 131）。
+        drawLandingDust(dusts);
         // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
         drawContactMarker(p1, p2);
         drawContactMarker(p2, p1);
@@ -754,6 +767,36 @@ public class GameRenderer {
             }
             // 中心コア（時間とともに縮む明るい円）。
             shapes.circle(cx, cy, SPARK_CORE_RADIUS * (1f - progress));
+        }
+    }
+
+    /**
+     * 着地の砂煙（足元の土埃）を描く（Task 131）。各砂煙について、経過進捗から「横への広がり・上昇・
+     * フェード・膨らみ」を導出し、複数の小さな丸を左右対称に配置する。粒の位置は粒番号から決まる固定
+     * オフセット＝乱数なし＝決定的（入力リプレイと両立）。{@link ShapeRenderer.ShapeType#Filled} の
+     * オーバーレイパス（パス 3）内で呼ぶ。HP / 位置 / 当たり判定には一切干渉しない純粋な演出。
+     */
+    private void drawLandingDust(List<LandingDust> dusts) {
+        if (dusts.isEmpty()) {
+            return;
+        }
+        int half = (DUST_PUFFS + 1) / 2; // 片側の段数（広がりの正規化分母）
+        for (LandingDust d : dusts) {
+            float progress = d.getLifespan() > 0 ? (float) d.getAge() / d.getLifespan() : 1f;
+            float alpha = Math.max(0f, 1f - progress); // 線形フェードアウト
+            dustColor.set(DUST_COLOR.r, DUST_COLOR.g, DUST_COLOR.b, DUST_COLOR.a * alpha);
+            shapes.setColor(dustColor);
+            float baseX = d.getOriginX();
+            float baseY = d.getOriginY();
+            for (int i = 0; i < DUST_PUFFS; i++) {
+                float side = (i % 2 == 0) ? 1f : -1f;          // 左右交互
+                float rank = (i / 2) + 1;                       // 1,1,2,2,3,3 … 外側ほど大
+                float dirScale = rank / (float) half;          // 0..1 に正規化
+                float x = baseX + side * progress * DUST_SPREAD * dirScale;
+                float y = baseY + progress * DUST_RISE * (1f - dirScale * 0.4f) + 2f;
+                float r = DUST_PUFF_RADIUS * (0.6f + progress * 0.7f); // わずかに膨らむ
+                shapes.circle(x, y, r);
+            }
         }
     }
 
