@@ -192,9 +192,38 @@ public class PhantomNexusGame extends ApplicationAdapter {
             screen = Screen.BATTLE;
         } else if (screenshot.isEnabled()) {
             screen = parseStartScreen(screenshot.startScreen("battle"));
+            // 撮影で STAGE_SELECT 直行（-x startscreen=stageselect）するときは、通常フローと違いキャラ選択を
+            // 経由しないため charSelP1/charSelP2 が未設定（-1）のまま。確定（startBattle）が ROSTER_IDS[-1] で
+            // 落ちないよう、create() でロード済みのファイターから index を復元して補完する（CodeRabbit 指摘）。
+            if (screen == Screen.STAGE_SELECT) {
+                seedCharacterSelectionFromCurrentFighters();
+            }
         } else {
             screen = Screen.TITLE;
         }
+    }
+
+    /**
+     * 現在ロード済みのファイター（{@code fighter1}/{@code fighter2}）の ID から {@code charSelP1}/{@code charSelP2} を
+     * 復元する（Task 128）。キャラ選択を経由しない STAGE_SELECT 直行（撮影 {@code -x startscreen=stageselect}）で
+     * 確定したときに、選んだステージ＋現在のキャラでバトルを開始できるようにする補完。ロスターに無い ID は
+     * 既定（P1=0 / P2=1）にフォールバックする。
+     */
+    private void seedCharacterSelectionFromCurrentFighters() {
+        ensureRosterLoaded();
+        charSelP1 = 0;
+        charSelP2 = 1;
+        String p1Id = fighter1.getDef().getId();
+        String p2Id = fighter2.getDef().getId();
+        for (int i = 0; i < ROSTER_IDS.length; i++) {
+            if (ROSTER_IDS[i].equals(p1Id)) {
+                charSelP1 = i;
+            }
+            if (ROSTER_IDS[i].equals(p2Id)) {
+                charSelP2 = i;
+            }
+        }
+        charP1Locked = true;
     }
 
     /** 撮影オーバーライドの開始画面トークンを {@link Screen} へ解釈する（Task 116/117/128。既定/未知は BATTLE）。 */
