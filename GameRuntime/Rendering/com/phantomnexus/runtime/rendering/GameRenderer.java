@@ -174,6 +174,9 @@ public class GameRenderer {
     private final Color shadowColor = new Color();
     // 着地の砂煙描画用のフェード色（毎フレームの再確保を避ける。Task 131）。
     private final Color dustColor = new Color();
+    // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
+    private int shakeFrames;
+    private float shakeMagnitude;
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -197,6 +200,42 @@ public class GameRenderer {
         setColor(skyBottom, stage.getSkyBottom());
         setColor(groundColor, stage.getGroundColor());
         stageName = stage.getName();
+    }
+
+    /**
+     * 画面の微振動（hit shake）を発動する（Task 132）。接触（打撃 / 飛び道具 / 投げ）時に Core から呼ぶ。
+     * 重なって複数回呼ばれたら大きい振幅を採用する（弱い揺れが強い揺れを上書きしない）。純描画演出。
+     *
+     * @param magnitude 揺れの最大振幅（px）。
+     */
+    public void triggerShake(float magnitude) {
+        shakeMagnitude = Math.max(shakeMagnitude, magnitude);
+        shakeFrames = GameConstants.SHAKE_FRAMES;
+    }
+
+    /**
+     * 画面の微振動を 1 フレーム分カメラへ適用する（Task 132）。残りフレームから決定的に（乱数なし）
+     * 振幅を減衰させ、左右はフレームの偶奇・上下は 4 フレーム周期の符号で揺らす。振動が無いときは中心に据える。
+     * {@link #renderScene} の {@code camera.update()} 直前に呼ぶ。シミュレーション状態には一切干渉しない。
+     */
+    private void applyShakeToCamera() {
+        float shakeX = 0f, shakeY = 0f;
+        if (shakeFrames > 0) {
+            float decay = shakeFrames / (float) GameConstants.SHAKE_FRAMES; // 1→0 へ線形減衰
+            float amp = shakeMagnitude * decay;
+            shakeX = (shakeFrames % 2 == 0) ? amp : -amp;
+            shakeY = ((shakeFrames % 4 < 2) ? 1f : -1f) * amp * 0.6f;
+            shakeFrames--;
+            if (shakeFrames == 0) {
+                shakeMagnitude = 0f;
+            }
+        }
+        camera.position.set(GameConstants.WORLD_WIDTH / 2f + shakeX, GameConstants.WORLD_HEIGHT / 2f + shakeY, 0f);
+    }
+
+    /** カメラを画面中心へ据える（hit shake のオフセットを持ち越さない。タイトル / キャラ / ステージ選択で呼ぶ。Task 132）。 */
+    private void centerCamera() {
+        camera.position.set(GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT / 2f, 0f);
     }
 
     private static void setColor(Color target, float[] rgb) {
@@ -224,6 +263,9 @@ public class GameRenderer {
                             String controlsHint, String statusLine,
                             List<String> p1Inputs, boolean moveListVisible) {
         ScreenUtils.clear(GameConstants.BG_R, GameConstants.BG_G, GameConstants.BG_B, GameConstants.BG_A);
+        // 画面の微振動（hit shake・Task 132）：残りフレームから決定的に（乱数なし）カメラを中心からずらす。
+        // 振幅は減衰し、左右上下を符号反転で揺らす。シミュレーションには非干渉＝リプレイ/スクショレシピ不変。
+        applyShakeToCamera();
         camera.update();
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
         sprites.ensureLoaded(p1.getDef());
@@ -1013,6 +1055,7 @@ public class GameRenderer {
      */
     public void renderTitle(int selection) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
@@ -1040,6 +1083,7 @@ public class GameRenderer {
      */
     public void renderCharacterSelect(String[] names, int cursor, int p1, int p2, boolean p1Locked, int cols) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
@@ -1093,6 +1137,7 @@ public class GameRenderer {
      */
     public void renderStageSelect(String[] names, int cursor, int cols) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
         batch.setProjectionMatrix(camera.combined);
         batch.begin();

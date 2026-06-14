@@ -634,6 +634,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void spawnHitSpark(boolean blocked, float centerX, float centerY) {
         hitSparks.add(new HitSpark(blocked ? HitSpark.Kind.GUARD : HitSpark.Kind.HIT,
                 centerX, centerY, GameConstants.HIT_SPARK_FRAMES));
+        // 画面の微振動（hit shake・Task 132）：接触の手応えを増す純描画演出。クリーンヒットは強め・ガードは弱め。
+        // 火花と同じ接触の単一チョークポイントから呼ぶので、打撃 / 飛び道具 / 投げ / 投げ抜けすべてで揺れる。
+        renderer.triggerShake(blocked ? GameConstants.GUARD_SHAKE_MAGNITUDE : GameConstants.HIT_SHAKE_MAGNITUDE);
     }
 
     /** 着地の砂煙を 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出。Task 131）。 */
