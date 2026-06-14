@@ -159,6 +159,14 @@ public final class GameConstants {
     public static final int LANDING_DUST_FRAMES = 16;
 
     /**
+     * 画面の微振動（hit shake）の持続フレーム数と振幅（Task 132）。打撃 / 飛び道具 / 投げの接触時に
+     * カメラをわずかに揺らして衝撃を演出する。決定的（乱数なし）＝カメラオフセットのみで戦闘結果に影響しない。
+     */
+    public static final int SHAKE_FRAMES = 9;
+    public static final float HIT_SHAKE_MAGNITUDE = 7f;   // クリーンヒットの揺れ幅（px）
+    public static final float GUARD_SHAKE_MAGNITUDE = 3f; // ガード成立の揺れ幅（px・控えめ）
+
+    /**
      * ラウンド開始イントロ（"ROUND N" → "FIGHT!" 演出）の総フレーム数（Task 42）。各ラウンド開始時、
      * この間はファイター操作・判定・タイマーを停止して開始演出を表示し、0 になった瞬間から戦闘開始。
      * 60fps 基準で約 1.5 秒。撮影モードでは既定でスキップ（{@code -x intro=true} で有効化）し、
