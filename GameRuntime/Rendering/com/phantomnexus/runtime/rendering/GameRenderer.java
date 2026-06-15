@@ -28,6 +28,7 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
+import com.phantomnexus.shared.types.StageLayer;
 
 /**
  * バトルシーンの描画担当（Task 6: キャラクター描画 / Task 7: 移動・向き）。
@@ -271,6 +272,9 @@ public class GameRenderer {
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
     private final Color groundColor = new Color(GROUND_COLOR);
     private String stageName = "";
+    // 背景の多層シルエット（Task 151）。setStage で受け取り、パス 1 で空と地面の間に奥から描く。
+    private StageLayer[] stageLayers;
+    private final Color layerColor = new Color(); // レイヤー描画用の作業色（毎フレーム再確保を避ける）
 
     public GameRenderer() {
         camera = new OrthographicCamera();
@@ -289,6 +293,7 @@ public class GameRenderer {
         setColor(skyBottom, stage.getSkyBottom());
         setColor(groundColor, stage.getGroundColor());
         stageName = stage.getName();
+        stageLayers = stage.getLayers(); // 背景の多層シルエット（任意・null なら従来どおり。Task 151）
     }
 
     /**
@@ -398,6 +403,8 @@ public class GameRenderer {
         // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
                 skyBottom, skyBottom, skyTop, skyTop);
+        // 背景の多層シルエット（Task 151）：空グラデーションの上、地面の前に奥（遠景）→手前（近景）の順で描く。
+        drawStageLayers();
         // 地面（床）。
         shapes.setColor(groundColor);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
@@ -953,6 +960,84 @@ public class GameRenderer {
             float r = MOTE_RADIUS * (0.7f + 0.3f * (float) Math.sin(i * 2.1f));
             shapes.circle(x, y, r);
         }
+    }
+
+    /**
+     * 背景の多層シルエット（Task 151）を奥（遠景）→手前（近景）の順に描く。{@link Stage#getLayers()} の各レイヤーを
+     * 形状（band/buildings/peaks/hills/pillars）に応じてシルエット描画する。すべて要素番号と {@link #auraTick}（任意の
+     * ドリフト）からの固定計算＝**乱数なし＝決定的**。レイヤー未指定（null）なら何も描かず従来どおり（後方互換）。
+     * パス 1（空グラデーションの後・地面の前）で呼ぶ＝奥行きのある背景レイヤ。
+     */
+    private void drawStageLayers() {
+        if (stageLayers == null) {
+            return;
+        }
+        float w = GameConstants.WORLD_WIDTH;
+        for (StageLayer layer : stageLayers) {
+            if (layer == null) {
+                continue;
+            }
+            float[] c = layer.getColor();
+            if (c == null || c.length < 3) {
+                continue; // 色未指定のレイヤーはスキップ
+            }
+            layerColor.set(c[0], c[1], c[2], layer.getAlpha());
+            shapes.setColor(layerColor);
+            float baseY = layer.getBaseY();
+            float h = layer.getHeight();
+            int count = layer.getCount();
+            float spacing = w / count;
+            // ドリフト：要素間隔で wrap させて端で途切れないようタイル状に流す（雲・もや等の演出。0 で静止）。
+            float phase = layer.getDrift() != 0f ? (layer.getDrift() * auraTick) % spacing : 0f;
+            switch (layer.getShape()) {
+                case "buildings": drawLayerBuildings(baseY, h, count, spacing, phase); break;
+                case "peaks":     drawLayerPeaks(baseY, h, count, spacing, phase); break;
+                case "hills":     drawLayerHills(baseY, h, w); break;
+                case "pillars":   drawLayerPillars(baseY, h, count, spacing, phase); break;
+                case "band":
+                default:          shapes.rect(0f, baseY, w, h); break; // 帯（遠景の地形/水平線）・未対応も帯に
+            }
+        }
+    }
+
+    /** 都市のスカイライン（高さの違う矩形ビル群）。要素番号からの sin で高さ/幅を決定的に散らす。Task 151。 */
+    private void drawLayerBuildings(float baseY, float h, int count, float spacing, float phase) {
+        for (int i = -1; i <= count; i++) {
+            float x = i * spacing + phase;
+            float bw = spacing * (0.62f + 0.22f * Math.abs((float) Math.sin(i * 1.3f)));
+            float bh = h * (0.42f + 0.58f * Math.abs((float) Math.sin(i * 1.7f + 0.5f)));
+            shapes.rect(x + (spacing - bw) / 2f, baseY, bw, bh);
+        }
+    }
+
+    /** 遠景の山並み（三角形のピーク群）。Task 151。 */
+    private void drawLayerPeaks(float baseY, float h, int count, float spacing, float phase) {
+        for (int i = -1; i <= count; i++) {
+            float cx = i * spacing + phase + spacing / 2f;
+            float pw = spacing * (1.0f + 0.35f * (float) Math.sin(i * 0.9f));
+            float ph = h * (0.5f + 0.5f * Math.abs((float) Math.sin(i * 1.27f)));
+            shapes.triangle(cx - pw / 2f, baseY, cx + pw / 2f, baseY, cx, baseY + ph);
+        }
+    }
+
+    /** なだらかな丘のシルエット（sin 曲線の下を細い矩形で塗る）。Task 151。 */
+    private void drawLayerHills(float baseY, float h, float w) {
+        float step = 8f;
+        for (float x = 0f; x < w; x += step) {
+            float hy = h * (0.55f + 0.45f * (float) Math.sin(x * 0.006f));
+            shapes.rect(x, baseY, step + 1f, hy);
+        }
+    }
+
+    /** 神殿の柱列（一定間隔の縦矩形）＋上部の梁。Task 151。 */
+    private void drawLayerPillars(float baseY, float h, int count, float spacing, float phase) {
+        float cw = spacing * 0.38f;
+        for (int i = -1; i <= count; i++) {
+            float x = i * spacing + phase + (spacing - cw) / 2f;
+            shapes.rect(x, baseY, cw, h);
+        }
+        // 上部の梁（エンタブラチュア）：柱の上端を水平に渡す。
+        shapes.rect(0f, baseY + h * 0.86f, GameConstants.WORLD_WIDTH, h * 0.14f);
     }
 
     /**

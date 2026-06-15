@@ -332,8 +332,32 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `skyTop` | float[3] | ✅ | 空の上端色 RGB（各 0..1） |
 | `skyBottom` | float[3] | ✅ | 空の下端（地平線側）色 RGB |
 | `groundColor` | float[3] | ✅ | 地面色 RGB |
+| `layers` | StageLayer[] | ⛔（任意） | 背景の多層シルエット（遠景→近景の順）。未指定なら従来どおり空＋地面のみ（後方互換）。Task 151 |
 
-> 描画は空を下端→上端のグラデーションで塗り、地面を `groundColor` で塗る。スプライト背景 / パララックスは将来拡張。
+> 描画は空を下端→上端のグラデーションで塗り、`layers` があれば空と地面の間に遠景→近景の順でシルエットを重ね、最後に地面を `groundColor` で塗る。
+
+#### StageLayer（背景レイヤー・任意。Task 151）
+
+スマブラ流の多層パララックス背景と SF6 流のテーマ性のある情景を、JSON だけで足せるようにしたデータ。`layers` 配列に遠景→近景の順で並べる。すべて**決定的**に描く（乱数なし）。
+
+```json
+"layers": [
+  { "shape": "peaks",     "color": [0.30, 0.22, 0.34], "baseY": 120, "height": 230, "count": 6,  "alpha": 0.9 },
+  { "shape": "buildings", "color": [0.20, 0.15, 0.26], "baseY": 120, "height": 300, "count": 11, "alpha": 0.95 },
+  { "shape": "buildings", "color": [0.12, 0.10, 0.18], "baseY": 120, "height": 200, "count": 16 },
+  { "shape": "hills",     "color": [0.09, 0.08, 0.13], "baseY": 120, "height": 60,  "count": 1 }
+]
+```
+
+| フィールド | 型 | 既定 | 意味 |
+|---|---|---|---|
+| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）。未対応値は `band` 扱い |
+| `color` | float[3] | （必須相当） | レイヤー色 RGB。未指定だと描画スキップ。大気遠近のため奥ほど空色に近づけ淡くするとよい |
+| `baseY` | float | `120` | シルエット下端 Y（既定は地平線＝地面の高さ相当） |
+| `height` | float | `120` | シルエット高さ（px） |
+| `count` | int | `8` | 要素数（ビル棟数 / 山数 / 柱数。`hills` は無関係） |
+| `alpha` | float | `1.0` | 不透明度（0..1）。1 未満で奥のレイヤーへ溶け込ませる |
+| `drift` | float | `0` | 水平の自動ドリフト量（px/描画フレーム・要素間隔で wrap）。雲・もや等の演出用（0 で静止） |
 
 ---
 
@@ -344,6 +368,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 151) `Stage` に **背景の多層シルエット `layers`**（任意・`StageLayer[]`・遠景→近景の順）を追加（SF6/スマブラのステージデザインを参考に奥行きを出す）。`StageLayer` は `shape`（band/buildings/peaks/hills/pillars）/`color`/`baseY`/`height`/`count`/`alpha`/`drift` を持ち、描画側 `GameRenderer.drawStageLayers` が空グラデーションと地面の間にシルエットを重ねる（要素番号と `auraTick` からの固定計算＝**乱数なし＝決定的**）。未指定の旧 JSON はフィールド初期化子（`layers=null`）により従来どおり空＋地面のみ（後方互換）。`Shared/Types/StageLayer` を新設、`StageLoader` は `layers` を任意（`setIgnoreUnknownFields` で吸収・追加検証なし）。例示として stage001 を都市夜景（peaks＋buildings×2＋hills）に再設計。`Stage` フィールド表・`StageLayer` 節を追加。
 - (Task 123) `Character` に任意 bool `canRun`（ラン・既定 false＝後方互換）を追加。`true` のキャラは前ダッシュ（二度押し）中に前方を保持し続けるとダッシュが継続して走り続ける（離すと停止・バックステップは固定長）。`Fighter` のダッシュ分岐で `canRun && grounded && 前ダッシュ && 前方保持` のとき `dashFrames` を更新して継続、ラベル `run`。例示として fighter019（Mei）に `canRun:true`。`Character` フィールド表に `canRun` を追加。
 - (Task 120) 20 体目キャラ `Assets/Characters/fighter020.json`（"Genji"・HP1020・**全ツール装備の万能 shoto 型**の grape `[160,60,200]`）＋スプライト `fighter020.png`（256×896）を追加。`ROSTER_IDS` にも追記＝**ロスター計 20 体到達**。アーキタイプ：飛び道具 `ki_blast`（HADOUKEN）、無敵対空 `dragon_rise`（CHARGE_SHOT・`invincibleFrames`＋`launch`）、**飛び道具スーパー `phantom_nova`（`superMove`＋`hardKnockdown`・dmg250）**、overhead `overhead_chop`（`knockdown`）、地上/空中投げ。撮影は `-x p1char=fighter020 -x p1meter=100`。
 - (Task 119) 10 番目のステージ `Assets/Stages/stage010.json`（"Starlit Shrine"・深い藍の夜空）を追加。`Stage` の JSON 仕様は不変（stage009 に続く 10 ステージ目＝計 10 ステージ）。撮影は `-x stage=stage010`。

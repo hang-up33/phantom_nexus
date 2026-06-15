@@ -15,6 +15,7 @@ public class Stage {
     private float[] skyTop;      // 空の上端色 RGB（0..1）
     private float[] skyBottom;   // 空の下端色（地平線側）RGB
     private float[] groundColor; // 地面色 RGB
+    private StageLayer[] layers; // 背景の多層シルエット（任意・遠景→近景の順。Task 151）
 
     /** JSON / リフレクション用の無引数コンストラクタ。 */
     public Stage() {
@@ -46,5 +47,10 @@ public class Stage {
 
     public float[] getGroundColor() {
         return groundColor;
+    }
+
+    /** 背景の多層シルエット（任意・遠景→近景の順。未指定なら null＝従来どおり空＋地面のみ）。Task 151。 */
+    public StageLayer[] getLayers() {
+        return layers;
     }
 }
