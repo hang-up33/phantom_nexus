@@ -244,6 +244,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 154 | 幻想系 3 ステージのレイヤー再設計（stage008 Abyssal Cathedral=大聖堂の柱列／stage009 Aurora Tundra=オーロラの雪原／stage010 Starlit Shrine=星空の社・**全10ステージ多層背景化完了**・JSON のみ・後方互換） | ✅ 完了 |
 | 155 | ステージのたなびく雲（ambient clouds・`clouds` シェイプ＝重なる円のクラスタを `drift` で横流れ・空のあるステージに追加・決定的・後方互換） | ✅ 完了 |
 | 156 | ステージ別の降る情景（`snow` シェイプ＝雪/花びら・上端から落下＋揺らぎ・色で雪/桜を区別・Frozen Peak/Aurora に雪・Sakura Court に花びら・決定的・後方互換） | ✅ 完了 |
+| 157 | 火山ステージの立ち昇る火の粉（`embers` シェイプ＝下から上昇＋揺らぎ＋消え際の縮小・Volcanic Rift に追加・決定的・後方互換） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）

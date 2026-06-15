@@ -351,7 +351,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
-| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）/ `clouds`（たなびく雲＝`drift` で横流れ・Task 155）/ `snow`（降る情景＝雪/花びら・上端から落下＋左右の揺らぎ・`drift`=落下速度・色で雪/桜を区別・Task 156）。未対応値は `band` 扱い |
+| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）/ `clouds`（たなびく雲＝`drift` で横流れ・Task 155）/ `snow`（降る情景＝雪/花びら・上端から落下＋左右の揺らぎ・`drift`=落下速度・色で雪/桜を区別・Task 156）/ `embers`（立ち昇る火の粉・`baseY` から上昇＋揺らぎ＋消え際の縮小・`drift`=上昇速度・Task 157）。未対応値は `band` 扱い |
 | `color` | float[3] | （必須相当） | レイヤー色 RGB。未指定だと描画スキップ。大気遠近のため奥ほど空色に近づけ淡くするとよい |
 | `baseY` | float | `120` | シルエット下端 Y（既定は地平線＝地面の高さ相当） |
 | `height` | float | `120` | シルエット高さ（px） |
@@ -368,6 +368,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 157) `StageLayer` の `shape` に **`embers`（立ち昇る火の粉）** を追加。`snow`（落下）と対で、粒を `baseY` から上昇させ `baseY+h` で wrap・横は `sin` で揺らぎ・上昇につれ縮小（消え際）。`drift`=上昇速度。`GameRenderer.drawLayerEmbers`。stage007 Volcanic Rift に追加。乱数なし・決定的・後方互換。
 - (Task 156) `StageLayer` の `shape` に **`snow`（降る情景＝雪/花びら）** を追加。`count` 個の粒を上端から落とし `auraTick` で循環＋画面端 wrap・横位置は `sin` で左右に揺らぎ・`drift`=落下速度。色で雪（白）/桜の花びら（桜色）を区別。`GameRenderer.drawLayerSnow`。stage004 Frozen Peak・stage009 Aurora Tundra に雪、stage006 Sakura Court に花びらを追加。乱数なし・決定的・後方互換。
 - (Task 155) `StageLayer` の `shape` に **`clouds`（たなびく雲）** を追加。重なる円のクラスタを `drift × auraTick` で横に流し画面幅で wrap させる（円はソフトウェア GL でも正常合成＝全画面ソリッド rect の罠を回避）。`GameRenderer.drawLayerClouds`。空のあるステージ（stage002/004/006）に雲レイヤーを追加。乱数なし・決定的・後方互換（JSON 形式は不変）。
 - (Task 151) `Stage` に **背景の多層シルエット `layers`**（任意・`StageLayer[]`・遠景→近景の順）を追加（SF6/スマブラのステージデザインを参考に奥行きを出す）。`StageLayer` は `shape`（band/buildings/peaks/hills/pillars）/`color`/`baseY`/`height`/`count`/`alpha`/`drift` を持ち、描画側 `GameRenderer.drawStageLayers` が空グラデーションと地面の間にシルエットを重ねる（要素番号と `auraTick` からの固定計算＝**乱数なし＝決定的**）。未指定の旧 JSON はフィールド初期化子（`layers=null`）により従来どおり空＋地面のみ（後方互換）。`Shared/Types/StageLayer` を新設、`StageLoader` は `layers` を任意（`setIgnoreUnknownFields` で吸収・追加検証なし）。例示として stage001 を都市夜景（peaks＋buildings×2＋hills）に再設計。`Stage` フィールド表・`StageLayer` 節を追加。
