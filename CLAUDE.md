@@ -327,6 +327,7 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
   - `p1char=<id>` / `p2char=<id>`：読み込むキャラ ID のオーバーライド（既定 `fighter001` / `fighter002`）。新キャラの撮り分けに使う（Task 41。`stage=` のキャラ版）
   - `intro=true`：ラウンド開始イントロ（"ROUND N"/"FIGHT!"・Task 42）を撮影モードでも有効化（既定はスキップ＝既存レシピの後方互換）。開始演出を撮るとき以外は付けない
   - `p1meter=<値>` / `p2meter=<値>`：初期必殺技ゲージ量（0〜100）のオーバーライド（Task 44）。EX 必殺技（満タンで強化）の見え方を貯め直しなしで撮る用（例：`-x p1meter=100`）
+  - `p1hp=<値>` / `p2hp=<値>`：初期 HP のオーバーライド（1〜最大 HP・Task 145〜）。低 HP 警告ビネット・KO 演出・勝者グロー等を削り合わずに撮る用（例：`-x p2hp=80`。`ScreenshotController.initialHp`＋`Fighter.setCurrentHp`）
   - `aidiff=easy|normal|hard`：P2 の AI 難易度（Task 56・既定 HARD＝全反応）。難易度別の反応の見え方を撮り分ける（例：`-x aidiff=easy` でガード反応が消える）。**唯一の例外：これだけは撮影モードに依らず通常起動でも効く**（ゲームプレイ設定のため・他の `-x` は撮影モード限定）。実行時は F3 でも循環切替できる（Task 78）
   - `training=true`：トレーニングモード（Task 90・HP 無限のダミーでコンボ練習）を起動時 ON（実行時は F4 トグル）。コンボの全段・ダメージ/スタン蓄積の見え方を KO させずに撮る用（例：`-x training=true`）
   - `movelist=true`：コマンド表 HUD（Task 112・技/コマンド一覧）を起動時 ON（実行時は F5 トグル）。両キャラの技リストを撮る用

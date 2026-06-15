@@ -99,6 +99,19 @@ public class GameRenderer {
     private static final float MOTE_DRIFT = 26f;    // 横揺れの振幅（px）
     private static final float MOTE_RISE = 0.35f;   // 1 描画フレームあたりの上昇量（px）
     private static final float MOTE_DRIFT_SPEED = 0.018f; // 横揺れの角速度
+    // 空の光の帯（sky sweep・Task 147）。背景をゆっくり横切る淡い光の縦帯で空気感を出す（純描画・決定的）。
+    private static final Color SKY_SWEEP_COLOR = new Color(0.85f, 0.90f, 1f, 1f);
+    private static final float SKY_SWEEP_WIDTH = 260f;   // 光の帯の幅（px）
+    private static final float SKY_SWEEP_ALPHA = 0.16f;  // 帯中心の最大不透明度
+    private static final float SKY_SWEEP_SPEED = 2.4f;   // 1 描画フレームあたりの横移動（px）
+    // 低 HP 警告ビネット（low-HP vignette・Task 145）。どちらかの HP が低いと画面端を赤く脈動させ危機感を出す。
+    private static final float LOW_HP_RATIO = 0.25f;     // この残量割合以下で警告
+    private static final Color LOW_HP_VIGNETTE_COLOR = new Color(0.85f, 0.10f, 0.10f, 1f); // 端の赤
+    private static final float LOW_HP_VIGNETTE_BAND = 130f; // 端から内側へ赤がフェードする帯の幅（px）
+    private static final float LOW_HP_VIGNETTE_ALPHA = 0.5f; // 端の最大不透明度（脈動で増減）
+    // HP バーのダメージトレイル（Task 146）。被弾で減った分を明るい色の遅れバーで一瞬残し、ダメージ量を伝える。
+    private static final Color HP_TRAIL_COLOR = new Color(0.98f, 0.92f, 0.55f, 0.9f); // 遅延ドレインの明るい黄
+    private static final float HP_TRAIL_DRAIN = 0.010f;  // 1 描画フレームあたりに遅延バーが詰める割合
     // 残り時間警告（low time・Task 141）。残りが少ないとタイマーを赤く脈動させて緊張感を出す。
     private static final int LOW_TIME_THRESHOLD = 10;     // この秒数以下で警告点滅
     private static final Color LOW_TIME_COLOR = new Color(0.98f, 0.26f, 0.22f, 1f); // 警告の赤
@@ -223,6 +236,11 @@ public class GameRenderer {
     private final Color auraColor = new Color();
     // 残り時間警告の脈動色（毎フレーム再確保を避ける作業色。Task 141）。
     private final Color timerColor = new Color();
+    // HP バーのダメージトレイル（Task 146）：p1=[0]/p2=[1] の遅延ドレイン割合（実 HP 割合へ徐々に追従）。
+    private final float[] hpTrail = { 1f, 1f };
+    // 空の光の帯 / 低 HP ビネット描画用の作業色（毎フレーム再確保を避ける。Task 145/147）。
+    private final Color sweepColor = new Color();
+    private final Color vignetteColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -363,6 +381,8 @@ public class GameRenderer {
         auraTick = (auraTick + 1) % 36000;
         drawMeterAura(p1);
         drawMeterAura(p2);
+        // 空の光の帯（Task 147）：背景をゆっくり横切る淡い光の縦帯。浮遊粒の前（同じ背景レイヤ）。
+        drawSkySweep();
         // 背景の浮遊パーティクル（Task 139）：空気感を出す微かな光の粒。スプライト（パス 2）より後ろ＝背景。
         drawAmbientMotes();
         shapes.end();
@@ -408,6 +428,8 @@ public class GameRenderer {
         drawSuperMeter(p2, false);
         // 勝利ラウンド数を示すドット（HP バー内側端の下）。金色=獲得、暗色=未獲得。
         drawWinDots(round);
+        // 低 HP 警告ビネット（Task 145）：どちらかの HP が低いと画面端を赤く脈動させる（最前面オーバーレイ）。
+        drawLowHpVignette(p1, p2);
         shapes.end();
 
         // --- パス 4: デバッグ当たり判定枠（有効時のみ。Line で重ね描き。投影は上で設定済み）---
@@ -594,6 +616,21 @@ public class GameRenderer {
         float fillWidth = HP_BAR_WIDTH * ratio;
         // 減少は中央側から：左アンカーは左端固定で右が縮み、右アンカーは右端固定で左が縮む。
         float fillLeft = leftAnchored ? outerLeft : outerLeft + (HP_BAR_WIDTH - fillWidth);
+        // ダメージトレイル（Task 146）：遅延割合 hpTrail を実 HP 割合へ徐々に詰め、減った差分を明るい黄で残す。
+        // 回復 / ラウンド開始（割合が増加）では即追従。被弾（減少）でのみ遅れて、減った量が一瞬尾を引いて見える。
+        int idx = leftAnchored ? 0 : 1;
+        if (ratio >= hpTrail[idx]) {
+            hpTrail[idx] = ratio;
+        } else {
+            hpTrail[idx] = Math.max(ratio, hpTrail[idx] - HP_TRAIL_DRAIN);
+        }
+        if (hpTrail[idx] > ratio) {
+            float trailWidth = HP_BAR_WIDTH * (hpTrail[idx] - ratio);
+            // 失った側（左アンカー＝白フィルの右隣／右アンカー＝白フィルの左隣）に明るい遅延バーを置く。
+            float trailLeft = leftAnchored ? fillLeft + fillWidth : fillLeft - trailWidth;
+            shapes.setColor(HP_TRAIL_COLOR);
+            shapes.rect(trailLeft, barBottom, trailWidth, HP_BAR_HEIGHT);
+        }
         // 回復可能ダメージ（レッドライフ・Task 104）：白 HP の減った側に隣接して赤ゲージを描く（無被弾で白へ戻る分）。
         // 白 HP の上から赤を描く前に背景の上へ赤を置くため、白フィルの前に描画する。
         float recoverWidth = HP_BAR_WIDTH * f.getRecoverableRatio();
@@ -883,6 +920,52 @@ public class GameRenderer {
             float r = MOTE_RADIUS * (0.7f + 0.3f * (float) Math.sin(i * 2.1f));
             shapes.circle(x, y, r);
         }
+    }
+
+    /**
+     * 空の光の帯（sky sweep）を描く（純描画演出。Task 147）。背景をゆっくり横切る淡い光の縦帯で空気感を出す。
+     * 帯の中心 X は描画フレームカウンタ（{@link #auraTick}）で横移動し画面幅で wrap（乱数なし＝決定的）。
+     * 帯は中心が最も明るく左右でフェードする 3 枚の縦 rect 近似。スプライト（パス 2）の前＝背景レイヤ。
+     */
+    private void drawSkySweep() {
+        float cycle = GameConstants.WORLD_WIDTH + SKY_SWEEP_WIDTH;
+        float centerX = (auraTick * SKY_SWEEP_SPEED) % cycle - SKY_SWEEP_WIDTH / 2f;
+        // 中心→端へ 3 段でフェード（中央が最も明るい）。各段は横グラデーションの近似。
+        for (int s = 0; s < 3; s++) {
+            float t = 1f - s / 3f;                 // 1.0, 0.66, 0.33（中央ほど濃い）
+            float w = SKY_SWEEP_WIDTH * (0.34f + s * 0.33f); // 内側ほど細い
+            sweepColor.set(SKY_SWEEP_COLOR.r, SKY_SWEEP_COLOR.g, SKY_SWEEP_COLOR.b, SKY_SWEEP_ALPHA * t / 3f);
+            shapes.setColor(sweepColor);
+            shapes.rect(centerX - w / 2f, GameConstants.GROUND_Y, w, GameConstants.WORLD_HEIGHT - GameConstants.GROUND_Y);
+        }
+    }
+
+    /**
+     * 低 HP 警告ビネット（low-HP vignette）を描く（純描画演出。Task 145）。どちらかのファイターの残量割合が
+     * {@link #LOW_HP_RATIO} 以下のとき、画面の四辺を赤くフェードさせ（中心へ向け透明）脈動させて危機感を出す。
+     * 不透明度は最も低い残量に応じて強まり、{@link #auraTick} の {@code sin} で脈動する（乱数なし＝決定的）。
+     * 表示のみで HP / 当たり判定には干渉しない。最前面寄りのオーバーレイ（パス 3 末尾）で描く。
+     */
+    private void drawLowHpVignette(Fighter p1, Fighter p2) {
+        float lowest = Math.min(p1.getHpRatio(), p2.getHpRatio());
+        if (lowest > LOW_HP_RATIO) {
+            return; // 双方とも十分な残量＝警告なし（従来どおり何も描かない）。
+        }
+        // 残量が低いほど・脈動の山ほど濃く。danger = 0（閾値）→1（瀕死）。
+        float danger = 1f - lowest / LOW_HP_RATIO;
+        float pulse = 0.6f + 0.4f * (float) Math.sin(auraTick * 0.25f);
+        float a = LOW_HP_VIGNETTE_ALPHA * Math.max(0f, Math.min(1f, danger)) * pulse;
+        float w = GameConstants.WORLD_WIDTH;
+        float h = GameConstants.WORLD_HEIGHT;
+        float band = LOW_HP_VIGNETTE_BAND;
+        vignetteColor.set(LOW_HP_VIGNETTE_COLOR.r, LOW_HP_VIGNETTE_COLOR.g, LOW_HP_VIGNETTE_COLOR.b, a);
+        Color edge = vignetteColor;
+        Color clear = Color.CLEAR;
+        // rect(x,y,w,h, c_bl,c_br,c_tr,c_tl)：辺で edge（赤）→内側で clear（透明）にグラデーション。
+        shapes.rect(0f, 0f, band, h, edge, clear, clear, edge);                 // 左
+        shapes.rect(w - band, 0f, band, h, clear, edge, edge, clear);           // 右
+        shapes.rect(0f, 0f, w, band, edge, edge, clear, clear);                 // 下
+        shapes.rect(0f, h - band, w, band, clear, clear, edge, edge);           // 上
     }
 
     /**
