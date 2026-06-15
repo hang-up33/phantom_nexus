@@ -995,6 +995,7 @@ public class GameRenderer {
                 case "hills":     drawLayerHills(baseY, h, w); break;
                 case "pillars":   drawLayerPillars(baseY, h, count, spacing, phase); break;
                 case "clouds":    drawLayerClouds(baseY, h, count, w, layer.getDrift()); break;
+                case "snow":      drawLayerSnow(baseY, h, count, w, layer.getDrift()); break;
                 case "band":
                 default:          shapes.rect(0f, baseY, w, h); break; // 帯（遠景の地形/水平線）・未対応も帯に
             }
@@ -1051,6 +1052,32 @@ public class GameRenderer {
             shapes.circle(x + s * 0.9f, y - s * 0.1f, s * 0.72f);
             shapes.circle(x + s * 0.3f, y + s * 0.35f, s * 0.6f);
             shapes.circle(x - s * 0.4f, y + s * 0.3f, s * 0.55f);
+        }
+    }
+
+    /**
+     * 降る情景（雪・桜の花びら）。Task 156。`count` 個の粒を上端から `baseY..baseY+h` の帯へ落とし、
+     * 落下位置は `auraTick` で循環させ画面端で wrap させる（横位置は `sin` で左右に揺らぐ＝雪/花びらの漂い）。
+     * 落下速度は `drift` を基準に粒ごとに散らす。色は JSON 指定（白＝雪／桜色＝花びら）。
+     * 円で描く（ソフトウェア GL でも正常合成＝全画面ソリッド rect の罠を回避）。乱数なし・決定的。
+     */
+    private void drawLayerSnow(float baseY, float h, int count, float w, float drift) {
+        float span = h <= 0f ? GameConstants.WORLD_HEIGHT : h; // 落下帯の高さ
+        float top = baseY + span;
+        float baseSpeed = drift <= 0f ? 0.6f : drift; // 落下基準速度（px/frame）
+        for (int i = 0; i < count; i++) {
+            float speed = baseSpeed * (0.6f + 0.5f * Math.abs((float) Math.sin(i * 1.7f)));
+            // 上端 top から下へ落ち span で wrap（粒ごとに位相をずらす）。
+            float fall = (auraTick * speed + i * (span / count)) % span;
+            float y = top - fall;
+            // 横位置：均等配置＋ゆっくりした左右の揺らぎ。
+            float sway = 18f * (float) Math.sin(auraTick * 0.03f + i * 1.3f);
+            float x0 = (i * (w / count) + sway) % w;
+            if (x0 < 0f) {
+                x0 += w;
+            }
+            float r = 2.5f + 2f * Math.abs((float) Math.sin(i * 2.1f)); // 粒のサイズ差
+            shapes.circle(x0, y, r);
         }
     }
 
