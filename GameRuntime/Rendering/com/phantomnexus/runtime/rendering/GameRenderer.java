@@ -220,6 +220,7 @@ public class GameRenderer {
     private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
     private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
     private static final float TITLE_BAR_H = 200f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160）
+    private static final float CHARSEL_BAR_H = 200f; // キャラ選択下部の操作バー高さ（不透明・グリッド4行＋状況・Task 161）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
@@ -1744,24 +1745,68 @@ public class GameRenderer {
      * キャラクター選択画面を描く（Task 117）。ロスターをグリッド表示し、カーソル（黄）・P1 確定（シアン）・P2 確定（橙）を
      * 色で区別する。上部に選択中プレイヤーと確定済みの選択を表示する。独立した clear + テキストパス。
      */
-    public void renderCharacterSelect(String[] names, int cursor, int p1, int p2, boolean p1Locked, int cols) {
+    public void renderCharacterSelect(Character[] defs, String[] names, int cursor, int p1, int p2,
+                                      boolean p1Locked, int cols, Stage backdrop) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
+        auraTick = (auraTick + 1) % 36000;
+
+        // --- 背景（実ステージ）＋下部の不透明操作バー（Task 161・タイトル/ステージ選択と同じ作法）---
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (backdrop != null) {
+            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            drawStageLayers(false);
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+            drawStageLayers(true);
+        }
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, CHARSEL_BAR_H);
+        shapes.end();
+
+        // --- スプライト立ち絵（カーソル中央＝大・確定 P1 左/P2 右＝小）とテキスト ---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
+        // 確定済みの立ち絵（左右の脇）。
+        if (defs != null) {
+            // 確定済みは本来の色のまま（位置＝左 P1/右 P2 と名前ラベルの色で識別）。
+            if (p1 >= 0 && p1 < defs.length) {
+                drawCharPortrait(defs[p1], 150f, CHARSEL_BAR_H + 8f, 300f, null, false);
+            }
+            if (p2 >= 0 && p2 < defs.length) {
+                drawCharPortrait(defs[p2], GameConstants.WORLD_WIDTH - 150f, CHARSEL_BAR_H + 8f, 300f, null, true);
+            }
+            // カーソル中の立ち絵（中央・大きめ）。選択中プレイヤーに応じた向き（P1=右/P2=左）。
+            if (cursor >= 0 && cursor < defs.length) {
+                drawCharPortrait(defs[cursor], GameConstants.WORLD_WIDTH / 2f, CHARSEL_BAR_H + 8f, 380f,
+                        null, p1Locked);
+            }
+        }
+        // タイトル＋選択中プレイヤーの案内。
         font.getData().setScale(1.6f);
         font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("CHARACTER SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
+        drawCentered("CHARACTER SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 40f);
         font.getData().setScale(1.1f);
         font.setColor(p1Locked ? CHARSEL_P2_COLOR : CHARSEL_P1_COLOR);
         drawCentered(p1Locked ? "Player 2 : choose your fighter" : "Player 1 : choose your fighter",
-                GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 130f);
-        font.getData().setScale(0.95f);
+                GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 90f);
+        // カーソル中キャラ名（中央立ち絵の足元上＝バー直上）。
+        font.getData().setScale(1.2f);
+        font.setColor(Color.YELLOW);
+        if (cursor >= 0 && cursor < names.length) {
+            drawCentered(names[cursor], GameConstants.WORLD_WIDTH / 2f, CHARSEL_BAR_H + 28f);
+        }
+
+        // --- 下部バー内：ロスター名グリッド＋確定状況＋操作説明 ---
+        font.getData().setScale(0.9f);
         float gridLeft = 150f;
-        float gridTop = 460f;
+        float gridTop = CHARSEL_BAR_H - 26f;
         float cellW = 165f;
-        float rowH = 64f;
+        float rowH = 36f;
         for (int i = 0; i < names.length; i++) {
             int col = i % cols;
             int row = i / cols;
@@ -1783,15 +1828,45 @@ public class GameRenderer {
             font.setColor(c);
             drawCentered(label, cx, cy);
         }
-        font.getData().setScale(1.0f);
+        font.getData().setScale(0.9f);
         font.setColor(CHARSEL_P1_COLOR);
-        drawCentered("P1: " + (p1 >= 0 ? names[p1] : "..."), GameConstants.WORLD_WIDTH / 2f - 180f, 150f);
+        drawCentered("P1: " + (p1 >= 0 ? names[p1] : "..."), GameConstants.WORLD_WIDTH / 2f - 220f, 30f);
         font.setColor(CHARSEL_P2_COLOR);
-        drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 180f, 150f);
+        drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 220f, 30f);
         font.setColor(Color.WHITE);
-        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
+        drawCentered("ARROWS / WASD : move    ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 30f);
         font.getData().setScale(1.0f);
         batch.end();
+    }
+
+    /**
+     * 選択画面のキャラ立ち絵を描く（Task 161）。アイドル先頭フレームを `targetH` 高さで中心 `centerX`・足元 `footY` に描く。
+     * `faceLeft` で左向き（P2 側）に反転。現状は P1/P2 を「位置（左/右）＋名前ラベルの色」で識別するため `tint` には
+     * `null` を渡し本来の色のまま描く（`tint` 非 null なら乗算ティントを掛ける将来用フック）。スプライト未読込なら読み込む。
+     * スプライト未指定（region==null）のキャラは描かない（名前のみで識別＝後方互換）。
+     */
+    private void drawCharPortrait(Character def, float centerX, float footY, float targetH, Color tint, boolean faceLeft) {
+        if (def == null) {
+            return;
+        }
+        sprites.ensureLoaded(def);
+        TextureRegion region = sprites.region(def, AnimationState.IDLE, 0);
+        if (region == null) {
+            return;
+        }
+        if (region.isFlipX() != faceLeft) {
+            region.flip(true, false);
+        }
+        float scale = targetH / def.getHeight();
+        float w = def.getWidth() * scale;
+        if (tint != null) {
+            tintColor.set(Color.WHITE).mul(tint);
+            batch.setColor(tintColor);
+        }
+        batch.draw(region, centerX - w / 2f, footY, w, targetH);
+        if (tint != null) {
+            batch.setColor(Color.WHITE);
+        }
     }
 
     /**
