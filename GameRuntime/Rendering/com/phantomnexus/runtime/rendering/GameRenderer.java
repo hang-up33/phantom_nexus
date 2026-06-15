@@ -92,6 +92,17 @@ public class GameRenderer {
     private static final float METER_AURA_HEIGHT = 20f;        // 光輪の縦径（楕円の薄さ・基準）
     private static final float METER_AURA_PULSE = 0.22f;       // パルスで増減する割合（±）
     private static final float METER_AURA_PERIOD = 36f;        // パルス周期（描画フレーム）
+    // 背景の浮遊パーティクル（ambient motes・Task 139）。空気感を出す微かな光の粒（純描画・乱数なし＝決定的）。
+    private static final Color MOTE_COLOR = new Color(0.78f, 0.86f, 1f, 0.12f); // 淡い水色・低不透明度
+    private static final int MOTE_COUNT = 30;       // 粒の数
+    private static final float MOTE_RADIUS = 3.5f;  // 粒の基準半径（px）
+    private static final float MOTE_DRIFT = 26f;    // 横揺れの振幅（px）
+    private static final float MOTE_RISE = 0.35f;   // 1 描画フレームあたりの上昇量（px）
+    private static final float MOTE_DRIFT_SPEED = 0.018f; // 横揺れの角速度
+    // 残り時間警告（low time・Task 141）。残りが少ないとタイマーを赤く脈動させて緊張感を出す。
+    private static final int LOW_TIME_THRESHOLD = 10;     // この秒数以下で警告点滅
+    private static final Color LOW_TIME_COLOR = new Color(0.98f, 0.26f, 0.22f, 1f); // 警告の赤
+    private static final float LOW_TIME_PULSE_SPEED = 0.35f; // 点滅の角速度
     // ダッシュ残像（motion trail・Task 133）。ダッシュ中のファイターの直近位置にスプライトの寒色ゴーストを
     // 重ね、移動の勢い・残像感を出す純描画演出。位置はファイターの実位置のスナップショット＝乱数なし＝決定的。
     private static final int AFTERIMAGE_MAX = 6;                 // 残像の最大枚数（リングバッファ容量）
@@ -206,6 +217,8 @@ public class GameRenderer {
     // メーター満タンオーラ（Task 137）：パルス用の描画フレームカウンタと毎フレーム再確保を避ける作業色。
     private int auraTick;
     private final Color auraColor = new Color();
+    // 残り時間警告の脈動色（毎フレーム再確保を避ける作業色。Task 141）。
+    private final Color timerColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -346,6 +359,8 @@ public class GameRenderer {
         auraTick = (auraTick + 1) % 36000;
         drawMeterAura(p1);
         drawMeterAura(p2);
+        // 背景の浮遊パーティクル（Task 139）：空気感を出す微かな光の粒。スプライト（パス 2）より後ろ＝背景。
+        drawAmbientMotes();
         shapes.end();
 
         // ミラーマッチ（同キャラ対戦）なら P2 にパレットスワップを適用して識別する（Task 62）。
@@ -399,9 +414,20 @@ public class GameRenderer {
         batch.begin();
         font.getData().setScale(1.5f);
         drawCentered(GameConstants.WINDOW_TITLE, GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 30f);
-        // ラウンドタイマー（HUD 中央上、HP バー帯の高さ）。
-        drawCentered(String.valueOf(round.getRemainingSeconds()),
+        // ラウンドタイマー（HUD 中央上、HP バー帯の高さ）。残り時間が少ないと赤く脈動して警告する（Task 141）。
+        int secs = round.getRemainingSeconds();
+        boolean lowTime = !round.isFinished() && !round.isBetweenRounds() && secs <= LOW_TIME_THRESHOLD;
+        if (lowTime) {
+            float pulse = 0.5f + 0.5f * (float) Math.sin(auraTick * LOW_TIME_PULSE_SPEED);
+            timerColor.set(LOW_TIME_COLOR.r, LOW_TIME_COLOR.g, LOW_TIME_COLOR.b, 1f).lerp(Color.WHITE, 1f - pulse);
+            font.setColor(timerColor);
+            font.getData().setScale(1.8f); // 警告時は少し大きく
+        }
+        drawCentered(String.valueOf(secs),
                 GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - HP_BAR_TOP + 4f);
+        if (lowTime) {
+            font.setColor(Color.WHITE);
+        }
         font.getData().setScale(1.0f);
         drawHpLabels(p1, true);
         drawHpLabels(p2, false);
@@ -826,6 +852,33 @@ public class GameRenderer {
         auraColor.a = METER_AURA_COLOR.a * pulse;
         shapes.setColor(auraColor);
         shapes.ellipse(f.getX() - w / 2f, GameConstants.GROUND_Y - h / 2f, w, h);
+    }
+
+    /**
+     * 背景の浮遊パーティクル（ambient motes）を描く（純描画演出。Task 139）。空気感・奥行きを出すため、
+     * 空（地面より上）の領域に微かな光の粒をゆっくり上昇・横揺れさせる。各粒の位置は粒番号と描画フレーム
+     * カウンタ（{@link #auraTick}）から決まる固定計算＝**乱数なし＝決定的**（入力リプレイと両立）。
+     * スプライト描画（パス 2）の前に呼ぶ＝キャラの後ろの背景レイヤ。位置・当たり判定には一切干渉しない。
+     */
+    private void drawAmbientMotes() {
+        float top = GameConstants.WORLD_HEIGHT;
+        float bottom = GameConstants.GROUND_Y + 20f; // 地面のすぐ上から
+        float span = top - bottom;
+        if (span <= 0f) {
+            return;
+        }
+        shapes.setColor(MOTE_COLOR);
+        for (int i = 0; i < MOTE_COUNT; i++) {
+            // 横位置：粒ごとに散らした基準 X に sin の横揺れを足す（粒番号で位相をずらす）。
+            float baseX = (i * 977) % (int) GameConstants.WORLD_WIDTH;
+            float x = baseX + MOTE_DRIFT * (float) Math.sin(auraTick * MOTE_DRIFT_SPEED + i * 1.3f);
+            // 縦位置：粒ごとの初期高さ＋上昇量を span で wrap（下から上へ流れて天井で巻き戻る）。
+            float rise = (i * 137f + auraTick * MOTE_RISE) % span;
+            float y = bottom + rise;
+            // 半径：粒番号でわずかに変える（一様にしない）。
+            float r = MOTE_RADIUS * (0.7f + 0.3f * (float) Math.sin(i * 2.1f));
+            shapes.circle(x, y, r);
+        }
     }
 
     /**

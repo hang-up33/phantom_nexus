@@ -71,6 +71,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
     // 着地検出用：前フレームの接地状態（false→true の遷移＝着地で砂煙を出す。Task 131）。
     private boolean p1WasGrounded = true;
     private boolean p2WasGrounded = true;
+    // ダッシュ開始検出用：前フレームのダッシュ状態（false→true の遷移＝地上ダッシュ開始で砂煙を出す。Task 140）。
+    private boolean p1WasDashing;
+    private boolean p2WasDashing;
     private final AiController p2Ai = new AiController();
     private boolean p2AiEnabled = true; // P2 を AI 制御にするか（F2 でトグル。Task 21）
     private String controlsHint;
@@ -551,6 +554,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             detectTakeoff(fighter2, p2WasGrounded);
             p1WasGrounded = fighter1.isGrounded();
             p2WasGrounded = fighter2.isGrounded();
+            // ダッシュ開始の砂煙（Task 140）：地上ダッシュ開始（false→true）の足元に土埃を出す。
+            detectDashStart(fighter1, p1WasDashing);
+            detectDashStart(fighter2, p2WasDashing);
+            p1WasDashing = fighter1.isDashing();
+            p2WasDashing = fighter2.isDashing();
             // 押し合い解消（pushbox の重なりを左右へ分離）。
             CollisionSystem.resolvePush(fighter1, fighter2);
             // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
@@ -602,6 +610,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         landingDusts.clear(); // 着地の砂煙（Task 131）もラウンド間でクリア
         p1WasGrounded = true;  // リセット直後は両者接地＝次フレームで誤検出しないよう接地で初期化
         p2WasGrounded = true;
+        p1WasDashing = false;  // リセット直後は両者非ダッシュ（Task 140）
+        p2WasDashing = false;
         hitstopFrames = 0; // ヒットストップ（Task 86）もラウンド間でクリア
         superFlashFrames = 0; // スーパーフラッシュ（Task 108）もラウンド間でクリア
         koSlowFrames = 0; // KO スローモーション（Task 115）もラウンド間でクリア
@@ -671,6 +681,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void detectTakeoff(Fighter f, boolean wasGrounded) {
         if (wasGrounded && !f.isGrounded()) {
+            landingDusts.add(new LandingDust(f.getX(), GameConstants.GROUND_Y, GameConstants.LANDING_DUST_FRAMES));
+        }
+    }
+
+    /**
+     * ダッシュ開始（非ダッシュ→ダッシュの遷移）を検出し、足元に砂煙を 1 件生成する（Task 140）。
+     * 地上ダッシュ（前ステップ / バックステップ）開始時のみ（空中ダッシュは滞空なので地上の砂煙を出さない）。
+     * 着地（Task 131）/ 踏み切り（Task 135）と同じ {@link LandingDust} を流用する純演出・乱数なし。
+     */
+    private void detectDashStart(Fighter f, boolean wasDashing) {
+        if (!wasDashing && f.isDashing() && f.isGrounded()) {
             landingDusts.add(new LandingDust(f.getX(), GameConstants.GROUND_Y, GameConstants.LANDING_DUST_FRAMES));
         }
     }
