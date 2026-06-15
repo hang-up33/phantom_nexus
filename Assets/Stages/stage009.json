@@ -3,5 +3,11 @@
   "name": "Aurora Tundra",
   "skyTop": [0.03, 0.06, 0.12],
   "skyBottom": [0.16, 0.48, 0.42],
-  "groundColor": [0.74, 0.82, 0.90]
+  "groundColor": [0.74, 0.82, 0.90],
+  "layers": [
+    { "shape": "band", "color": [0.22, 0.72, 0.56], "baseY": 250, "height": 70, "count": 1, "alpha": 0.28 },
+    { "shape": "peaks", "color": [0.30, 0.50, 0.52], "baseY": 120, "height": 210, "count": 6, "alpha": 0.55 },
+    { "shape": "peaks", "color": [0.42, 0.52, 0.64], "baseY": 120, "height": 150, "count": 9, "alpha": 0.95 },
+    { "shape": "hills", "color": [0.82, 0.88, 0.94], "baseY": 120, "height": 54, "count": 1, "alpha": 1.0 }
+  ]
 }
