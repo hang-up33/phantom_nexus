@@ -217,6 +217,8 @@ public class GameRenderer {
     private static final String STATE_LABEL_SUPER_SUFFIX = " [SUPER]"; // スーパー必殺技中の付加表示（Task 108）
     private static final Color MOVE_LIST_COLOR = new Color(0.95f, 0.95f, 0.78f, 1f); // コマンド表 HUD の文字色（Task 112）
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
+    private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
+    private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
@@ -1771,23 +1773,52 @@ public class GameRenderer {
      * ステージ選択画面を描く（Task 128）。全ステージ名をグリッド表示し、カーソル（黄）を強調する。
      * キャラ選択（Task 117）と同じグリッド作法。確定で選んだステージが対戦の背景になる。独立した clear + テキストパス。
      */
-    public void renderStageSelect(String[] names, int cursor, int cols) {
+    public void renderStageSelect(Stage preview, String[] names, int cursor, int cols) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
+
+        // --- 選択中ステージのライブプレビュー（Task 159）---
+        // 実際のバトル背景（空グラデ + 多層シルエット + 地面 + 前景）を全画面に描く。カーソル移動で背景が切り替わる。
+        if (preview != null) {
+            setStage(preview); // skyTop/skyBottom/groundColor/stageLayers をプレビュー対象へ（バトル開始時に再設定されるので一時上書きで安全）
+        }
+        auraTick = (auraTick + 1) % 36000; // ドリフト/情景アニメ用の描画カウンタ（renderScene 同様）
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (preview != null) {
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            drawStageLayers(false); // 背景レイヤー
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+            drawStageLayers(true);  // 前景レイヤー（Task 158）
+        } else {
+            shapes.setColor(0.05f, 0.05f, 0.10f, 1f);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+        }
+        // 下部の操作バー（不透明 rect＝ソフトウェア GL でも安全。テキストの可読性確保）。
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, STAGE_SELECT_BAR_H);
+        shapes.end();
+
+        // --- テキスト（上部タイトル + 下部バー内のリスト/操作説明）---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
         font.getData().setScale(1.6f);
         font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("STAGE SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
-        font.getData().setScale(1.1f);
+        drawCentered("STAGE SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 40f);
+        // 選択中ステージ名を大きくプレビューの上に重ねる。
+        font.getData().setScale(1.3f);
         font.setColor(Color.WHITE);
-        drawCentered("choose your stage", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 130f);
-        font.getData().setScale(0.95f);
+        drawCentered(names[cursor], GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 95f);
+
+        // 下部バー内：ステージ名グリッド（カーソルは黄色）。
+        font.getData().setScale(0.9f);
         float gridLeft = 90f;
-        float gridTop = 420f;
+        float gridTop = STAGE_SELECT_BAR_H - 26f;
         float cellW = 220f;
-        float rowH = 80f;
+        float rowH = 34f;
         for (int i = 0; i < names.length; i++) {
             int col = i % cols;
             int row = i / cols;
@@ -1797,11 +1828,9 @@ public class GameRenderer {
             String label = i == cursor ? "[" + names[i] + "]" : names[i];
             drawCentered(label, cx, cy);
         }
-        font.getData().setScale(1.0f);
-        font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("Stage: " + names[cursor], GameConstants.WORLD_WIDTH / 2f, 150f);
+        font.getData().setScale(0.85f);
         font.setColor(Color.WHITE);
-        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
+        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 18f);
         font.getData().setScale(1.0f);
         batch.end();
     }
