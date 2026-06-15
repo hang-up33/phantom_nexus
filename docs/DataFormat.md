@@ -351,13 +351,14 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
-| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）/ `clouds`（たなびく雲＝`drift` で横流れ・Task 155）/ `snow`（降る情景＝雪/花びら・上端から落下＋左右の揺らぎ・`drift`=落下速度・色で雪/桜を区別・Task 156）/ `embers`（立ち昇る火の粉・`baseY` から上昇＋揺らぎ＋消え際の縮小・`drift`=上昇速度・Task 157）。未対応値は `band` 扱い |
+| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）/ `clouds`（たなびく雲＝`drift` で横流れ・Task 155）/ `snow`（降る情景＝雪/花びら・上端から落下＋左右の揺らぎ・`drift`=落下速度・色で雪/桜を区別・Task 156）/ `embers`（立ち昇る火の粉・`baseY` から上昇＋揺らぎ＋消え際の縮小・`drift`=上昇速度・Task 157）/ `frame`（舞台額縁＝左右端の縦柱＋上部の梁・中央は空けるので `front:true` でもキャラを隠さない・Task 158）。未対応値は `band` 扱い |
 | `color` | float[3] | （必須相当） | レイヤー色 RGB。未指定だと描画スキップ。大気遠近のため奥ほど空色に近づけ淡くするとよい |
 | `baseY` | float | `120` | シルエット下端 Y（既定は地平線＝地面の高さ相当） |
 | `height` | float | `120` | シルエット高さ（px） |
 | `count` | int | `8` | 要素数（ビル棟数 / 山数 / 柱数。`hills` は無関係） |
 | `alpha` | float | `1.0` | 不透明度（0..1）。1 未満で奥のレイヤーへ溶け込ませる |
 | `drift` | float | `0` | 水平の自動ドリフト量（px/描画フレーム・要素間隔で wrap）。雲・もや等の演出用（0 で静止） |
+| `front` | boolean | `false` | 前景フラグ（Task 158）。`true` でキャラクターより**手前**に描き奥行き（被写界深度）を出す。既定 `false`＝背景（空と地面の間）。`frame` シェイプと組むと舞台額縁になる |
 
 ---
 
@@ -368,6 +369,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 158) `StageLayer` に **前景フラグ `front`**（既定 false）と **`frame` シェイプ（舞台額縁）** を追加。`front:true` のレイヤーはキャラの手前（パス 2.5＝スプライト後・HUD 前）に描き奥行き（被写界深度）を出す。`frame` は左右端の縦柱＋上部の梁で中央を空けるためキャラを隠さない。`GameRenderer.drawStageLayers(boolean front)`／`drawLayerFrame`。stage005 Neon Alley・stage008 Abyssal Cathedral に前景額縁を追加。乱数なし・決定的・後方互換（front 未指定＝従来どおり背景）。
 - (Task 157) `StageLayer` の `shape` に **`embers`（立ち昇る火の粉）** を追加。`snow`（落下）と対で、粒を `baseY` から上昇させ `baseY+h` で wrap・横は `sin` で揺らぎ・上昇につれ縮小（消え際）。`drift`=上昇速度。`GameRenderer.drawLayerEmbers`。stage007 Volcanic Rift に追加。乱数なし・決定的・後方互換。
 - (Task 156) `StageLayer` の `shape` に **`snow`（降る情景＝雪/花びら）** を追加。`count` 個の粒を上端から落とし `auraTick` で循環＋画面端 wrap・横位置は `sin` で左右に揺らぎ・`drift`=落下速度。色で雪（白）/桜の花びら（桜色）を区別。`GameRenderer.drawLayerSnow`。stage004 Frozen Peak・stage009 Aurora Tundra に雪、stage006 Sakura Court に花びらを追加。乱数なし・決定的・後方互換。
 - (Task 155) `StageLayer` の `shape` に **`clouds`（たなびく雲）** を追加。重なる円のクラスタを `drift × auraTick` で横に流し画面幅で wrap させる（円はソフトウェア GL でも正常合成＝全画面ソリッド rect の罠を回避）。`GameRenderer.drawLayerClouds`。空のあるステージ（stage002/004/006）に雲レイヤーを追加。乱数なし・決定的・後方互換（JSON 形式は不変）。
