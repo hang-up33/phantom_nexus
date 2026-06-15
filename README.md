@@ -242,6 +242,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 152 | 自然系 3 ステージのレイヤー再設計（stage002 Verdant Glade=多層の森／stage003 Crimson Dusk=夕暮れの山脈／stage004 Frozen Peak=雪山・JSON のみ・後方互換） | ✅ 完了 |
 | 153 | 都市/和風/火山 3 ステージのレイヤー再設計（stage005 Neon Alley=多層ネオン街／stage006 Sakura Court=寺院の柱列＋桜／stage007 Volcanic Rift=溶岩の地溝・JSON のみ・後方互換） | ✅ 完了 |
 | 154 | 幻想系 3 ステージのレイヤー再設計（stage008 Abyssal Cathedral=大聖堂の柱列／stage009 Aurora Tundra=オーロラの雪原／stage010 Starlit Shrine=星空の社・**全10ステージ多層背景化完了**・JSON のみ・後方互換） | ✅ 完了 |
+| 155 | ステージのたなびく雲（ambient clouds・`clouds` シェイプ＝重なる円のクラスタを `drift` で横流れ・空のあるステージに追加・決定的・後方互換） | ✅ 完了 |
 | ＋ | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
