@@ -8,6 +8,7 @@
     { "shape": "band", "color": [0.22, 0.72, 0.56], "baseY": 250, "height": 70, "count": 1, "alpha": 0.28 },
     { "shape": "peaks", "color": [0.30, 0.50, 0.52], "baseY": 120, "height": 210, "count": 6, "alpha": 0.55 },
     { "shape": "peaks", "color": [0.42, 0.52, 0.64], "baseY": 120, "height": 150, "count": 9, "alpha": 0.95 },
-    { "shape": "hills", "color": [0.82, 0.88, 0.94], "baseY": 120, "height": 54, "count": 1, "alpha": 1.0 }
+    { "shape": "hills", "color": [0.82, 0.88, 0.94], "baseY": 120, "height": 54, "count": 1, "alpha": 1.0 },
+    { "shape": "snow", "color": [0.96, 0.99, 1.0], "baseY": 120, "height": 560, "count": 30, "alpha": 0.8, "drift": 0.7 }
   ]
 }
