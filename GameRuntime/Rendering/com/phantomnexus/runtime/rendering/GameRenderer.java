@@ -114,6 +114,7 @@ public class GameRenderer {
     // ラウンド開始イントロ（Task 42）："ROUND N"=白系 / "FIGHT!"=赤系で開始を強調。
     private static final Color ROUND_INTRO_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
     private static final Color FIGHT_FLASH_COLOR = new Color(0.98f, 0.30f, 0.26f, 1f);
+    private static final float ROUND_INTRO_ZOOM = 0.82f; // ラウンド開始イントロの寄り倍率（<1 で寄り・Task 138）
     private static final int SPARK_SPOKES = 8;        // 放射スポーク本数
     private static final float SPARK_CORE_RADIUS = 9f; // 中心コア（縮小していく）の初期半径
     private static final float SPARK_REACH = 34f;      // スポーク先端が到達する最大距離
@@ -267,6 +268,24 @@ public class GameRenderer {
     /** カメラを画面中心へ据える（hit shake のオフセットを持ち越さない。タイトル / キャラ / ステージ選択で呼ぶ。Task 132）。 */
     private void centerCamera() {
         camera.position.set(GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT / 2f, 0f);
+        camera.zoom = 1f; // ラウンド開始ズーム（Task 138）を非バトル画面へ持ち越さない。
+    }
+
+    /**
+     * ラウンド開始イントロのズームイン演出（Task 138）。"ROUND N" → "FIGHT!" の入力ロック中はカメラを
+     * わずかに寄せ（{@code zoom < 1}）、イントロ経過に従って通常倍率（1.0）へ戻す＝開始の勢いを出す。
+     * イントロ中でなければ常に等倍。撮影モードでは既定でイントロがスキップ（{@code intro=true} 指定時のみ有効）
+     * なので、既存スクショレシピは不変（イントロ演出自体と同じ後方互換）。純描画でシミュレーションに非干渉。
+     */
+    private void applyRoundIntroZoom(RoundManager round) {
+        float zoom = 1f;
+        if (round.isRoundIntro()) {
+            // progress：イントロ開始（残り = 総数）で 0、終了直前で 1。残りフレームは ROUND_INTRO_FRAMES が総数。
+            float progress = 1f - round.getIntroCountdown() / (float) GameConstants.ROUND_INTRO_FRAMES;
+            progress = Math.max(0f, Math.min(1f, progress));
+            zoom = ROUND_INTRO_ZOOM + (1f - ROUND_INTRO_ZOOM) * progress; // 寄り → 等倍へ
+        }
+        camera.zoom = zoom;
     }
 
     private static void setColor(Color target, float[] rgb) {
@@ -297,6 +316,8 @@ public class GameRenderer {
         // 画面の微振動（hit shake・Task 132）：残りフレームから決定的に（乱数なし）カメラを中心からずらす。
         // 振幅は減衰し、左右上下を符号反転で揺らす。シミュレーションには非干渉＝リプレイ/スクショレシピ不変。
         applyShakeToCamera();
+        // ラウンド開始イントロのズームイン演出（Task 138）："ROUND N"/"FIGHT!" 中はカメラを寄せ、開始で通常へ戻す。
+        applyRoundIntroZoom(round);
         camera.update();
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
         sprites.ensureLoaded(p1.getDef());
