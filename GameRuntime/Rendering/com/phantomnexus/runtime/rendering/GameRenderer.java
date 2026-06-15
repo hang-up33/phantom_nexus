@@ -996,6 +996,7 @@ public class GameRenderer {
                 case "pillars":   drawLayerPillars(baseY, h, count, spacing, phase); break;
                 case "clouds":    drawLayerClouds(baseY, h, count, w, layer.getDrift()); break;
                 case "snow":      drawLayerSnow(baseY, h, count, w, layer.getDrift()); break;
+                case "embers":    drawLayerEmbers(baseY, h, count, w, layer.getDrift()); break;
                 case "band":
                 default:          shapes.rect(0f, baseY, w, h); break; // 帯（遠景の地形/水平線）・未対応も帯に
             }
@@ -1078,6 +1079,30 @@ public class GameRenderer {
             }
             float r = 2.5f + 2f * Math.abs((float) Math.sin(i * 2.1f)); // 粒のサイズ差
             shapes.circle(x0, y, r);
+        }
+    }
+
+    /**
+     * 立ち昇る火の粉（embers）。Task 157。`snow`（落下）と対で、粒を `baseY` から上へ昇らせ `baseY+h` で wrap。
+     * 横位置は `sin` で揺らぎ、上昇につれて粒を小さく＝薄くして消え際を表現する。色は JSON 指定（火＝橙）。
+     * `drift`=上昇速度。円描画（ソフトウェア GL でも正常合成）。乱数なし・決定的。
+     */
+    private void drawLayerEmbers(float baseY, float h, int count, float w, float drift) {
+        float span = h <= 0f ? GameConstants.WORLD_HEIGHT : h; // 上昇帯の高さ
+        float baseSpeed = drift <= 0f ? 0.7f : drift; // 上昇基準速度（px/frame）
+        for (int i = 0; i < count; i++) {
+            float speed = baseSpeed * (0.6f + 0.5f * Math.abs((float) Math.sin(i * 1.5f)));
+            // baseY から上へ昇り span で wrap（粒ごとに位相をずらす）。
+            float rise = (auraTick * speed + i * (span / count)) % span;
+            float y = baseY + rise;
+            float life = rise / span; // 0（生成・下）→1（消滅・上）
+            float sway = 14f * (float) Math.sin(auraTick * 0.05f + i * 1.7f);
+            float x0 = (i * (w / count) + sway) % w;
+            if (x0 < 0f) {
+                x0 += w;
+            }
+            float r = (2.5f + 2f * Math.abs((float) Math.sin(i * 2.3f))) * (1f - 0.6f * life); // 上昇で縮小
+            shapes.circle(x0, y, Math.max(0.8f, r));
         }
     }
 
