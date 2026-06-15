@@ -158,6 +158,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 撮影時は初期必殺技ゲージをオーバーライド可能（EX 必殺技の見え方を貯め直しなしで撮る用。Task 44）。
         fighter1.setMeter(screenshot.initialMeter(1, 0f));
         fighter2.setMeter(screenshot.initialMeter(2, 0f));
+        // 撮影時は初期 HP もオーバーライド可能（低 HP 警告ビネット・KO 演出・勝者グローを削り合わず撮る用。Task 145〜）。
+        fighter1.setCurrentHp(screenshot.initialHp(1, fighter1.getMaxHp()));
+        fighter2.setCurrentHp(screenshot.initialHp(2, fighter2.getMaxHp()));
         // アニメーション状態機械（Task 9）。各ファイターの実行時状態から idle/walk/jump を導出する。
         animator1 = new FighterAnimator();
         animator2 = new FighterAnimator();

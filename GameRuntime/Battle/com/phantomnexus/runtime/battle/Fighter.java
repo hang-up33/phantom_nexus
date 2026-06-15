@@ -1241,6 +1241,11 @@ public class Fighter {
         superMeter = Math.max(0f, Math.min(GameConstants.SUPER_METER_MAX, value));
     }
 
+    /** 撮影用に現在 HP を直接設定する（1〜最大 HP にクランプ）。低 HP 演出を削り合わず撮るのに使う（Task 145〜）。 */
+    public void setCurrentHp(int value) {
+        currentHp = Math.max(1, Math.min(def.getHp(), value));
+    }
+
     /** 現在の必殺技ゲージ量（0〜{@link GameConstants#SUPER_METER_MAX}）。HUD ゲージ表示に使用（Task 44）。 */
     public float getSuperMeter() {
         return superMeter;

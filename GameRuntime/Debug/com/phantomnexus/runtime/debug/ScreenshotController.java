@@ -264,6 +264,20 @@ public final class ScreenshotController {
     }
 
     /**
+     * 指定プレイヤーの初期 HP の撮影用オーバーライド（Task 145〜）。撮影モードで {@code p1hp=<値>} /
+     * {@code p2hp=<値>} 指定時のみ返す（未指定 / 通常起動は {@code fallback}）。低 HP 警告ビネット・KO 演出・
+     * 勝者グロー等を、削り合わずに撮るために使う（例：{@code -x p2hp=120}）。
+     */
+    public int initialHp(int player, int fallback) {
+        if (!isEnabled()) {
+            return fallback;
+        }
+        String key = player == 2 ? "phantom.screenshot.p2hp" : "phantom.screenshot.p1hp";
+        Integer v = parsePositiveIntOrNull(System.getProperty(key));
+        return v != null ? v : fallback;
+    }
+
+    /**
      * トレーニングモード（Task 90）を起動時から有効にするか。撮影モードで {@code training=true} 指定時のみ。
      * 通常起動・未指定時は {@code fallback}（F4 トグルの初期値）。HP 無限のダミー相手でコンボ練習の見え方を撮る用。
      */
