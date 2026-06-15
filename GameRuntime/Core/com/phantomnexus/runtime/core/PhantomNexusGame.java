@@ -118,6 +118,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** ステージ選択グリッドの列数（Task 128）。 */
     private static final int STAGE_COLS = 5;
     private String[] stageNames;    // ステージの表示名（遅延ロード・stageselect に入ったとき構築・Task 128）
+    private Stage[] stagePreviews;  // ステージ選択のライブプレビュー用にロード済み Stage をキャッシュ（Task 159）
     private int stageCursor;        // ステージ選択カーソルの現在 index（Task 128）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
@@ -351,8 +352,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             return;
         }
         stageNames = new String[STAGE_IDS.length];
+        stagePreviews = new Stage[STAGE_IDS.length];
         for (int i = 0; i < STAGE_IDS.length; i++) {
-            stageNames[i] = StageLoader.load(STAGE_IDS[i]).getName();
+            Stage s = StageLoader.load(STAGE_IDS[i]);
+            stagePreviews[i] = s;       // Task 159: 選択画面で実際の多層背景をライブプレビューするためキャッシュ
+            stageNames[i] = s.getName();
         }
     }
 
@@ -432,7 +436,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             ensureStagesLoaded();
             updateStageSelect();
             if (screen == Screen.STAGE_SELECT) { // バトルへ遷移していなければ描画
-                renderer.renderStageSelect(stageNames, stageCursor, STAGE_COLS);
+                renderer.renderStageSelect(stagePreviews[stageCursor], stageNames, stageCursor, STAGE_COLS);
                 screenshot.maybeCapture();
             }
             return; // 遷移したフレームはここで終了し、次フレームからバトルを処理。
