@@ -86,6 +86,12 @@ public class GameRenderer {
     private static final float SHADOW_HEIGHT = 13f;        // 影の縦径（楕円の薄さ・接地時）
     private static final float SHADOW_AIR_FALLOFF = 240f;  // 滞空高さに対する縮小・減光の基準（px）
     private static final float SHADOW_MIN_SCALE = 0.45f;   // 滞空時に縮む下限
+    // 必殺技ゲージ満タンのオーラ（Task 137）。EX / スーパーが撃てる合図として足元に金色のパルス光輪を出す。
+    private static final Color METER_AURA_COLOR = new Color(1f, 0.82f, 0.25f, 0.38f); // 満タンメーターと同系の金
+    private static final float METER_AURA_WIDTH_SCALE = 1.45f; // 光輪の横径＝キャラ幅 × これ（基準）
+    private static final float METER_AURA_HEIGHT = 20f;        // 光輪の縦径（楕円の薄さ・基準）
+    private static final float METER_AURA_PULSE = 0.22f;       // パルスで増減する割合（±）
+    private static final float METER_AURA_PERIOD = 36f;        // パルス周期（描画フレーム）
     // ダッシュ残像（motion trail・Task 133）。ダッシュ中のファイターの直近位置にスプライトの寒色ゴーストを
     // 重ね、移動の勢い・残像感を出す純描画演出。位置はファイターの実位置のスナップショット＝乱数なし＝決定的。
     private static final int AFTERIMAGE_MAX = 6;                 // 残像の最大枚数（リングバッファ容量）
@@ -196,6 +202,9 @@ public class GameRenderer {
     private final Color projectileTrailColor = new Color();
     // クリーンヒットの白フラッシュ描画用のフェード色（毎フレームの再確保を避ける作業用バッファ。Task 136）。
     private final Color impactFlashColor = new Color();
+    // メーター満タンオーラ（Task 137）：パルス用の描画フレームカウンタと毎フレーム再確保を避ける作業色。
+    private int auraTick;
+    private final Color auraColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -308,6 +317,12 @@ public class GameRenderer {
         // 足元の影：キャラスプライト（パス 2）の前に床へ落とし、その上に立つ見栄えにする（Task 130）。
         drawGroundShadow(p1);
         drawGroundShadow(p2);
+        // 必殺技ゲージ満タンのオーラ（Task 137）：影と同じくスプライトの前（足元）に金色のパルス光輪を描く。
+        // パルス用の描画フレームカウンタ（純描画・乱数なし）。周期 36 の倍数でラップして長時間プレイの int 溢れを防ぐ
+        // （位相は保たれる＝見た目に段差なし）。
+        auraTick = (auraTick + 1) % 36000;
+        drawMeterAura(p1);
+        drawMeterAura(p2);
         shapes.end();
 
         // ミラーマッチ（同キャラ対戦）なら P2 にパレットスワップを適用して識別する（Task 62）。
@@ -764,6 +779,29 @@ public class GameRenderer {
         shadowColor.set(SHADOW_COLOR);
         shadowColor.a = SHADOW_COLOR.a * scale;
         shapes.setColor(shadowColor);
+        shapes.ellipse(f.getX() - w / 2f, GameConstants.GROUND_Y - h / 2f, w, h);
+    }
+
+    /**
+     * 必殺技ゲージが満タンのファイターの足元に、金色のパルスする光輪を描く（純描画演出。Task 137）。
+     *
+     * <p>EX 必殺技 / スーパー必殺技が撃てる合図として、足元（床）に金色の楕円を出し、{@link #auraTick} を
+     * 用いて横径・不透明度を周期的に脈動させる（乱数なし＝決定的）。影（{@link #drawGroundShadow}）と同じく
+     * スプライト描画（パス 2）の前に呼び、キャラがオーラの上に立つ見栄えにする。満タンでなければ何も描かない
+     * ＝従来どおり（後方互換）。HUD のメーターバー（{@link #drawSuperMeter}）と連動した視認性の高い表現。
+     */
+    private void drawMeterAura(Fighter f) {
+        if (!f.hasFullMeter()) {
+            return; // 満タンのときだけ点灯（貯まっていなければ従来どおり何も出さない）。
+        }
+        Character d = f.getDef();
+        // パルス：周期 METER_AURA_PERIOD で 1±METER_AURA_PULSE を行き来する（sin・乱数なし）。
+        float pulse = 1f + METER_AURA_PULSE * (float) Math.sin((auraTick % METER_AURA_PERIOD) / METER_AURA_PERIOD * Math.PI * 2.0);
+        float w = d.getWidth() * METER_AURA_WIDTH_SCALE * pulse;
+        float h = METER_AURA_HEIGHT * pulse;
+        auraColor.set(METER_AURA_COLOR);
+        auraColor.a = METER_AURA_COLOR.a * pulse;
+        shapes.setColor(auraColor);
         shapes.ellipse(f.getX() - w / 2f, GameConstants.GROUND_Y - h / 2f, w, h);
     }
 
