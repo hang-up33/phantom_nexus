@@ -579,20 +579,19 @@ public class GameRenderer {
         }
         int secsLeft = (round.getBetweenCountdown() + GameConstants.TARGET_FPS - 1) / GameConstants.TARGET_FPS;
         float cx = GameConstants.WORLD_WIDTH / 2f;
-        // PERFECT（ノーダメージ勝利・Task 127）：金色で決着理由の上に強調表示する。
+        // PERFECT（ノーダメージ勝利・Task 127）：金色＋パルスで決着理由の上に強調表示する。影付き（Task 163）。
         if (round.isRoundPerfect()) {
-            font.setColor(PERFECT_COLOR);
-            font.getData().setScale(2.0f);
-            drawCentered("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 95f);
-            font.setColor(Color.WHITE);
+            float pulse = 1f + 0.06f * Math.abs((float) Math.sin(auraTick * 0.3f));
+            drawBannerText("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 95f, 2.0f * pulse, PERFECT_COLOR);
         }
-        font.getData().setScale(2.5f);
-        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
-        font.getData().setScale(1.8f);
-        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f + 5f);
-        font.getData().setScale(1.2f);
-        drawCentered("ROUND " + (round.getCurrentRound() + 1) + "  in " + secsLeft,
-                cx, GameConstants.WORLD_HEIGHT / 2f - 35f);
+        // 決着理由（KO=赤/TIME UP=白）・ラウンド勝者（アクセント色/DRAW=白）・次ラウンド案内。すべて影付き（Task 163）。
+        Color reasonColor = round.getReason() == RoundManager.FinishReason.KO ? FIGHT_FLASH_COLOR : ROUND_INTRO_COLOR;
+        drawBannerText(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f, 2.5f, reasonColor);
+        Color resultColor = round.getRoundWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
+        drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f + 5f, 1.8f, resultColor);
+        drawBannerText("ROUND " + (round.getCurrentRound() + 1) + "  in " + secsLeft,
+                cx, GameConstants.WORLD_HEIGHT / 2f - 35f, 1.2f, Color.WHITE);
+        font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
 
@@ -644,19 +643,18 @@ public class GameRenderer {
         }
         String score = round.getP1Wins() + " - " + round.getP2Wins();
         float cx = GameConstants.WORLD_WIDTH / 2f;
-        // PERFECT（最終ラウンドをノーダメージで決めた場合・Task 127）：金色で決着理由の上に強調表示する。
+        // PERFECT（最終ラウンドをノーダメージで決めた場合・Task 127）：金色＋パルスで決着理由の上に強調表示する。
         if (round.isRoundPerfect()) {
-            font.setColor(PERFECT_COLOR);
-            font.getData().setScale(2.2f);
-            drawCentered("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 100f);
-            font.setColor(Color.WHITE);
+            float pulse = 1f + 0.06f * Math.abs((float) Math.sin(auraTick * 0.3f));
+            drawBannerText("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 100f, 2.2f * pulse, PERFECT_COLOR);
         }
-        font.getData().setScale(3.0f);
-        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
-        font.getData().setScale(2.0f);
-        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f);
-        font.getData().setScale(1.5f);
-        drawCentered(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f);
+        // 決着理由：KO は赤で強く、TIME UP は白系で。勝者名はアクセント色、スコアは白。すべて影付き（Task 163）。
+        Color reasonColor = round.getReason() == RoundManager.FinishReason.KO ? FIGHT_FLASH_COLOR : ROUND_INTRO_COLOR;
+        drawBannerText(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f, 3.0f, reasonColor);
+        Color resultColor = round.getMatchWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
+        drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
+        drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
+        font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
 
