@@ -1645,15 +1645,15 @@ public class GameRenderer {
             return;
         }
         float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
-        float y = f.getY() + displayHeight + 58f; // 名前ラベル（+30）のさらに上
+        float y = f.getY() + displayHeight + 64f; // 名前ラベル（+30）のさらに上
         // コンボ継続中は "N HITS!" を小刻みに拡大パルスさせて勢いを出す（Task 143・auraTick の sin・乱数なし）。
         float pulse = 1f + COMBO_PULSE * (float) Math.sin(auraTick * COMBO_PULSE_SPEED);
-        font.getData().setScale(COMBO_SCALE * pulse);
-        font.setColor(COMBO_COLOR);
-        drawCentered(combo + " HITS!", f.getX(), y);
+        // ヒット数が伸びるほど大きく（上限 1.4 倍）・色を橙→赤→金へエスカレーションさせて達成感を出す（Task 164）。
+        float sizeBoost = Math.min(1.4f, 1f + (combo - 2) * 0.05f);
+        Color comboColor = combo >= 10 ? PERFECT_COLOR : (combo >= 6 ? FIGHT_FLASH_COLOR : COMBO_COLOR);
+        drawBannerText(combo + " HITS!", f.getX(), y, COMBO_SCALE * sizeBoost * pulse, comboColor);
         // コンボ累計ダメージ（Task 121）：ヒット数の下に補正後の実ダメージ合計を表示する。
-        font.getData().setScale(COMBO_SCALE * 0.7f);
-        drawCentered(f.getComboDamage() + " DMG", f.getX(), y - 24f);
+        drawBannerText(f.getComboDamage() + " DMG", f.getX(), y - 28f, COMBO_SCALE * 0.7f, COMBO_COLOR);
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
