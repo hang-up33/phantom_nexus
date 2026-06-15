@@ -70,6 +70,10 @@ public class GameRenderer {
     private static final Color CONTACT_COLOR = new Color(1f, 1f, 1f, 1f);
     private static final Color PROJECTILE_CORE = new Color(1f, 0.95f, 0.7f, 1f);
     private static final Color PROJECTILE_GLOW = new Color(0.45f, 0.85f, 1f, 1f);
+    // 飛び道具の軌跡（motion trail・Task 134）：過去位置に薄く小さい円の尾を引く（弾のグロー色を流用）。
+    private static final float PROJECTILE_TRAIL_ALPHA = 0.5f;     // 最新の尾の不透明度（最古は 0 へ線形）
+    private static final float PROJECTILE_TRAIL_MIN_SCALE = 0.30f; // 最古の尾の半径＝グロー半径 × これ
+    private static final float PROJECTILE_TRAIL_MAX_SCALE = 0.85f; // 最新の尾の半径＝グロー半径 × これ
     private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
 
     // 足元の影（純描画演出。Task 130）。床に置く半透明の楕円で、滞空高さに応じて縮小・減光する。
@@ -78,6 +82,12 @@ public class GameRenderer {
     private static final float SHADOW_HEIGHT = 13f;        // 影の縦径（楕円の薄さ・接地時）
     private static final float SHADOW_AIR_FALLOFF = 240f;  // 滞空高さに対する縮小・減光の基準（px）
     private static final float SHADOW_MIN_SCALE = 0.45f;   // 滞空時に縮む下限
+    // ダッシュ残像（motion trail・Task 133）。ダッシュ中のファイターの直近位置にスプライトの寒色ゴーストを
+    // 重ね、移動の勢い・残像感を出す純描画演出。位置はファイターの実位置のスナップショット＝乱数なし＝決定的。
+    private static final int AFTERIMAGE_MAX = 6;                 // 残像の最大枚数（リングバッファ容量）
+    private static final float AFTERIMAGE_ALPHA_MAX = 0.42f;     // 直近（新しい）残像の不透明度
+    private static final float AFTERIMAGE_ALPHA_MIN = 0.10f;     // 最古（遠い）残像の不透明度
+    private static final Color AFTERIMAGE_TINT = new Color(0.5f, 0.7f, 1f, 1f); // 残像の寒色ティント（乗算）
     // ヒットスパーク（Task 38）：通常ヒット=暖色（白寄りの黄）/ ガード=寒色（青）。放射スポーク数と寸法。
     private static final Color SPARK_HIT_COLOR = new Color(1f, 0.95f, 0.55f, 1f);
     private static final Color SPARK_GUARD_COLOR = new Color(0.60f, 0.85f, 1f, 1f);
@@ -174,6 +184,12 @@ public class GameRenderer {
     private final Color shadowColor = new Color();
     // 着地の砂煙描画用のフェード色（毎フレームの再確保を避ける。Task 131）。
     private final Color dustColor = new Color();
+    // ダッシュ残像（Task 133）：p1=[0] / p2=[1] のダッシュ中の直近位置スナップショットを保持するリングバッファ。
+    // ダッシュ中のみ蓄積し、それ以外は空にする＝残像はダッシュの軌跡だけに出る。描画用の作業色も持つ。
+    private final GhostTrail[] trails = { new GhostTrail(), new GhostTrail() };
+    private final Color afterimageColor = new Color();
+    // 飛び道具の軌跡描画用のフェード色（毎フレームの再確保を避ける作業用バッファ。Task 134）。
+    private final Color projectileTrailColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -295,7 +311,10 @@ public class GameRenderer {
         // --- パス 2: キャラクターのスプライト（テクスチャ描画。Task 34）---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
+        // ダッシュ残像（Task 133）：本体スプライトの前に、ダッシュ軌跡の寒色ゴーストを薄く重ねる。
+        updateAndDrawAfterimages(p1, anim1, 0, false);
         drawFighterSprite(p1, anim1, false);
+        updateAndDrawAfterimages(p2, anim2, 1, mirror);
         drawFighterSprite(p2, anim2, mirror);
         batch.end();
 
@@ -649,6 +668,68 @@ public class GameRenderer {
     }
 
     /**
+     * ダッシュ残像（motion trail）を更新・描画する（純描画演出。Task 133）。
+     *
+     * <p>ファイターがダッシュ中（{@link Fighter#isDashing()}＝地上ステップ / バックステップ / 空中ダッシュ）
+     * のときだけ、リングバッファに溜めた「過去フレームの実位置」をスプライトの寒色ゴーストとして本体の
+     * 後ろに薄く重ね、移動の勢い・残像感を出す。古い残像ほど薄く（{@link #AFTERIMAGE_ALPHA_MIN}）・
+     * 直近ほど濃く（{@link #AFTERIMAGE_ALPHA_MAX}）描く。ダッシュ中でなければバッファを空にする＝残像は
+     * ダッシュの軌跡にだけ出る。スナップショットはファイターの実位置（乱数なし）なので決定的で、シミュレーション
+     * 状態・当たり判定・リプレイには一切干渉しない（描画後に最新位置を追加し、本体スプライトと重複させない）。
+     *
+     * @param f           対象ファイター
+     * @param anim        そのファイターのアニメーション状態（行 / フレーム / 縦ボブ）
+     * @param index       バッファのインデックス（p1=0 / p2=1）
+     * @param paletteSwap ミラーマッチ P2 のパレットスワップ（残像にも乗算して識別を保つ。Task 62）
+     */
+    private void updateAndDrawAfterimages(Fighter f, FighterAnimator anim, int index, boolean paletteSwap) {
+        GhostTrail trail = trails[index];
+        if (!f.isDashing()) {
+            trail.clear(); // ダッシュ終了で軌跡を消す（次のダッシュまで残像なし）。
+            return;
+        }
+        Character d = f.getDef();
+        // 過去フレームの残像を「最古→最新」の順に、薄→濃のフェードで本体の後ろに描く。
+        for (int j = 0; j < trail.size; j++) {
+            int slot = (trail.head - trail.size + j + AFTERIMAGE_MAX) % AFTERIMAGE_MAX;
+            // size==1 のときは最新扱い（MAX 濃度）。複数あれば最古=MIN→最新=MAX で線形補間。
+            float t = trail.size > 1 ? j / (float) (trail.size - 1) : 1f;
+            float alpha = AFTERIMAGE_ALPHA_MIN + (AFTERIMAGE_ALPHA_MAX - AFTERIMAGE_ALPHA_MIN) * t;
+            drawGhost(d, trail.x[slot], trail.y[slot], trail.state[slot], trail.frame[slot],
+                    trail.faceLeft[slot], trail.crouch[slot], alpha, paletteSwap);
+        }
+        // このフレームの実位置を軌跡に追加（次フレーム以降の残像になる）。本体スプライトはこの後に描かれる。
+        trail.push(f.getX(), f.getY() + anim.bobOffset(), anim.getState(), anim.getFrameIndex(),
+                !f.isFacingRight(), f.isCrouching());
+    }
+
+    /**
+     * 残像ゴースト 1 枚を描く（Task 133）。{@link #drawFighterSprite} と同じスプライト領域・向き反転・しゃがみ
+     * 高さ圧縮を用いるが、被弾フラッシュは乗せず、寒色ティント（{@link #AFTERIMAGE_TINT}）に指定の不透明度を
+     * 掛けて半透明のゴーストにする。スプライト未指定 / 欠落のキャラは残像を出さない（{@code region==null}）。
+     */
+    private void drawGhost(Character d, float gx, float gy, AnimationState state, int frameIndex,
+                           boolean faceLeft, boolean crouch, float alpha, boolean paletteSwap) {
+        TextureRegion region = sprites.region(d, state, frameIndex);
+        if (region == null) {
+            return; // スプライト未指定 / 欠落キャラは残像なし（後方互換）。
+        }
+        float left = gx - d.getWidth() / 2f;
+        float drawHeight = crouch ? d.getHeight() / 3f : d.getHeight();
+        if (region.isFlipX() != faceLeft) {
+            region.flip(true, false);
+        }
+        afterimageColor.set(AFTERIMAGE_TINT);
+        if (paletteSwap) {
+            afterimageColor.mul(MIRROR_P2_TINT);
+        }
+        afterimageColor.a = alpha;
+        batch.setColor(afterimageColor);
+        batch.draw(region, left, gy, d.getWidth(), drawHeight);
+        batch.setColor(Color.WHITE);
+    }
+
+    /**
      * ファイターの足元に楕円の影を落とす（純描画演出。Task 130）。
      *
      * <p>影は常に床（{@link GameConstants#GROUND_Y}）上に置き、滞空高さ（{@code getY() - GROUND_Y}）に
@@ -759,13 +840,26 @@ public class GameRenderer {
                 1f);
     }
 
-    /** 飛び道具を外側グロー + 内側コアの二重円で描く（Task 20）。EX 弾（Task 44）は金色のグローで強調。 */
+    /**
+     * 飛び道具を外側グロー + 内側コアの二重円で描く（Task 20）。EX 弾（Task 44）は金色のグローで強調。
+     * 描画前に直近の通過位置へ薄く小さい尾（motion trail・Task 134）を引いて速度感・残像感を出す。
+     */
     private void drawProjectiles(List<Projectile> projectiles) {
         for (Projectile p : projectiles) {
             float cx = p.getX();
             float cy = p.getY() + p.getHeight() / 2f;
             float r = Math.min(p.getWidth(), p.getHeight()) / 2f;
-            shapes.setColor(p.isEx() ? EX_PROJECTILE_GLOW : PROJECTILE_GLOW);
+            Color glow = p.isEx() ? EX_PROJECTILE_GLOW : PROJECTILE_GLOW;
+            // 軌跡（尾）：過去位置を「最古→最新」で薄→濃・小→大の円として本体の前に描く（Task 134）。
+            int trail = p.getTrailSize();
+            for (int i = 0; i < trail; i++) {
+                float t = trail > 1 ? i / (float) (trail - 1) : 1f; // 0=最古 → 1=最新
+                projectileTrailColor.set(glow.r, glow.g, glow.b, PROJECTILE_TRAIL_ALPHA * t);
+                shapes.setColor(projectileTrailColor);
+                shapes.circle(p.getTrailX(i), cy, r * (PROJECTILE_TRAIL_MIN_SCALE
+                        + (PROJECTILE_TRAIL_MAX_SCALE - PROJECTILE_TRAIL_MIN_SCALE) * t));
+            }
+            shapes.setColor(glow);
             shapes.circle(cx, cy, r);
             shapes.setColor(PROJECTILE_CORE);
             shapes.circle(cx, cy, r * 0.55f);
@@ -1265,5 +1359,41 @@ public class GameRenderer {
         shapes.dispose();
         sprites.dispose();
         font.dispose();
+    }
+
+    /**
+     * ダッシュ残像（Task 133）の軌跡を保持するリングバッファ。1 ファイター分の直近 {@link #AFTERIMAGE_MAX}
+     * フレームの実位置スナップショット（中心 X / 足元 Y + ボブ / アニメ状態 / フレーム / 向き / しゃがみ）を
+     * 上書き式で溜める。描画専用の純粋な状態で、戦闘ロジックや乱数には一切関与しない。
+     */
+    private static final class GhostTrail {
+        final float[] x = new float[AFTERIMAGE_MAX];
+        final float[] y = new float[AFTERIMAGE_MAX];
+        final AnimationState[] state = new AnimationState[AFTERIMAGE_MAX];
+        final int[] frame = new int[AFTERIMAGE_MAX];
+        final boolean[] faceLeft = new boolean[AFTERIMAGE_MAX];
+        final boolean[] crouch = new boolean[AFTERIMAGE_MAX];
+        int size; // 有効なスナップショット数（0..AFTERIMAGE_MAX）
+        int head; // 次に書き込む位置（リングバッファ）
+
+        /** 軌跡を空にする（ダッシュ終了時）。 */
+        void clear() {
+            size = 0;
+            head = 0;
+        }
+
+        /** 最新のスナップショットを 1 件追加する（容量超過時は最古を上書き）。 */
+        void push(float px, float py, AnimationState st, int fr, boolean fl, boolean cr) {
+            x[head] = px;
+            y[head] = py;
+            state[head] = st;
+            frame[head] = fr;
+            faceLeft[head] = fl;
+            crouch[head] = cr;
+            head = (head + 1) % AFTERIMAGE_MAX;
+            if (size < AFTERIMAGE_MAX) {
+                size++;
+            }
+        }
     }
 }
