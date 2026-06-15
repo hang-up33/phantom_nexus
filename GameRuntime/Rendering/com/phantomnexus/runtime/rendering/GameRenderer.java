@@ -279,9 +279,11 @@ public class GameRenderer {
      */
     private void applyRoundIntroZoom(RoundManager round) {
         float zoom = 1f;
-        if (round.isRoundIntro()) {
-            // progress：イントロ開始（残り = 総数）で 0、終了直前で 1。残りフレームは ROUND_INTRO_FRAMES が総数。
-            float progress = 1f - round.getIntroCountdown() / (float) GameConstants.ROUND_INTRO_FRAMES;
+        int total = round.getIntroTotalFrames();
+        if (round.isRoundIntro() && total > 0) {
+            // progress：イントロ開始（残り = 総数）で 0、終了直前で 1。総数は RoundManager の実イントロ長を使う
+            // （定数決め打ちにせずイントロ長を可変にしても乖離しない）。
+            float progress = 1f - round.getIntroCountdown() / (float) total;
             progress = Math.max(0f, Math.min(1f, progress));
             zoom = ROUND_INTRO_ZOOM + (1f - ROUND_INTRO_ZOOM) * progress; // 寄り → 等倍へ
         }

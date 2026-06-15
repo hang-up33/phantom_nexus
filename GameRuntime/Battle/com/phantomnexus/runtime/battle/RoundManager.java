@@ -219,6 +219,11 @@ public final class RoundManager {
         return introCountdown;
     }
 
+    /** ラウンド開始イントロの総フレーム数（0 ならイントロ無し）。ズーム演出の進捗計算等に使う（Task 138）。 */
+    public int getIntroTotalFrames() {
+        return introFrames;
+    }
+
     /**
      * 現在のラウンド / マッチの勝者。マッチ確定なら {@code matchWinner}、ラウンド確定なら {@code roundWinner}。
      * 後方互換のため維持（GameRenderer の結果バナーで使用）。
