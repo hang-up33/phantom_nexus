@@ -219,6 +219,7 @@ public class GameRenderer {
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
     private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
     private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
+    private static final float TITLE_BAR_H = 200f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
@@ -1691,27 +1692,51 @@ public class GameRenderer {
      * タイトル画面を描く（Task 116）。モード選択（0=対戦 / 1=トレーニング）。選択中の項目を黄色で強調する。
      * 独立した clear + テキストパス（バトル描画とは別フレーム）。
      */
-    public void renderTitle(int selection) {
+    public void renderTitle(int selection, Stage backdrop) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
+
+        // --- タイトル裏のライブ背景（デモリール・Task 160）---
+        // 全ステージの実背景をゆっくり巡回（Core が切り替え）。可読性のため、ステージ選択（Task 159）と同じく
+        // 下部に不透明の操作バーを重ねる（半透明全画面の暗転はソフトウェア GL で化けるため不使用＝不透明 rect）。
+        auraTick = (auraTick + 1) % 36000;
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (backdrop != null) {
+            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            drawStageLayers(false);
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+            drawStageLayers(true);
+        }
+        // 下部のメニュー操作バー（不透明）。
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, TITLE_BAR_H);
+        shapes.end();
+
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-        font.getData().setScale(2.4f);
+        // タイトルロゴ（上部・暗い上空に重なり読める）。
+        font.getData().setScale(2.6f);
         font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 180f);
+        drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 110f);
+        // メニュー（不透明バー内）。
         font.getData().setScale(1.5f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, 380f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 45f);
         font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, 312f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 100f);
         font.setColor(Color.WHITE);
-        font.getData().setScale(1.0f);
-        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 200f);
+        font.getData().setScale(0.95f);
+        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
         drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
-                GameConstants.WORLD_WIDTH / 2f, 168f);
+                GameConstants.WORLD_WIDTH / 2f, 28f);
+        font.getData().setScale(1.0f);
         batch.end();
     }
 
