@@ -856,6 +856,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         float spawnY = f.getY() + move.getHitboxOffsetY();
         float vx = (f.isFacingRight() ? 1f : -1f) * move.getProjectileSpeed();
         projectiles.add(new Projectile(spawnX, spawnY, vx, width, height, damage, f, ex));
+        // 発射のマズルフラッシュ（Task 144）：弾の生成位置に火花を 1 つ出して発射の手応えを足す（純演出）。
+        spawnHitSpark(false, spawnX, spawnY + height / 2f);
     }
 
     /** 飛び道具を 1 フレーム進め、相手命中で被弾適用、命中 / 画面外で消滅させる（Task 20）。 */

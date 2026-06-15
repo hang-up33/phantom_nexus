@@ -122,6 +122,8 @@ public class GameRenderer {
     // コンボカウンター（Task 39）の文字色（鮮やかなオレンジ）と表示倍率。
     private static final Color COMBO_COLOR = new Color(1f, 0.62f, 0.18f, 1f);
     private static final float COMBO_SCALE = 1.7f;
+    private static final float COMBO_PULSE = 0.08f;        // コンボ表示の拡大パルス幅（±・Task 143）
+    private static final float COMBO_PULSE_SPEED = 0.4f;   // コンボ表示の拡大パルス角速度（Task 143）
     // ラウンド開始イントロ（Task 42）："ROUND N"=白系 / "FIGHT!"=赤系で開始を強調。
     private static final Color ROUND_INTRO_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
     private static final Color FIGHT_FLASH_COLOR = new Color(0.98f, 0.30f, 0.26f, 1f);
@@ -135,7 +137,9 @@ public class GameRenderer {
     private static final Color POPUP_CHIP_COLOR = new Color(0.55f, 0.80f, 1f, 1f);
     private static final float POPUP_RISE_PER_FRAME = 1.3f; // 1 フレームあたりの上昇量（px）
     private static final float POPUP_BASE_OFFSET_Y = 36f;    // 命中位置からの初期持ち上げ（px）
-    private static final float POPUP_SCALE = 1.7f;           // 数字フォント倍率
+    private static final float POPUP_SCALE = 1.7f;           // 数字フォント倍率（基準）
+    private static final float POPUP_MIN_SCALE_FACTOR = 0.75f; // 最小ダメージ時の倍率係数（× POPUP_SCALE・Task 142）
+    private static final int POPUP_SCALE_DAMAGE_REF = 180;     // この与ダメージで最大倍率に達する基準（Task 142）
     private static final float POPUP_FADE_START = 0.6f;      // この進捗以降フェード開始（0..1）
     private static final Color WIN_DOT_ON = new Color(1f, 0.85f, 0.20f, 1f);
     private static final Color WIN_DOT_OFF = new Color(0.28f, 0.30f, 0.36f, 1f);
@@ -1126,7 +1130,6 @@ public class GameRenderer {
         if (popups.isEmpty()) {
             return;
         }
-        font.getData().setScale(POPUP_SCALE);
         for (DamagePopup p : popups) {
             float progress = p.getLifespan() > 0 ? (float) p.getAge() / p.getLifespan() : 1f;
             // フェード：前半は不透明、POPUP_FADE_START 以降で 1→0 へ線形に消す。
@@ -1136,6 +1139,10 @@ public class GameRenderer {
             Color base = p.getKind() == DamagePopup.Kind.CHIP ? POPUP_CHIP_COLOR : POPUP_HIT_COLOR;
             popupColor.set(base.r, base.g, base.b, alpha);
             font.setColor(popupColor);
+            // ダメージ量に応じて文字を拡大（Task 142）：大ダメージほど数字が大きく出て重みを表す。
+            float dmgScale = POPUP_SCALE * (POPUP_MIN_SCALE_FACTOR
+                    + (1f - POPUP_MIN_SCALE_FACTOR) * Math.min(p.getAmount(), POPUP_SCALE_DAMAGE_REF) / (float) POPUP_SCALE_DAMAGE_REF);
+            font.getData().setScale(dmgScale);
             float y = p.getOriginY() + POPUP_BASE_OFFSET_Y + p.getAge() * POPUP_RISE_PER_FRAME;
             drawCentered(String.valueOf(p.getAmount()), p.getOriginX(), y);
         }
@@ -1234,7 +1241,9 @@ public class GameRenderer {
         }
         float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
         float y = f.getY() + displayHeight + 58f; // 名前ラベル（+30）のさらに上
-        font.getData().setScale(COMBO_SCALE);
+        // コンボ継続中は "N HITS!" を小刻みに拡大パルスさせて勢いを出す（Task 143・auraTick の sin・乱数なし）。
+        float pulse = 1f + COMBO_PULSE * (float) Math.sin(auraTick * COMBO_PULSE_SPEED);
+        font.getData().setScale(COMBO_SCALE * pulse);
         font.setColor(COMBO_COLOR);
         drawCentered(combo + " HITS!", f.getX(), y);
         // コンボ累計ダメージ（Task 121）：ヒット数の下に補正後の実ダメージ合計を表示する。
