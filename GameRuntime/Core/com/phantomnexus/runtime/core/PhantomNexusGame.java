@@ -541,11 +541,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
             if (commandTimer2 > 0) {
                 commandTimer2--;
             }
-            // 着地の砂煙（Task 131）：このフレームに滞空→接地へ遷移したファイターの足元に土埃を出す。
-            // 物理（着地）は上の fighter.update 内で済んでいるので、被弾処理（resolveHit / updateProjectiles）
-            // より前に遷移を検出する＝着地と同フレームに launch/groundBounce で再び滞空にされても砂煙を逃さない。純演出・乱数なし。
+            // 着地の砂煙（Task 131）／踏み切りの砂煙（Task 135）：このフレームに滞空⇔接地へ遷移した
+            // ファイターの足元に土埃を出す。物理（着地 / ジャンプ）は上の fighter.update 内で済んでいるので、
+            // 被弾処理（resolveHit / updateProjectiles）より前に遷移を検出する＝着地と同フレームに
+            // launch/groundBounce で再び滞空にされても砂煙を逃さない。純演出・乱数なし。
             detectLanding(fighter1, p1WasGrounded);
             detectLanding(fighter2, p2WasGrounded);
+            detectTakeoff(fighter1, p1WasGrounded);
+            detectTakeoff(fighter2, p2WasGrounded);
             p1WasGrounded = fighter1.isGrounded();
             p2WasGrounded = fighter2.isGrounded();
             // 押し合い解消（pushbox の重なりを左右へ分離）。
@@ -657,6 +660,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void detectLanding(Fighter f, boolean wasGrounded) {
         if (!wasGrounded && f.isGrounded()) {
             landingDusts.add(new LandingDust(f.getX(), f.getY(), GameConstants.LANDING_DUST_FRAMES));
+        }
+    }
+
+    /**
+     * 踏み切り（接地→滞空の遷移＝ジャンプ）を検出し、蹴り上げた足元（床）に砂煙を 1 件生成する（Task 135）。
+     * 前フレームが接地（{@code wasGrounded}）で今フレームが滞空ならジャンプ踏み切りとみなす。着地（Task 131）と
+     * 対称の演出で、砂煙の見た目（{@link LandingDust}）をそのまま流用する。踏み切り後の足元は床から離れて
+     * いるので原点 Y は現在位置でなく {@link GameConstants#GROUND_Y}（蹴り上げた地点）に置く。純演出・乱数なし。
+     */
+    private void detectTakeoff(Fighter f, boolean wasGrounded) {
+        if (wasGrounded && !f.isGrounded()) {
+            landingDusts.add(new LandingDust(f.getX(), GameConstants.GROUND_Y, GameConstants.LANDING_DUST_FRAMES));
         }
     }
 
