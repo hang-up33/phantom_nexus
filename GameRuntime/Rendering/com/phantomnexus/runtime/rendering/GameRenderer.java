@@ -75,6 +75,10 @@ public class GameRenderer {
     private static final float PROJECTILE_TRAIL_MIN_SCALE = 0.30f; // 最古の尾の半径＝グロー半径 × これ
     private static final float PROJECTILE_TRAIL_MAX_SCALE = 0.85f; // 最新の尾の半径＝グロー半径 × これ
     private static final Color GUARD_COLOR = new Color(0.30f, 0.70f, 1f, 0.55f);
+    // クリーンヒットの白フラッシュ（impact flash・Task 136）。被弾直後の数フレーム、被弾側を発光させて手応えを強める。
+    // スプライトキャラは加算合成でシルエットを発光（IMPACT_FLASH_PEAK＝最大加算強度）、矩形フォールバックは白を上重ね。
+    private static final Color IMPACT_FLASH_COLOR = new Color(1f, 1f, 1f, 0.7f); // 矩形版：a は残りフレーム比で減衰
+    private static final float IMPACT_FLASH_PEAK = 0.85f;                         // スプライト版：加算の最大強度（残りフレーム比で減衰）
 
     // 足元の影（純描画演出。Task 130）。床に置く半透明の楕円で、滞空高さに応じて縮小・減光する。
     private static final Color SHADOW_COLOR = new Color(0f, 0f, 0f, 0.34f);
@@ -190,6 +194,8 @@ public class GameRenderer {
     private final Color afterimageColor = new Color();
     // 飛び道具の軌跡描画用のフェード色（毎フレームの再確保を避ける作業用バッファ。Task 134）。
     private final Color projectileTrailColor = new Color();
+    // クリーンヒットの白フラッシュ描画用のフェード色（毎フレームの再確保を避ける作業用バッファ。Task 136）。
+    private final Color impactFlashColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -665,6 +671,18 @@ public class GameRenderer {
         if (tinted) {
             batch.setColor(Color.WHITE);
         }
+        // クリーンヒットの白フラッシュ（Task 136）：被弾直後、スプライトを加算合成でもう一度描いて
+        // シルエットを発光させる（矩形オーバーレイと違い透明余白を光らせない＝箱に見えない）。強さは
+        // 残りフレーム比で減衰。加算ブレンドに切り替え、描画後に既定（通常 α ブレンド）へ戻す。
+        int flash = f.getImpactFlashFrames();
+        if (flash > 0) {
+            float k = IMPACT_FLASH_PEAK * (flash / (float) GameConstants.IMPACT_FLASH_FRAMES);
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE); // 加算合成（発光）
+            batch.setColor(k, k, k, 1f);
+            batch.draw(region, left, bottom, d.getWidth(), drawHeight);
+            batch.setColor(Color.WHITE);
+            batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA); // 既定の α ブレンドへ戻す
+        }
     }
 
     /**
@@ -778,6 +796,15 @@ public class GameRenderer {
                     : left + 8f;
             shapes.setColor(FACING_COLOR);
             shapes.rect(markerX, markerY, MARKER_SIZE, MARKER_SIZE);
+            // クリーンヒットの白フラッシュ（Task 136）：矩形フォールバックは本体矩形 = キャラなので白を重ねて発光させる
+            // （スプライトキャラは drawFighterSprite で加算合成によりシルエットを発光させる）。残りフレーム比で減衰。
+            int flash = f.getImpactFlashFrames();
+            if (flash > 0) {
+                impactFlashColor.set(IMPACT_FLASH_COLOR);
+                impactFlashColor.a = IMPACT_FLASH_COLOR.a * (flash / (float) GameConstants.IMPACT_FLASH_FRAMES);
+                shapes.setColor(impactFlashColor);
+                shapes.rect(left, bottom, d.getWidth(), drawHeight);
+            }
         }
         // ガード中：半透明ブルーのオーバーレイで盾状態を可視化する（矩形 / スプライト共通。Task 27）。
         if (f.isGuarding()) {

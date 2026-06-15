@@ -167,6 +167,13 @@ public final class GameConstants {
     public static final float GUARD_SHAKE_MAGNITUDE = 3f; // ガード成立の揺れ幅（px・控えめ）
 
     /**
+     * クリーンヒットの白フラッシュ（impact flash）の持続フレーム数（Task 136）。打撃 / 投げ / ダウンの
+     * ダメージ被弾直後、被弾側に白い発光を数フレーム重ねて命中の手応えを強める。決定的（乱数なし）で
+     * 表示専用＝戦闘結果に影響しない（HP / 位置 / 当たり判定とは独立）。
+     */
+    public static final int IMPACT_FLASH_FRAMES = 4;
+
+    /**
      * ラウンド開始イントロ（"ROUND N" → "FIGHT!" 演出）の総フレーム数（Task 42）。各ラウンド開始時、
      * この間はファイター操作・判定・タイマーを停止して開始演出を表示し、0 になった瞬間から戦闘開始。
      * 60fps 基準で約 1.5 秒。撮影モードでは既定でスキップ（{@code -x intro=true} で有効化）し、

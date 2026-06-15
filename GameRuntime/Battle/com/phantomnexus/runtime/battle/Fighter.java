@@ -68,6 +68,7 @@ public class Fighter {
     private int justGuardFrames;  // ジャストガード成立直後の表示フレーム（ラベルに [JUST] を付す・Task 81）
     private float guardGauge = GameConstants.GUARD_GAUGE_MAX; // ガードゲージ（ガードで減り非ガードで回復・Task 43）
     private int guardBreakFrames; // ガードクラッシュの行動不能/表示フレーム（hitstun を流用・Task 43）
+    private int impactFlashFrames; // クリーンヒット被弾直後の白フラッシュ表示フレーム（純描画・Task 136）
     private float superMeter; // 必殺技ゲージ（攻撃の当て / 被弾 / ガードで貯まり EX 必殺技で消費・Task 44）
     private int prevMoveDir;   // 前フレームの移動入力方向（ダッシュの二度押しエッジ検出用・Task 49）
     private int dashTapDir;    // 直近に押した方向（二度押し判定用・Task 49）
@@ -108,6 +109,10 @@ public class Fighter {
         // ガードクラッシュの表示/拘束フレームを減衰（Task 43。拘束自体は hitstunFrames が担う）。
         if (guardBreakFrames > 0) {
             guardBreakFrames--;
+        }
+        // クリーンヒットの白フラッシュ表示フレームを減衰（純描画・行動には影響しない・Task 136）。
+        if (impactFlashFrames > 0) {
+            impactFlashFrames--;
         }
         // カウンターヒット被弾の表示フレームを減衰（Task 71。ラベルの (CH) 表示専用・拘束は hitstunFrames が担う）。
         if (counterHitFrames > 0) {
@@ -510,6 +515,7 @@ public class Fighter {
         justGuardFrames = 0;
         guardGauge = GameConstants.GUARD_GAUGE_MAX;
         guardBreakFrames = 0;
+        impactFlashFrames = 0;
         superMeter = 0f;
         prevMoveDir = 0;
         dashTapDir = 0;
@@ -590,6 +596,7 @@ public class Fighter {
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に被弾したらラベルをのけぞりへ戻す（表示 desync 防止・Task 36）
         guardBreakFrames = 0; // ガードクラッシュ硬直中にフル被弾したらラベルをのけぞりへ戻す（Task 43）
+        impactFlashFrames = GameConstants.IMPACT_FLASH_FRAMES; // クリーンヒットの白フラッシュ（純描画・Task 136）
         guarding = false;    // 被弾で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;      // 被弾でダッシュをキャンセル（Task 49）
         wallBounceArmed = false; // 新たな被弾で保留中の壁バウンドをキャンセル（Task 101。applyWallBounce はこの後に再アーム）
@@ -672,6 +679,7 @@ public class Fighter {
         throwTechWindow = 0;
         throwTechFrames = 0;
         guardBreakFrames = 0;
+        impactFlashFrames = GameConstants.IMPACT_FLASH_FRAMES; // クリーンヒット（ダウン）の白フラッシュ（純描画・Task 136）
         guarding = false;
         dashFrames = 0;
         wallBounceArmed = false; // ダウンで保留中の壁バウンドをキャンセル（Task 101）
@@ -711,6 +719,7 @@ public class Fighter {
         throwTechWindow = 0;
         throwTechFrames = 0; // 投げ抜け硬直中に投げで上書きされたらラベルをのけぞりへ戻す（Task 36）
         guardBreakFrames = 0; // ガードクラッシュ硬直中に投げで上書きされたらラベルを更新（Task 43）
+        impactFlashFrames = GameConstants.IMPACT_FLASH_FRAMES; // 投げ被弾の白フラッシュ（純描画・Task 136）
         guarding = false;    // 投げ（ガード不能）で neutral から抜けるので guarding を即解除（同フレームの飛び道具/描画が誤ってガード扱いしない）
         dashFrames = 0;      // 投げ被弾でダッシュをキャンセル（Task 49）
         recoverableHp = 0;   // 投げ被弾で回復可能ダメージは焼き切れる（Task 104）
@@ -1200,6 +1209,11 @@ public class Fighter {
     /** ガードクラッシュ中か（ゲージが尽きてガード不能・行動不能の隙にある）（Task 43）。 */
     public boolean isGuardBroken() {
         return guardBreakFrames > 0;
+    }
+
+    /** クリーンヒット被弾直後の白フラッシュ残りフレーム（純描画・Task 136）。0 で消灯。 */
+    public int getImpactFlashFrames() {
+        return impactFlashFrames;
     }
 
     /** 現在のガードゲージ量（0〜{@link GameConstants#GUARD_GAUGE_MAX}）。HUD ゲージ表示に使用（Task 43）。 */
