@@ -994,6 +994,7 @@ public class GameRenderer {
                 case "peaks":     drawLayerPeaks(baseY, h, count, spacing, phase); break;
                 case "hills":     drawLayerHills(baseY, h, w); break;
                 case "pillars":   drawLayerPillars(baseY, h, count, spacing, phase); break;
+                case "clouds":    drawLayerClouds(baseY, h, count, w, layer.getDrift()); break;
                 case "band":
                 default:          shapes.rect(0f, baseY, w, h); break; // 帯（遠景の地形/水平線）・未対応も帯に
             }
@@ -1026,6 +1027,30 @@ public class GameRenderer {
         for (float x = 0f; x < w; x += step) {
             float hy = h * (0.55f + 0.45f * (float) Math.sin(x * 0.006f));
             shapes.rect(x, baseY, step + 1f, hy);
+        }
+    }
+
+    /**
+     * たなびく雲（soft puffs）。各雲は重なる円のクラスタで、横位置を `drift × auraTick` で流し画面幅で wrap させる
+     * （Task 155）。円は本環境のソフトウェア GL でも正常にブレンドされる（全画面ソリッド rect の罠を避ける）。
+     * y は雲番号から決定的に散らす。空のあるステージを生き生きとさせる純演出（乱数なし）。
+     */
+    private void drawLayerClouds(float baseY, float h, int count, float w, float drift) {
+        float wrap = w + 240f; // 画面外マージン込みで wrap（端で途切れない）
+        for (int i = 0; i < count; i++) {
+            float x0 = (i * (wrap / count) + drift * auraTick) % wrap;
+            if (x0 < 0f) {
+                x0 += wrap;
+            }
+            float x = x0 - 120f;
+            float y = baseY + h * (0.2f + 0.6f * Math.abs((float) Math.sin(i * 1.9f)));
+            float s = 12f + 8f * Math.abs((float) Math.sin(i * 2.3f)); // 雲のスケール
+            // 重なる円で 1 つの雲（中央大・左右小）。
+            shapes.circle(x, y, s);
+            shapes.circle(x - s * 0.9f, y - s * 0.15f, s * 0.66f);
+            shapes.circle(x + s * 0.9f, y - s * 0.1f, s * 0.72f);
+            shapes.circle(x + s * 0.3f, y + s * 0.35f, s * 0.6f);
+            shapes.circle(x - s * 0.4f, y + s * 0.3f, s * 0.55f);
         }
     }
 

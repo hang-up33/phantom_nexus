@@ -351,7 +351,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 | フィールド | 型 | 既定 | 意味 |
 |---|---|---|---|
-| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）。未対応値は `band` 扱い |
+| `shape` | string | `"band"` | シルエット種類：`band`（帯＝遠景の地形/水平線）/ `buildings`（都市スカイライン）/ `peaks`（山並み）/ `hills`（なだらかな丘）/ `pillars`（神殿の柱列）/ `clouds`（たなびく雲＝`drift` で横流れ・Task 155）。未対応値は `band` 扱い |
 | `color` | float[3] | （必須相当） | レイヤー色 RGB。未指定だと描画スキップ。大気遠近のため奥ほど空色に近づけ淡くするとよい |
 | `baseY` | float | `120` | シルエット下端 Y（既定は地平線＝地面の高さ相当） |
 | `height` | float | `120` | シルエット高さ（px） |
@@ -368,6 +368,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 
 ## 変更履歴
 
+- (Task 155) `StageLayer` の `shape` に **`clouds`（たなびく雲）** を追加。重なる円のクラスタを `drift × auraTick` で横に流し画面幅で wrap させる（円はソフトウェア GL でも正常合成＝全画面ソリッド rect の罠を回避）。`GameRenderer.drawLayerClouds`。空のあるステージ（stage002/004/006）に雲レイヤーを追加。乱数なし・決定的・後方互換（JSON 形式は不変）。
 - (Task 151) `Stage` に **背景の多層シルエット `layers`**（任意・`StageLayer[]`・遠景→近景の順）を追加（SF6/スマブラのステージデザインを参考に奥行きを出す）。`StageLayer` は `shape`（band/buildings/peaks/hills/pillars）/`color`/`baseY`/`height`/`count`/`alpha`/`drift` を持ち、描画側 `GameRenderer.drawStageLayers` が空グラデーションと地面の間にシルエットを重ねる（要素番号と `auraTick` からの固定計算＝**乱数なし＝決定的**）。未指定の旧 JSON はフィールド初期化子（`layers=null`）により従来どおり空＋地面のみ（後方互換）。`Shared/Types/StageLayer` を新設、`StageLoader` は `layers` を任意（`setIgnoreUnknownFields` で吸収・追加検証なし）。例示として stage001 を都市夜景（peaks＋buildings×2＋hills）に再設計。`Stage` フィールド表・`StageLayer` 節を追加。
 - (Task 123) `Character` に任意 bool `canRun`（ラン・既定 false＝後方互換）を追加。`true` のキャラは前ダッシュ（二度押し）中に前方を保持し続けるとダッシュが継続して走り続ける（離すと停止・バックステップは固定長）。`Fighter` のダッシュ分岐で `canRun && grounded && 前ダッシュ && 前方保持` のとき `dashFrames` を更新して継続、ラベル `run`。例示として fighter019（Mei）に `canRun:true`。`Character` フィールド表に `canRun` を追加。
 - (Task 120) 20 体目キャラ `Assets/Characters/fighter020.json`（"Genji"・HP1020・**全ツール装備の万能 shoto 型**の grape `[160,60,200]`）＋スプライト `fighter020.png`（256×896）を追加。`ROSTER_IDS` にも追記＝**ロスター計 20 体到達**。アーキタイプ：飛び道具 `ki_blast`（HADOUKEN）、無敵対空 `dragon_rise`（CHARGE_SHOT・`invincibleFrames`＋`launch`）、**飛び道具スーパー `phantom_nova`（`superMove`＋`hardKnockdown`・dmg250）**、overhead `overhead_chop`（`knockdown`）、地上/空中投げ。撮影は `-x p1char=fighter020 -x p1meter=100`。

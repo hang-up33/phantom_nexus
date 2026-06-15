@@ -5,6 +5,7 @@
   "skyBottom": [0.62, 0.74, 0.86],
   "groundColor": [0.78, 0.84, 0.92],
   "layers": [
+    { "shape": "clouds", "color": [0.90, 0.94, 1.0], "baseY": 420, "height": 160, "count": 4, "alpha": 0.5, "drift": 0.08 },
     { "shape": "peaks", "color": [0.60, 0.70, 0.84], "baseY": 120, "height": 240, "count": 5, "alpha": 0.7 },
     { "shape": "peaks", "color": [0.46, 0.56, 0.72], "baseY": 120, "height": 320, "count": 4, "alpha": 0.9 },
     { "shape": "peaks", "color": [0.36, 0.46, 0.62], "baseY": 120, "height": 200, "count": 7, "alpha": 1.0 },
