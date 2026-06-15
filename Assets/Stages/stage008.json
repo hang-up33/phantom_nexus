@@ -3,5 +3,11 @@
   "name": "Abyssal Cathedral",
   "skyTop": [0.04, 0.03, 0.10],
   "skyBottom": [0.18, 0.10, 0.34],
-  "groundColor": [0.08, 0.06, 0.16]
+  "groundColor": [0.08, 0.06, 0.16],
+  "layers": [
+    { "shape": "peaks", "color": [0.22, 0.14, 0.36], "baseY": 120, "height": 320, "count": 5, "alpha": 0.5 },
+    { "shape": "pillars", "color": [0.16, 0.10, 0.28], "baseY": 120, "height": 360, "count": 6, "alpha": 0.8 },
+    { "shape": "pillars", "color": [0.09, 0.06, 0.17], "baseY": 120, "height": 290, "count": 10, "alpha": 1.0 },
+    { "shape": "hills", "color": [0.06, 0.05, 0.13], "baseY": 120, "height": 50, "count": 1, "alpha": 1.0 }
+  ]
 }
