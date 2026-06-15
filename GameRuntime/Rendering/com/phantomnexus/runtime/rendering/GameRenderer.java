@@ -318,7 +318,9 @@ public class GameRenderer {
         drawGroundShadow(p1);
         drawGroundShadow(p2);
         // 必殺技ゲージ満タンのオーラ（Task 137）：影と同じくスプライトの前（足元）に金色のパルス光輪を描く。
-        auraTick++; // パルス用の描画フレームカウンタ（純描画・乱数なし）。
+        // パルス用の描画フレームカウンタ（純描画・乱数なし）。周期 36 の倍数でラップして長時間プレイの int 溢れを防ぐ
+        // （位相は保たれる＝見た目に段差なし）。
+        auraTick = (auraTick + 1) % 36000;
         drawMeterAura(p1);
         drawMeterAura(p2);
         shapes.end();
