@@ -3,5 +3,11 @@
   "name": "Twilight Arena",
   "skyTop": [0.07, 0.08, 0.18],
   "skyBottom": [0.42, 0.28, 0.40],
-  "groundColor": [0.16, 0.14, 0.20]
+  "groundColor": [0.16, 0.14, 0.20],
+  "layers": [
+    { "shape": "peaks", "color": [0.30, 0.22, 0.34], "baseY": 120, "height": 230, "count": 6, "alpha": 0.9 },
+    { "shape": "buildings", "color": [0.20, 0.15, 0.26], "baseY": 120, "height": 300, "count": 11, "alpha": 0.95 },
+    { "shape": "buildings", "color": [0.12, 0.10, 0.18], "baseY": 120, "height": 200, "count": 16, "alpha": 1.0 },
+    { "shape": "hills", "color": [0.09, 0.08, 0.13], "baseY": 120, "height": 60, "count": 1, "alpha": 1.0 }
+  ]
 }
