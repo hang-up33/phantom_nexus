@@ -3,5 +3,11 @@
   "name": "Sakura Court",
   "skyTop": [0.55, 0.70, 0.90],
   "skyBottom": [0.96, 0.80, 0.88],
-  "groundColor": [0.40, 0.30, 0.34]
+  "groundColor": [0.40, 0.30, 0.34],
+  "layers": [
+    { "shape": "peaks", "color": [0.72, 0.66, 0.78], "baseY": 120, "height": 150, "count": 7, "alpha": 0.5 },
+    { "shape": "peaks", "color": [0.80, 0.58, 0.66], "baseY": 120, "height": 120, "count": 11, "alpha": 0.7 },
+    { "shape": "pillars", "color": [0.46, 0.20, 0.24], "baseY": 120, "height": 250, "count": 7, "alpha": 0.95 },
+    { "shape": "hills", "color": [0.34, 0.24, 0.28], "baseY": 120, "height": 56, "count": 1, "alpha": 1.0 }
+  ]
 }
