@@ -120,6 +120,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String[] stageNames;    // ステージの表示名（遅延ロード・stageselect に入ったとき構築・Task 128）
     private Stage[] stagePreviews;  // ステージ選択のライブプレビュー用にロード済み Stage をキャッシュ（Task 159）
     private int stageCursor;        // ステージ選択カーソルの現在 index（Task 128）
+    private int titleBgIndex;       // タイトル裏デモリール背景の現在ステージ index（Task 160）
+    private int titleBgTimer;       // 同・次ステージへ切り替えるまでのフレームカウンタ（Task 160）
+    private static final int TITLE_BG_CYCLE_FRAMES = 300; // タイトル背景の 1 ステージ表示時間（≒5 秒@60fps・Task 160）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -412,7 +415,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 通常はここに来ない（-x startscreen=title 指定時のみ撮影でも表示）。選択確定で対戦/トレーニングへ遷移する。
         if (screen == Screen.TITLE) {
             updateTitle();
-            renderer.renderTitle(titleSelection);
+            // タイトル裏のデモリール背景（Task 160）：全ステージの実背景をゆっくり巡回表示する。
+            ensureStagesLoaded();
+            titleBgTimer++;
+            if (titleBgTimer >= TITLE_BG_CYCLE_FRAMES) {
+                titleBgTimer = 0;
+                titleBgIndex = (titleBgIndex + 1) % stagePreviews.length;
+            }
+            renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex]);
             screenshot.maybeCapture();
             return;
         }
