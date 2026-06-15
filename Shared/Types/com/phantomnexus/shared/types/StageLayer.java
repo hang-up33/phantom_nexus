@@ -27,6 +27,11 @@ public class StageLayer {
     private float alpha = 1f;
     /** 水平方向のゆっくりした自動ドリフト量（px/描画フレーム）。0 で静止。雲・もや等の演出用。 */
     private float drift = 0f;
+    /**
+     * 前景フラグ（Task 158）。true ならキャラクターより手前（前景）に描き奥行きを出す。
+     * 既定 false＝従来どおり背景（空と地面の間）。前景の暗いボケ柱/草木で被写界深度を演出する用途。
+     */
+    private boolean front = false;
 
     /** JSON / リフレクション用の無引数コンストラクタ。 */
     public StageLayer() {
@@ -68,5 +73,10 @@ public class StageLayer {
     /** 水平ドリフト量（px/描画フレーム）。 */
     public float getDrift() {
         return drift;
+    }
+
+    /** 前景フラグ（true＝キャラより手前に描く・Task 158）。既定 false＝背景。 */
+    public boolean isFront() {
+        return front;
     }
 }

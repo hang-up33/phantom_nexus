@@ -275,6 +275,7 @@ public class GameRenderer {
     // 背景の多層シルエット（Task 151）。setStage で受け取り、パス 1 で空と地面の間に奥から描く。
     private StageLayer[] stageLayers;
     private final Color layerColor = new Color(); // レイヤー描画用の作業色（毎フレーム再確保を避ける）
+    private final Color layerHighlight = new Color(); // 前景 frame の内側ハイライト用の作業色（Task 158）
 
     public GameRenderer() {
         camera = new OrthographicCamera();
@@ -404,7 +405,8 @@ public class GameRenderer {
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
                 skyBottom, skyBottom, skyTop, skyTop);
         // 背景の多層シルエット（Task 151）：空グラデーションの上、地面の前に奥（遠景）→手前（近景）の順で描く。
-        drawStageLayers();
+        // front=false＝背景レイヤーのみ（前景レイヤー＝Task 158 はパス 2.5 でキャラの手前に描く）。
+        drawStageLayers(false);
         // 地面（床）。
         shapes.setColor(groundColor);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
@@ -436,6 +438,13 @@ public class GameRenderer {
         updateAndDrawAfterimages(p2, anim2, 1, mirror);
         drawFighterSprite(p2, anim2, mirror);
         batch.end();
+
+        // --- パス 2.5: 前景レイヤー（Task 158）---
+        // front=true のステージレイヤーをキャラの手前に描いて奥行き（被写界深度）を出す。
+        // HP バー等の HUD（パス 3）・デバッグ枠（パス 4）・テキスト（パス 5）はこの後なので前景の上に乗る。
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        drawStageLayers(true);
+        shapes.end();
 
         // --- パス 3: オーバーレイ（矩形フォールバック / ガード / 攻撃 strike / 接触 / 飛び道具 / HP）---
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -968,7 +977,11 @@ public class GameRenderer {
      * ドリフト）からの固定計算＝**乱数なし＝決定的**。レイヤー未指定（null）なら何も描かず従来どおり（後方互換）。
      * パス 1（空グラデーションの後・地面の前）で呼ぶ＝奥行きのある背景レイヤ。
      */
-    private void drawStageLayers() {
+    /**
+     * ステージの多層シルエットを描く（Task 151）。{@code front=false} で背景（空と地面の間・キャラの後ろ）、
+     * {@code front=true} で前景（キャラの手前・Task 158）のレイヤーだけを描く。レイヤーの {@code isFront()} で振り分ける。
+     */
+    private void drawStageLayers(boolean front) {
         if (stageLayers == null) {
             return;
         }
@@ -976,6 +989,9 @@ public class GameRenderer {
         for (StageLayer layer : stageLayers) {
             if (layer == null) {
                 continue;
+            }
+            if (layer.isFront() != front) {
+                continue; // 当該パス（背景/前景）のレイヤーのみ描く
             }
             float[] c = layer.getColor();
             if (c == null || c.length < 3) {
@@ -997,6 +1013,7 @@ public class GameRenderer {
                 case "clouds":    drawLayerClouds(baseY, h, count, w, layer.getDrift()); break;
                 case "snow":      drawLayerSnow(baseY, h, count, w, layer.getDrift()); break;
                 case "embers":    drawLayerEmbers(baseY, h, count, w, layer.getDrift()); break;
+                case "frame":     drawLayerFrame(baseY, h, w); break;
                 case "band":
                 default:          shapes.rect(0f, baseY, w, h); break; // 帯（遠景の地形/水平線）・未対応も帯に
             }
@@ -1104,6 +1121,28 @@ public class GameRenderer {
             float r = (2.5f + 2f * Math.abs((float) Math.sin(i * 2.3f))) * (1f - 0.6f * life); // 上昇で縮小
             shapes.circle(x0, y, Math.max(0.8f, r));
         }
+    }
+
+    /**
+     * 舞台額縁（proscenium）。Task 158。画面の左右端に縦柱を立て、上端を梁で渡してアリーナを縁取る前景。
+     * 中央（試合領域）は空けるので、{@code front=true} で手前に描いてもキャラを隠さず奥行き（被写界深度）だけを足す。
+     * 柱幅は画面幅比で決定的。各柱は外側が濃く内側がやや明るい 2 段で立体感を出す。
+     */
+    private void drawLayerFrame(float baseY, float h, float w) {
+        float barW = w * 0.072f;     // 各柱の幅（≒92px）。中央の試合領域は十分空く。
+        float inner = barW * 0.34f;  // 内側のハイライト帯
+        // 左柱。
+        shapes.rect(0f, baseY, barW, h);
+        // 右柱。
+        shapes.rect(w - barW, baseY, barW, h);
+        // 上部の梁（左右の柱をつなぐ）。
+        shapes.rect(0f, baseY + h * 0.9f, w, h * 0.1f);
+        // 内側のハイライト帯（やや明るくして円柱の丸みを示唆）。元色に白を少し混ぜる。
+        layerHighlight.set(layerColor).lerp(1f, 1f, 1f, layerColor.a, 0.22f);
+        shapes.setColor(layerHighlight);
+        shapes.rect(barW - inner, baseY, inner * 0.5f, h * 0.9f);
+        shapes.rect(w - barW + inner * 0.5f, baseY, inner * 0.5f, h * 0.9f);
+        shapes.setColor(layerColor); // 後続レイヤーのため元色へ戻す
     }
 
     /** 神殿の柱列（一定間隔の縦矩形）＋上部の梁。Task 151。 */
