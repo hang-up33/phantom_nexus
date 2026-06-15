@@ -112,6 +112,23 @@ public class GameRenderer {
     // HP バーのダメージトレイル（Task 146）。被弾で減った分を明るい色の遅れバーで一瞬残し、ダメージ量を伝える。
     private static final Color HP_TRAIL_COLOR = new Color(0.98f, 0.92f, 0.55f, 0.9f); // 遅延ドレインの明るい黄
     private static final float HP_TRAIL_DRAIN = 0.010f;  // 1 描画フレームあたりに遅延バーが詰める割合
+    // KO 縁フラッシュ（Task 148）。KO 決着の瞬間に画面の縁を白く光らせて余韻を作る（数フレームでフェード）。
+    // ソフトウェア GL では全画面ソリッド rect の半透明合成が不安定なため、動作実績のある縁グラデーション rect を使う。
+    private static final int KO_FLASH_FRAMES = 14;       // フラッシュ持続フレーム
+    private static final Color KO_FLASH_COLOR = new Color(1f, 1f, 1f, 0.85f); // 縁の白（α は残りフレーム比で減衰）
+    private static final float KO_FLASH_BAND = 220f;     // 縁から内側へ白がフェードする帯の幅（px）
+    // 勝者グロー（Task 149）。決着 / ラウンド間に勝者の足元へ金色のパルス光輪を出して際立たせる。
+    private static final Color WINNER_GLOW_COLOR = new Color(1f, 0.85f, 0.30f, 0.55f);
+    private static final float WINNER_GLOW_WIDTH_SCALE = 1.9f; // 勝者光輪の横径＝キャラ幅 × これ
+    private static final float WINNER_GLOW_HEIGHT = 34f;       // 勝者光輪の縦径
+    // 勝利の光の粒（victory sparkles・Task 150）。決着 / ラウンド間に勝者の周囲を金色の光の粒が舞い上がる祝祭演出。
+    // （半透明の黒は本環境のソフトウェア GL で暗転にならないため、暗転でなく非黒の祝祭演出にした）。
+    private static final Color VICTORY_SPARKLE_COLOR = new Color(1f, 0.88f, 0.42f, 0.85f); // 金色の粒
+    private static final int VICTORY_SPARKLE_COUNT = 16;   // 粒の数
+    private static final float VICTORY_SPARKLE_SPREAD = 120f; // 勝者中心からの横の散らばり（px）
+    private static final float VICTORY_SPARKLE_RISE = 0.9f;   // 1 描画フレームあたりの上昇量（px）
+    private static final float VICTORY_SPARKLE_HEIGHT = 300f; // 舞い上がる高さ範囲（px・天井で巻き戻る）
+    private static final float VICTORY_SPARKLE_RADIUS = 4.5f; // 粒の基準半径（px）
     // 残り時間警告（low time・Task 141）。残りが少ないとタイマーを赤く脈動させて緊張感を出す。
     private static final int LOW_TIME_THRESHOLD = 10;     // この秒数以下で警告点滅
     private static final Color LOW_TIME_COLOR = new Color(0.98f, 0.26f, 0.22f, 1f); // 警告の赤
@@ -241,6 +258,11 @@ public class GameRenderer {
     // 空の光の帯 / 低 HP ビネット描画用の作業色（毎フレーム再確保を避ける。Task 145/147）。
     private final Color sweepColor = new Color();
     private final Color vignetteColor = new Color();
+    // KO 白フラッシュ（Task 148）：残りフレームと、決着エッジ検出用の前フレーム決着状態。
+    private int koFlashFrames;
+    private boolean prevConcluded;
+    private final Color koFlashColor = new Color();
+    private final Color winnerGlowColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -356,6 +378,13 @@ public class GameRenderer {
         // ラウンド開始イントロのズームイン演出（Task 138）："ROUND N"/"FIGHT!" 中はカメラを寄せ、開始で通常へ戻す。
         applyRoundIntroZoom(round);
         camera.update();
+        // KO 白フラッシュ（Task 148）のエッジ検出：このフレームに KO で決着（戦闘→決着 / ラウンド間）へ
+        // 遷移したらフラッシュをアームする。タイムアップ決着では光らせない（KO 限定の余韻演出）。
+        boolean concluded = round.isFinished() || round.isBetweenRounds();
+        if (concluded && !prevConcluded && round.getReason() == RoundManager.FinishReason.KO) {
+            koFlashFrames = KO_FLASH_FRAMES;
+        }
+        prevConcluded = concluded;
         // キャラのスプライトシートを（未読込なら）読み込む。欠落時は矩形へフォールバック（Task 34）。
         sprites.ensureLoaded(p1.getDef());
         sprites.ensureLoaded(p2.getDef());
@@ -428,8 +457,12 @@ public class GameRenderer {
         drawSuperMeter(p2, false);
         // 勝利ラウンド数を示すドット（HP バー内側端の下）。金色=獲得、暗色=未獲得。
         drawWinDots(round);
-        // 低 HP 警告ビネット（Task 145）：どちらかの HP が低いと画面端を赤く脈動させる（最前面オーバーレイ）。
-        drawLowHpVignette(p1, p2);
+        // 低 HP 警告ビネット（Task 145）：どちらかの HP が低いと画面端を赤く脈動させる（戦闘中のみ・決着中は出さない）。
+        if (!concluded) {
+            drawLowHpVignette(p1, p2);
+        }
+        // 決着演出（Task 148/149/150）：勝者グロー＋勝利の光の粒＋KO 白フラッシュ（バナーより後ろ＝テキストは最前面）。
+        drawRoundEndOverlays(round, p1, p2);
         shapes.end();
 
         // --- パス 4: デバッグ当たり判定枠（有効時のみ。Line で重ね描き。投影は上で設定済み）---
@@ -966,6 +999,81 @@ public class GameRenderer {
         shapes.rect(w - band, 0f, band, h, clear, edge, edge, clear);           // 右
         shapes.rect(0f, 0f, w, band, edge, edge, clear, clear);                 // 下
         shapes.rect(0f, h - band, w, band, clear, clear, edge, edge);           // 上
+    }
+
+    /**
+     * 決着 / ラウンド間の演出オーバーレイ（純描画。Task 148/149/150）。{@link ShapeRenderer.ShapeType#Filled}
+     * のパス内（テキストバナー = パス 5 より後ろ）で描く。決着中は全画面を暗転（Task 150）して結果バナーを
+     * 際立たせ（勝者グロー・Task 149）、その周囲に金色の光の粒が舞い上がる祝祭演出（victory sparkles・Task 150）を
+     * 出す。さらに KO 決着直後は数フレーム画面の縁を白くフラッシュ（Task 148）して余韻を作る。乱数なし・表示専用。
+     *
+     * <p>KO フラッシュは全画面ソリッド rect ではなく**縁グラデーション rect**（{@link #drawEdgeVignette}）で描く：
+     * 本環境のソフトウェア GL では全画面ソリッド半透明 rect の合成が不安定だが、縁グラデーション（edge→clear）は
+     * 低 HP ビネット（Task 145）で動作実績があるため。**特に半透明の「黒」は暗転にならない**ので、暗転系は避け
+     * 非黒（白フラッシュ・金グロー・金の粒）で構成している。
+     */
+    private void drawRoundEndOverlays(RoundManager round, Fighter p1, Fighter p2) {
+        if (round.isFinished() || round.isBetweenRounds()) {
+            // 勝者グロー（Task 149）＋勝利の光の粒（Task 150）：ラウンド勝者を金色で祝う（引き分けは無し）。
+            RoundManager.Winner winner = round.getRoundWinner();
+            Fighter champ = winner == RoundManager.Winner.P1 ? p1
+                    : winner == RoundManager.Winner.P2 ? p2 : null;
+            if (champ != null) {
+                drawWinnerGlow(champ);
+                drawVictorySparkles(champ);
+            }
+        }
+        // KO 縁フラッシュ（Task 148）：アーム中は縁を白く、残りフレーム比でフェードしながら描く。
+        if (koFlashFrames > 0) {
+            koFlashColor.set(KO_FLASH_COLOR.r, KO_FLASH_COLOR.g, KO_FLASH_COLOR.b,
+                    KO_FLASH_COLOR.a * koFlashFrames / (float) KO_FLASH_FRAMES);
+            drawEdgeVignette(koFlashColor, KO_FLASH_BAND);
+            koFlashFrames--;
+        }
+    }
+
+    /**
+     * 勝者の周囲に金色の光の粒が舞い上がる祝祭演出（victory sparkles・Task 150）。粒の位置は粒番号と描画フレーム
+     * カウンタ（{@link #auraTick}）からの固定計算＝乱数なし＝決定的。勝者中心を基準に横へ散らし、足元から上昇させ
+     * 高さ範囲で wrap する。背景の浮遊パーティクル（Task 139）と同型だが、勝者周辺・金色・上向きの祝祭表現。
+     */
+    private void drawVictorySparkles(Fighter champ) {
+        float baseX = champ.getX();
+        float baseY = GameConstants.GROUND_Y;
+        shapes.setColor(VICTORY_SPARKLE_COLOR);
+        for (int i = 0; i < VICTORY_SPARKLE_COUNT; i++) {
+            float x = baseX + VICTORY_SPARKLE_SPREAD * (float) Math.sin(i * 2.4f + auraTick * 0.02f);
+            float rise = (i * 53f + auraTick * VICTORY_SPARKLE_RISE) % VICTORY_SPARKLE_HEIGHT;
+            float y = baseY + rise;
+            float r = VICTORY_SPARKLE_RADIUS * (0.6f + 0.4f * (float) Math.sin(i * 1.7f + auraTick * 0.05f));
+            shapes.circle(x, y, r);
+        }
+    }
+
+    /**
+     * 画面の四辺に「縁＝指定色 / 内側＝透明」のグラデーション帯を描く汎用ヘルパー（Task 148/150・低 HP ビネットと同形式）。
+     * 全画面ソリッド rect を避けつつ縁演出（暗転フレーム / フラッシュ）を出すために使う。
+     */
+    private void drawEdgeVignette(Color edge, float band) {
+        float w = GameConstants.WORLD_WIDTH;
+        float h = GameConstants.WORLD_HEIGHT;
+        Color clear = Color.CLEAR;
+        shapes.rect(0f, 0f, band, h, edge, clear, clear, edge);                 // 左
+        shapes.rect(w - band, 0f, band, h, clear, edge, edge, clear);           // 右
+        shapes.rect(0f, 0f, w, band, edge, edge, clear, clear);                 // 下
+        shapes.rect(0f, h - band, w, band, clear, clear, edge, edge);           // 上
+    }
+
+    /** 勝者の足元に金色のパルス光輪を描く（Task 149）。メーター満タンオーラと同型だがより大きく金色で目立たせる。 */
+    private void drawWinnerGlow(Fighter f) {
+        Character d = f.getDef();
+        float pulse = 1f + 0.18f * (float) Math.sin(auraTick * 0.18f);
+        float w = d.getWidth() * WINNER_GLOW_WIDTH_SCALE * pulse;
+        float gh = WINNER_GLOW_HEIGHT * pulse;
+        winnerGlowColor.set(WINNER_GLOW_COLOR);
+        winnerGlowColor.a = WINNER_GLOW_COLOR.a * pulse;
+        shapes.setColor(winnerGlowColor);
+        shapes.ellipse(f.getX() - w / 2f, GameConstants.GROUND_Y - gh / 2f, w, gh);
     }
 
     /**
