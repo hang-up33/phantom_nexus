@@ -158,6 +158,7 @@ public class GameRenderer {
     // ラウンド開始イントロ（Task 42）："ROUND N"=白系 / "FIGHT!"=赤系で開始を強調。
     private static final Color ROUND_INTRO_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
     private static final Color FIGHT_FLASH_COLOR = new Color(0.98f, 0.30f, 0.26f, 1f);
+    private static final Color BANNER_SHADOW_COLOR = new Color(0f, 0f, 0f, 0.6f); // バナー文字のドロップシャドウ（Task 162）
     private static final float ROUND_INTRO_ZOOM = 0.82f; // ラウンド開始イントロの寄り倍率（<1 で寄り・Task 138）
     private static final int SPARK_SPOKES = 8;        // 放射スポーク本数
     private static final float SPARK_CORE_RADIUS = 9f; // 中心コア（縮小していく）の初期半径
@@ -603,17 +604,27 @@ public class GameRenderer {
     private void drawRoundIntroBanner(RoundManager round) {
         float cx = GameConstants.WORLD_WIDTH / 2f;
         float cy = GameConstants.WORLD_HEIGHT / 2f + 20f;
+        int total = round.getIntroTotalFrames();
         if (round.isFightFlash()) {
-            font.setColor(FIGHT_FLASH_COLOR);
-            font.getData().setScale(3.0f);
-            drawCentered("FIGHT!", cx, cy);
+            // "FIGHT!"：軽いパルスで脈打たせて開始の勢いを出す（auraTick からの決定的な波形）。
+            float pulse = 1f + 0.08f * Math.abs((float) Math.sin(auraTick * 0.4f));
+            drawBannerText("FIGHT!", cx, cy, 3.0f * pulse, FIGHT_FLASH_COLOR);
         } else {
-            font.setColor(ROUND_INTRO_COLOR);
-            font.getData().setScale(2.5f);
-            drawCentered("ROUND " + round.getCurrentRound(), cx, cy);
+            // "ROUND N"：開始時に大きく入り（スラムイン）、設置に向けて等倍へ縮む。countdown/total が 1→小 へ。
+            float t = total > 0 ? Math.max(0f, Math.min(1f, round.getIntroCountdown() / (float) total)) : 0f;
+            drawBannerText("ROUND " + round.getCurrentRound(), cx, cy, 2.5f + 1.0f * t, ROUND_INTRO_COLOR);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
+    }
+
+    /** イントロ/結果バナーの 1 行を、可読性のためドロップシャドウ付きで中央に描く（Task 162）。色・倍率は呼び出し側で戻す。 */
+    private void drawBannerText(String text, float cx, float cy, float scale, Color color) {
+        font.getData().setScale(scale);
+        font.setColor(BANNER_SHADOW_COLOR);
+        drawCentered(text, cx + 4f, cy - 4f);
+        font.setColor(color);
+        drawCentered(text, cx, cy);
     }
 
     /** マッチ決着時のバナー（決着理由 + マッチ勝者 + スコア）を画面中央に大きく描く。 */
