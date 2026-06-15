@@ -461,7 +461,7 @@ public class GameRenderer {
         if (!concluded) {
             drawLowHpVignette(p1, p2);
         }
-        // 決着演出（Task 148/149/150）：縁取り暗転＋勝者グロー＋KO 縁フラッシュ（バナーより後ろ＝テキストは最前面）。
+        // 決着演出（Task 148/149/150）：勝者グロー＋勝利の光の粒＋KO 白フラッシュ（バナーより後ろ＝テキストは最前面）。
         drawRoundEndOverlays(round, p1, p2);
         shapes.end();
 
