@@ -688,12 +688,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 画面の微振動（hit shake・Task 132）：接触の手応えを増す純描画演出。クリーンヒットは強め・ガードは弱め。
         // 火花と同じ接触の単一チョークポイントから呼ぶので、打撃 / 飛び道具 / 投げ / 投げ抜けすべてで揺れる。
         renderer.triggerShake(blocked ? GameConstants.GUARD_SHAKE_MAGNITUDE : GameConstants.HIT_SHAKE_MAGNITUDE);
-        // SE：ガードなら防御音、ヒットなら打撃音（blocked 一律で区別。投げ/飛び道具も共有）。
-        if (blocked) {
-            sounds.playGuard();
-        } else {
-            sounds.playHitLight();
-        }
+        // SE は呼び出し元ごとに種別を選べるよう、ここには書かない（投げ成立・パリィ等は別音）。
     }
 
     /** 着地の砂煙を 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出。Task 131）。 */
@@ -934,6 +929,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 }
                 float sparkY = target.getY() + target.getDef().getHeight() / 2f;
                 spawnDamagePopup(before - target.getCurrentHp(), blocked, p.getX(), sparkY);
+                if (blocked) sounds.playGuard(); else sounds.playHitHeavy();
                 spawnHitSpark(blocked, p.getX(), sparkY);
                 awardMeter(p.getOwner(), target, blocked);
                 triggerHitstop(blocked); // ヒットストップ（Task 86）
@@ -999,6 +995,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (defender.canParry()) {
             defender.applyParry();
             // いなしの火花（ノーダメージなのでダメージ数値ポップアップは出さない）。
+            sounds.playGuard();
             spawnHitSpark(true, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
             triggerHitstop(true); // 軽いヒットストップ（いなし感・ガード相当）
             return;
@@ -1076,6 +1073,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
         float sparkX = hb.getX() + hb.getWidth() / 2f;
         float sparkY = hb.getY() + hb.getHeight() / 2f;
         spawnDamagePopup(hpBefore - defender.getCurrentHp(), blocked, sparkX, sparkY);
+        if (blocked) {
+            sounds.playGuard();
+        } else {
+            Move cm = attacker.getCurrentMove();
+            AttackButton btn = cm != null ? cm.getButton() : null;
+            if (btn == AttackButton.HEAVY) sounds.playHitHeavy();
+            else if (btn == AttackButton.MEDIUM) sounds.playHitMedium();
+            else sounds.playHitLight();
+        }
         spawnHitSpark(blocked, sparkX, sparkY);
         awardMeter(attacker, defender, blocked);
         triggerHitstop(blocked);
