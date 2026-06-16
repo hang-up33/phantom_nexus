@@ -1,6 +1,6 @@
 ---
 name: kaizen-close
-description: タスク完了時に「継続的改善（kaizen）」を閉じる標準ワークフロー。新たに踏んだ罠・工夫・好み・知見を CLAUDE.md / README / メモリ / 設定のいずれかに反映してから完了報告する。すべてのタスク完了報告の直前に必ず実行する。
+description: タスク完了時に「継続的改善（kaizen）」を閉じる標準ワークフロー。新たに踏んだ罠・工夫・好み・知見を .claude/rules/（知見全般）/ README / 設定のいずれかに反映してから完了報告する。すべてのタスク完了報告の直前に必ず実行する。
 ---
 
 # Kaizen Close — 継続的改善の締めワークフロー
@@ -31,13 +31,15 @@ description: タスク完了時に「継続的改善（kaizen）」を閉じる�
 
 | 種類 | 反映先 |
 |---|---|
-| Claude Code が次回踏みそうな罠・規約・ビルド手順 | [CLAUDE.md](../../../CLAUDE.md) の「ビルド / 環境の罠」 |
+| Claude Code が次回踏みそうな罠・規約・ビルド手順・運用ノウハウ等の**知見全般** | **[.claude/rules/](../../rules/) のトピック別ファイル**（無ければ新規作成＋CLAUDE.md 末尾「プロジェクト知見」の import 行を追加）。**CLAUDE.md には直書きしない**（肥大化を避ける・[.claude/rules/README.md](../../rules/README.md) 参照） |
 | 人間の読者向けの永続情報・セットアップ手順 | README.md |
 | 設計判断の経緯・なぜそうしたか | 計画ファイル（`docs/` 配下の設計ドキュメント等） |
-| ユーザーの好み・セッション横断のスタイル | メモリ（`~/.claude/projects/.../memory/`） |
+| ユーザーの好み・セッション横断のスタイル | **`.claude/rules/`（リポジトリで共有したいもの）** ／ ローカルメモリ（`~/.claude/projects/.../memory/`・自分専用に留めたいもの） |
 | 再発を機械的に防げる事象 | `.gitignore` / lint / `.claude/settings.json` 等の設定 |
 | 繰り返し起こるワークフロー | 新規スキル `.claude/skills/<name>/SKILL.md` |
 | 繰り返し必要な専門作業（ビルド解決等） | エージェント `.claude/agents/<name>.md`（既存なら追記） |
+
+> **原則：知見は CLAUDE.md でなく `.claude/rules/` に集約する。** CLAUDE.md は骨子（コア原則・フォルダ構成・Must Always/Never）だけに保ち、罠・運用ノウハウはトピック別 rule に書く（ユーザー方針）。既存の「ビルド / 環境の罠」も、追記時は該当トピックの rule へ移すのが望ましい。
 
 ### Step 3: 反映を実行
 
@@ -52,9 +54,9 @@ description: タスク完了時に「継続的改善（kaizen）」を閉じる�
 ## やってはいけないこと（Must Never）
 
 - 反映ステップをスキップして完了報告する
-- 「とりあえず CLAUDE.md に書く」だけで終わらず、本当にそこが最適な場所かを Step 2 で選び直す
+- **知見を CLAUDE.md に直書きする**（肥大化を避けるため `.claude/rules/` のトピックファイルへ。CLAUDE.md は骨子のみ）
 - 既存記述と矛盾する内容を追記する（必要なら旧記述を更新する）
-- 一過性の作業ログ（コミットメッセージで十分なもの）を CLAUDE.md / README に残す
+- 一過性の作業ログ（コミットメッセージで十分なもの）を rules / README に残す
 
 ## 例（Example）
 
@@ -63,11 +65,11 @@ description: タスク完了時に「継続的改善（kaizen）」を閉じる�
 気付き : <ツール X> が <環境 Y> でリンク不可、<バージョン Z+> への切替が必須
 
 反映先選定：
-- 次セッションも同じ罠を踏む可能性大 → CLAUDE.md「ビルド / 環境の罠」＋ build-error-resolver の罠リスト
+- 次セッションも同じ罠を踏む可能性大 → `.claude/rules/build-traps.md`（無ければ新規作成＋CLAUDE.md の import 行を追加）＋ build-error-resolver の罠リスト
 - 人間の読者向けの前提条件 → README.md の「前提」セクション
 
 実行：上記 2 箇所を更新
 
 完了報告末尾：
-継続的改善：CLAUDE.md と README に <ツール X> の罠を追記、build-error-resolver に症状/原因/対処を蓄積
+継続的改善：.claude/rules/build-traps.md と README に <ツール X> の罠を追記、build-error-resolver に症状/原因/対処を蓄積
 ```

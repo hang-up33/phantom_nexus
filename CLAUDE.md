@@ -90,7 +90,7 @@
 
 さらに **push 前に [self-review](.claude/skills/self-review/SKILL.md) スキル**でローカル self-gate を行う（自分の差分を別コンテキストに点検させ、明白なミスを PR 前に潰す）。
 
-> ⚠️ **GitHub Actions の課金に関する注意（必ず確認）**：本リポジトリ（`hang-up33/phantom_nexus`）は **public** のため GitHub Actions の標準ランナーが無料で、`claude-review.yml` 等のワークフローは分数課金されない（消費するのは Claude サブスク枠のみ）。**将来 public → private に切り替えると、GitHub Actions が無料枠を超えた分は課金対象になり得る**。可視性を private に変更する／その話題が出たときは、この点を**必ずユーザーに伝える**こと（ユーザーは Actions の金銭課金に敏感。過去にコスト削減で `claude-review.yml` の自動発火を停止した経緯がある）。private 化する場合は、自動発火の停止／必要時だけ手動起動（`workflow_dispatch`）への切替も提案する。
+> GitHub Actions の課金注意（public→private 化時）など運用上の知見は [.claude/rules/](.claude/rules/) に集約。末尾「プロジェクト知見（.claude/rules/）」セクションで import 済み。
 
 **「Claude が自分の書いたコードを自身でレビューする」の肝**は、レビュー役を **実装の経緯を持たない別コンテキストの Claude** にすること。同一セッションでそのまま見直すと自分の判断を正当化するバイアスで粗を見逃すため、(1) CI の `claude-review.yml` は **fresh な別セッション**が diff だけを見てレビューし、(2) self-gate は **サブエージェント / `/code-review`** に切り出す。レビュー観点（単一の真実・フレーム正しさ・後方互換・Must Never 再導入・docs 同期・スクショ）は [AGENTS.md](AGENTS.md) と両スキルで共有する。
 
@@ -377,3 +377,13 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
 - `./gradlew build` / `./gradlew test`（ヘッドレス）は web リモート環境で実行可能。セッション開始時に `.claude/hooks/session-start.sh`（SessionStart フック）が依存と JDK17 toolchain をウォームアップする。
 - **GUI 起動とスクショも web で可能になった**（旧「不可」を撤回）。リモート Linux はウィンドウシステムが無いが、**Xvfb（仮想ディスプレイ）＋ Mesa ソフトウェア GL（`swrast`/`llvmpipe`）** の上で LWJGL3/GLFW を動かし、**アプリ自身がフレームバッファを PNG に書き出して自動終了**する方式で撮影する（`scripts/capture-app-screenshot-linux.sh` + `GameRuntime/Debug/.../ScreenshotController.java`）。実画面どおりの絵が得られるため、Codex/人間レビュー用の証跡を web セッションだけで完結できる。
 - ただし **対話的なプレイ確認（キーを押して動かす）はローカル Windows の方が確実**。web のスクショは「指定フレームでの静止画」前提。過渡状態（ジャンプ頂点・攻撃 active 等）は `-f <フレーム番号>` で撮るタイミングを合わせる。
+
+---
+
+## プロジェクト知見（.claude/rules/）
+
+CLAUDE.md の肥大化を避けるため、**プロジェクト固有の知見・罠・運用ルールは [.claude/rules/](.claude/rules/) にトピック別**で置く。**今後得た知見は CLAUDE.md に直書きせず、必ず該当 rule ファイルへ追記する**（無ければ新規作成）。詳細な運用は [.claude/rules/README.md](.claude/rules/README.md) を参照。
+
+Claude Code は `.claude/rules/` を自動ロードしないため、常に効かせたい rule は以下の import で読み込む（**新規 rule を足したら import 行も 1 行追加する**）：
+
+@.claude/rules/github-actions-billing.md
