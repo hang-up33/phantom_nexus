@@ -90,6 +90,8 @@
 
 さらに **push 前に [self-review](.claude/skills/self-review/SKILL.md) スキル**でローカル self-gate を行う（自分の差分を別コンテキストに点検させ、明白なミスを PR 前に潰す）。
 
+> ⚠️ **GitHub Actions の課金に関する注意（必ず確認）**：本リポジトリ（`hang-up33/phantom_nexus`）は **public** のため GitHub Actions の標準ランナーが無料で、`claude-review.yml` 等のワークフローは分数課金されない（消費するのは Claude サブスク枠のみ）。**将来 public → private に切り替えると、GitHub Actions が無料枠を超えた分は課金対象になり得る**。可視性を private に変更する／その話題が出たときは、この点を**必ずユーザーに伝える**こと（ユーザーは Actions の金銭課金に敏感。過去にコスト削減で `claude-review.yml` の自動発火を停止した経緯がある）。private 化する場合は、自動発火の停止／必要時だけ手動起動（`workflow_dispatch`）への切替も提案する。
+
 **「Claude が自分の書いたコードを自身でレビューする」の肝**は、レビュー役を **実装の経緯を持たない別コンテキストの Claude** にすること。同一セッションでそのまま見直すと自分の判断を正当化するバイアスで粗を見逃すため、(1) CI の `claude-review.yml` は **fresh な別セッション**が diff だけを見てレビューし、(2) self-gate は **サブエージェント / `/code-review`** に切り出す。レビュー観点（単一の真実・フレーム正しさ・後方互換・Must Never 再導入・docs 同期・スクショ）は [AGENTS.md](AGENTS.md) と両スキルで共有する。
 
 ---
