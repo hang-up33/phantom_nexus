@@ -453,17 +453,20 @@ public class GameRenderer {
 
         // --- パス 3: オーバーレイ（矩形フォールバック / ガード / 攻撃 strike / 接触 / 飛び道具 / HP）---
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawFighterOverlay(p1, anim1, P1_COLOR, false);
-        drawFighterOverlay(p2, anim2, P2_COLOR, mirror);
+        drawFighterOverlay(p1, anim1, P1_COLOR, false, debug.isEnabled());
+        drawFighterOverlay(p2, anim2, P2_COLOR, mirror, debug.isEnabled());
         // 飛び道具（必殺技の弾）。
         drawProjectiles(projectiles);
         // ヒットスパーク（命中位置で拡大＋フェードする火花。Task 38）。
         drawHitSparks(sparks);
         // 着地の砂煙（足元で広がり上昇しフェードする土埃。Task 131）。
         drawLandingDust(dusts);
-        // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
-        drawContactMarker(p1, p2);
-        drawContactMarker(p2, p1);
+        // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。当たり判定の可視化なので
+        // 通常プレイでは隠し、F1 デバッグ表示時のみ出す（Task 165）。
+        if (debug.isEnabled()) {
+            drawContactMarker(p1, p2);
+            drawContactMarker(p2, p1);
+        }
         // HP ゲージ（HUD 上端）。P1 は左から、P2 は右から減る方向に塗る。
         drawHpBar(p1, true);
         drawHpBar(p2, false);
@@ -1297,7 +1300,8 @@ public class GameRenderer {
      * ここで描く（後方互換）。スプライト描画済みのキャラは本体矩形を省き、ガードオーバーレイ・攻撃 strike・
      * フレームピップのみを重ねる（これらは矩形 / スプライトの双方に共通の可視化）。
      */
-    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback, boolean paletteSwap) {
+    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback, boolean paletteSwap,
+                                    boolean showDebugViz) {
         Character d = f.getDef();
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
@@ -1334,12 +1338,15 @@ public class GameRenderer {
             shapes.setColor(GUARD_COLOR);
             shapes.rect(left, bottom, d.getWidth(), drawHeight);
         }
-        // 攻撃中は前方の strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描く。
-        if (f.isAttacking()) {
+        // 攻撃中は前方の strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描く。当たり判定の可視化
+        // （投げの紫 grab box 含む）なので通常プレイでは隠し、F1 デバッグ表示時のみ出す（Task 165）。
+        if (showDebugViz && f.isAttacking()) {
             drawAttackStrike(f);
         }
-        // フレームピップ：足元下に総フレーム数だけ並べ、現在フレームを点灯（アニメ進行の証跡）。
-        drawFramePips(f, anim);
+        // フレームピップ：足元下に総フレーム数だけ並べ、現在フレームを点灯（アニメ進行の証跡）。これも debug 時のみ。
+        if (showDebugViz) {
+            drawFramePips(f, anim);
+        }
     }
 
     /**
