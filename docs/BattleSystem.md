@@ -24,6 +24,7 @@
 空中ガード（Task 59）は専用の `AnimationState` を持たず JUMP ポーズ＋青オーバーレイを流用し、ラベル `air_guard` で識別する。
 ダウン（Task 60）も専用 `AnimationState` を持たず HITSTUN ポーズを流用し、ラベル `knockdown` で識別する（ダウン中は被弾無敵）。めまい（Task 79）も同様に HITSTUN ポーズ流用＋ラベル `dizzy`（ただし被弾無敵ではない＝コンボ可）。受け身（Task 66）成立中は `knockdown(ukemi)` ラベルでクイック起き上がりを識別する（ポーズは HITSTUN 流用のまま）。
 ダッシュ攻撃（Task 65）も専用 `AnimationState` を持たず ATTACK ポーズを流用し、ラベル `dash_attack:<区間>` で識別する（ダッシュ中の攻撃で出る突進打撃）。
+同様に専用 `AnimationState` を持たず**ラベルのみ**で識別する状態：`tech`（投げ抜け・Task 36）/ `guard_break`（ガードクラッシュ・Task 43）/ `wall_bounce`（壁バウンド・Task 101）/ `ground_bounce`（床バウンド・Task 102）/ `air_tech`（空中受け身・Task 126）/ `parry`（パリィ・Task 105・行動をロックしないためアニメ優先順の対象外）/ `dash`（Task 49）・`run`（Task 123）。ダウンは状況で `knockdown` / `knockdown(ukemi)`（受け身・Task 66）/ `knockdown(delay)`（ディレイ起き上がり・Task 122）/ `knockdown(hard)`（受け身不能・Task 88）にラベルが分岐する。**`GameRenderer.drawNameLabel()` が単一の真実**で、表示優先順は「ダウン > 投げ抜け > ガードクラッシュ > めまい > 壁/床バウンド > のけぞり > 空中受け身 > パリィ > 攻撃系 > ダッシュ/ラン > 空中ガード」（無敵中は `[INV]`・EX 中は `[EX]` を suffix で付す）。
 攻撃は **startup / active / recovery** の 3 区間を持ち、`active` 区間のみ hitbox が有効。
 
 アニメーション状態の導出優先順（`FighterAnimator.resolve()` が単一の真実。優先順が変わるタスクでは本リストを更新する。旧タスク節の優先順は当時存在した状態のみの短縮表記を含むが、順序は本リストと矛盾しない）：
@@ -1174,7 +1175,7 @@ HARD の AI が、**必殺技ゲージ満タン**かつ間合い内（`GUARD_RAN
 
 ## 画面フロー：キャラクター選択画面（Task 117）
 
-タイトルで **VERSUS** を確定すると **キャラクター選択画面**（`Screen.CHARACTER_SELECT`）へ遷移する。ロスター（全 18 キャラ）をグリッド表示し、**P1 → P2 の順**にキャラを選ぶ：
+タイトルで **VERSUS** を確定すると **キャラクター選択画面**（`Screen.CHARACTER_SELECT`）へ遷移する。ロスター（全 20 キャラ）をグリッド表示し、**P1 → P2 の順**にキャラを選ぶ：
 
 - `ARROWS`/`WASD` でカーソル移動（index ベース・左右±1／上下±列数）、`ENTER`/`SPACE`/`J` で確定。
 - 1 人目の確定で P1 をロック（表示が「Player 2 : choose your fighter」へ）、2 人目の確定で**選んだ 2 キャラでバトル開始**（`startBattle` がファイター/アニメ/ラウンド/AI を作り直して `BATTLE` へ）。
