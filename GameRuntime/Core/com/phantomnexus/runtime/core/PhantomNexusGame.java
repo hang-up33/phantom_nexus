@@ -53,8 +53,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean fightSoundPlayed; // "FIGHT!" バナー表示時の音を 1 回だけ再生するフラグ
     private PlayerInput p1Input;
     private PlayerInput p2Input;
-    /** 接続済みコントローラー入力（gdx-controllers）。撮影/リプレイ再生では未接続（決定性維持）。 */
+    /** 接続済みコントローラー入力（gdx-controllers）。撮影/リプレイ再生では無効（決定性維持）。 */
     private GamepadInput gamepad;
+    /** コントローラー入力が有効か（撮影モード・リプレイ再生では false＝poll もしない＝全クエリ false）。 */
+    private boolean gamepadActive;
     private Fighter fighter1;
     private Fighter fighter2;
     private FighterAnimator animator1;
@@ -208,10 +210,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             controlsHint = "[REPLAY] " + replay.frameCount() + "f   [F1] hitboxes";
         }
         // ゲームパッド入力：PC にコントローラーが繋がっていればそれで操作できる（1P=スロット0 / 2P=スロット1）。
-        // 撮影モード・リプレイ再生では接続しない（強制入力 / 記録済み入力のみで決定的に再現するため）。
-        // 記録モード（isRecording）では接続する＝コントローラー操作も記録される。
+        // 撮影モード・リプレイ再生では無効化する（強制入力 / 記録済み入力のみで決定的に再現するため）。
+        // 記録モード（isRecording）では有効＝コントローラー操作も記録される。
+        // gamepadActive=false のときは render() で poll() せず、メニュー / 攻撃いずれのクエリも全て false に縮退する
+        // （poll が唯一の状態更新点なので、ポーリングしなければエッジ / 押下集合は空のまま＝完全に無効）。
         gamepad = new GamepadInput();
-        if (!screenshot.isEnabled() && !replay.isReplaying()) {
+        gamepadActive = !screenshot.isEnabled() && !replay.isReplaying();
+        if (gamepadActive) {
             p1Input.attachGamepad(gamepad, 0);
             p2Input.attachGamepad(gamepad, 1);
         }
@@ -463,7 +468,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     public void render() {
         // ゲームパッドをフレーム先頭で 1 回ポーリングし、押下状態と立ち上がりエッジを更新する
         // （以降の入力読み取り・メニュー操作がこのフレームの値を参照する）。未接続/未対応環境では no-op。
-        gamepad.poll();
+        // 撮影モード・リプレイ再生（gamepadActive=false）では poll しない＝メニュー含む全クエリが false に
+        // 縮退し、コントローラーが繋がっていても決定的再現を一切乱さない（CodeRabbit 指摘）。
+        if (gamepadActive) {
+            gamepad.poll();
+        }
         // タイトル画面（Task 116）：モード選択（対戦 / トレーニング）。撮影/リプレイでは create() で BATTLE 直行のため
         // 通常はここに来ない（-x startscreen=title 指定時のみ撮影でも表示）。選択確定で対戦/トレーニングへ遷移する。
         if (screen == Screen.TITLE) {

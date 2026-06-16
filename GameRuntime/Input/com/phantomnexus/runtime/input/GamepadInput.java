@@ -107,8 +107,8 @@ public class GamepadInput {
             if (m == null) {
                 return set;
             }
-            float ax = c.getAxis(m.axisLeftX);
-            float ay = c.getAxis(m.axisLeftY);
+            float ax = readAxis(c, m.axisLeftX);
+            float ay = readAxis(c, m.axisLeftY);
             // 左スティックと D-pad のどちらでも方向入力できる。Y 軸は上が負（SDL 準拠）。
             if (readButton(c, m.buttonDpadLeft) || ax < -DEADZONE) {
                 set.add(InputAction.LEFT);
@@ -143,6 +143,11 @@ public class GamepadInput {
 
     private boolean readButton(Controller c, int code) {
         return c != null && code >= 0 && c.getButton(code);
+    }
+
+    /** 軸値を読む。未マッピング（コード &lt; 0）なら中立（0）を返す（readButton と同じ防御）。 */
+    private float readAxis(Controller c, int code) {
+        return (c != null && code >= 0) ? c.getAxis(code) : 0f;
     }
 
     /** スロット {@code slot} のコントローラーでアクションが押下中か（移動 / しゃがみ向け）。 */
