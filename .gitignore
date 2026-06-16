@@ -22,3 +22,6 @@ Thumbs.db
 
 # ログ
 *.log
+
+# Claude Code エージェントの worktree（内部アーティファクト）
+.claude/worktrees/
