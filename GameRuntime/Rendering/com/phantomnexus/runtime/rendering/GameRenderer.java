@@ -1416,10 +1416,20 @@ public class GameRenderer {
                 shapes.circle(p.getTrailX(i), cy, r * (PROJECTILE_TRAIL_MIN_SCALE
                         + (PROJECTILE_TRAIL_MAX_SCALE - PROJECTILE_TRAIL_MIN_SCALE) * t));
             }
+            // エネルギーの脈動オーラ（Task 166）：本体グローの外側に薄い光輪を重ね、auraTick で半径を脈打たせて
+            // 「気の塊」感を出す（円描画＝ソフトウェア GL でも安全・乱数なし＝決定的）。
+            float pulse = 1.25f + 0.18f * Math.abs((float) Math.sin(auraTick * 0.5f));
+            projectileTrailColor.set(glow.r, glow.g, glow.b, 0.22f);
+            shapes.setColor(projectileTrailColor);
+            shapes.circle(cx, cy, r * pulse);
             shapes.setColor(glow);
             shapes.circle(cx, cy, r);
             shapes.setColor(PROJECTILE_CORE);
             shapes.circle(cx, cy, r * 0.55f);
+            // 白熱中心：コアのさらに内側に近白の点を置いて高エネルギーの芯を示す（Task 166）。
+            projectileTrailColor.set(1f, 1f, 1f, 0.85f);
+            shapes.setColor(projectileTrailColor);
+            shapes.circle(cx, cy, r * 0.26f);
         }
     }
 
