@@ -274,10 +274,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (confirm) {
             if (titleSelection == 1) {
                 // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
-                trainingMode = true;
-                p2AiEnabled = false;
-                controlsHint = buildControlsHint();
-                screen = Screen.BATTLE;
+                startTraining();
             } else {
                 // 対戦：P2 AI ON。キャラクター選択（Task 117）へ遷移する。
                 trainingMode = false;
@@ -285,6 +282,30 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 enterCharacterSelect();
             }
         }
+    }
+
+    /**
+     * トレーニングモードでバトルを開始する（Task 116）。P2 AI を切り HP 無限の練習にする。
+     * ラウンドとファイターを作り直してから BATTLE へ遷移するため、決着後にタイトルへ戻ってから選んでも
+     * 前マッチの確定状態を持ち越さない（{@link #returnToTitle()} と組み合わせて正しく再開できる）。
+     */
+    private void startTraining() {
+        trainingMode = true;
+        p2AiEnabled = false;
+        round = new RoundManager(battleRules, introFramesValue);
+        resetFighters();
+        controlsHint = buildControlsHint();
+        screen = Screen.BATTLE;
+    }
+
+    /**
+     * 決着後にスタート画面（タイトル）へ戻る。画面状態を TITLE に戻すだけで、再開時のバトル構築は
+     * 各遷移（対戦＝キャラ/ステージ選択→{@link #startBattle}・トレーニング＝{@link #startTraining}）が
+     * 改めてラウンド・ファイターを作り直すため、前マッチの確定状態は持ち越さない。通常プレイ専用。
+     */
+    private void returnToTitle() {
+        titleSelection = 0;
+        screen = Screen.TITLE;
     }
 
     /** キャラクター選択画面へ入る（Task 117）。ロスター名を遅延ロードし、選択状態を初期化する。 */
@@ -455,6 +476,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
             return; // 遷移したフレームはここで終了し、次フレームからバトルを処理。
         }
+        // 決着後（マッチ確定）にスタート画面（タイトル）へ戻る。通常プレイのみ有効で、撮影/リプレイは
+        // 結果を凍結したまま（既存スクショレシピ・リプレイの決定性を壊さない後方互換）。メニューと同じ
+        // ENTER/SPACE/J、加えて ESC で戻れる。遷移したフレームは return して次フレームからタイトルを処理する。
+        if (round.isFinished() && !screenshot.isEnabled()
+                && !replay.isReplaying() && !replay.isRecording()
+                && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                    || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                    || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                    || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE))) {
+            returnToTitle();
+            return;
+        }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
         // 再生モード：記録済み入力をこのフレームの押下として注入し、P2 AI 状態も復元する。
@@ -496,6 +529,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
         update();
         renderer.setSuperFlash(superFlashFrames); // スーパーフラッシュ演出（Task 169）：残りフレームをレンダラへ
+        // 決着後の「タイトルへ戻る」ヒント表示は通常プレイのみ（撮影/リプレイは結果バナーを従来どおり凍結表示）。
+        // 撮影は既定で非表示だが、証跡用に -x returntotitle=true で結果バナーに重ねて撮れる（後方互換）。
+        boolean interactiveFinished = round.isFinished() && !screenshot.isEnabled()
+                && !replay.isReplaying() && !replay.isRecording();
+        renderer.setReturnToTitleHint(interactiveFinished || screenshot.returnToTitleHintForced());
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
