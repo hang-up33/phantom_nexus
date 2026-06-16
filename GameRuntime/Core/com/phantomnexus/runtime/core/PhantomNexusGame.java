@@ -497,6 +497,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
+        renderer.setSuperFlash(superFlashFrames); // スーパーフラッシュ演出（Task 169）：残りフレームをレンダラへ
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
