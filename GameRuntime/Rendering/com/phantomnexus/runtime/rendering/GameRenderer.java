@@ -118,6 +118,8 @@ public class GameRenderer {
     private static final int KO_FLASH_FRAMES = 14;       // フラッシュ持続フレーム
     private static final Color KO_FLASH_COLOR = new Color(1f, 1f, 1f, 0.85f); // 縁の白（α は残りフレーム比で減衰）
     private static final float KO_FLASH_BAND = 220f;     // 縁から内側へ白がフェードする帯の幅（px）
+    private static final Color SUPER_FLASH_COLOR = new Color(1f, 0.86f, 0.32f, 0.82f); // スーパー発動の金色縁フラッシュ（Task 169）
+    private static final float SUPER_FLASH_BAND = 300f;  // スーパーフラッシュの縁帯幅（KO より広く劇的に・Task 169）
     // 勝者グロー（Task 149）。決着 / ラウンド間に勝者の足元へ金色のパルス光輪を出して際立たせる。
     private static final Color WINNER_GLOW_COLOR = new Color(1f, 0.85f, 0.30f, 0.55f);
     private static final float WINNER_GLOW_WIDTH_SCALE = 1.9f; // 勝者光輪の横径＝キャラ幅 × これ
@@ -269,6 +271,9 @@ public class GameRenderer {
     private boolean prevConcluded;
     private final Color koFlashColor = new Color();
     private final Color winnerGlowColor = new Color();
+    // スーパーフラッシュ演出（Task 169）：Core から毎フレーム受け取る残りフレーム（>0 で金色縁フラッシュ）。
+    private int superFlashFrames;
+    private final Color superFlashColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -291,6 +296,11 @@ public class GameRenderer {
         shapes = new ShapeRenderer();
         // MVP では LibGDX 組込みフォント（Arial 15px）を使用。後続でビットマップフォントに差し替え可。
         font = new BitmapFont();
+    }
+
+    /** スーパー必殺技発動時のスーパーフラッシュ残りフレームを Core から受け取る（Task 169・>0 で金色縁フラッシュ）。 */
+    public void setSuperFlash(int frames) {
+        this.superFlashFrames = frames;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -485,6 +495,8 @@ public class GameRenderer {
         if (!concluded) {
             drawLowHpVignette(p1, p2);
         }
+        // スーパー必殺技発動の金色フラッシュ（Task 169）：凍結中に縁を金色に光らせて発動を劇的に見せる。
+        drawSuperFlash();
         // 決着演出（Task 148/149/150）：勝者グロー＋勝利の光の粒＋KO 白フラッシュ（バナーより後ろ＝テキストは最前面）。
         drawRoundEndOverlays(round, p1, p2);
         shapes.end();
@@ -1282,6 +1294,20 @@ public class GameRenderer {
         shapes.rect(w - band, 0f, band, h, clear, edge, edge, clear);           // 右
         shapes.rect(0f, 0f, w, band, edge, edge, clear, clear);                 // 下
         shapes.rect(0f, h - band, w, band, clear, clear, edge, edge);           // 上
+    }
+
+    /**
+     * スーパー必殺技発動のスーパーフラッシュ（Task 169）。Core が両者を凍結する間（{@code superFlashFrames>0}）、
+     * 画面の縁を金色にフラッシュさせて発動を劇的に見せる。残りフレーム比で減衰し、帯幅も縮める。KO 白フラッシュ
+     * （Task 148）と同じ縁グラデ手法＝ソフトウェア GL でも安全（全画面ソリッド半透明の罠を回避）。乱数なし・決定的。
+     */
+    private void drawSuperFlash() {
+        if (superFlashFrames <= 0) {
+            return;
+        }
+        float t = Math.min(1f, superFlashFrames / (float) GameConstants.SUPER_FLASH_FRAMES); // 1→0 へ減衰
+        superFlashColor.set(SUPER_FLASH_COLOR.r, SUPER_FLASH_COLOR.g, SUPER_FLASH_COLOR.b, SUPER_FLASH_COLOR.a * t);
+        drawEdgeVignette(superFlashColor, SUPER_FLASH_BAND * (0.55f + 0.45f * t));
     }
 
     /** 勝者の足元に金色のパルス光輪を描く（Task 149）。メーター満タンオーラと同型だがより大きく金色で目立たせる。 */
