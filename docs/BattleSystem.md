@@ -1175,12 +1175,12 @@ HARD の AI が、**必殺技ゲージ満タン**かつ間合い内（`GUARD_RAN
 
 ## 画面フロー：キャラクター選択画面（Task 117）
 
-タイトルで **VERSUS** を確定すると **キャラクター選択画面**（`Screen.CHARACTER_SELECT`）へ遷移する。ロスター（全 20 キャラ）をグリッド表示し、**P1 → P2 の順**にキャラを選ぶ：
+タイトルで **VERSUS** を確定すると **キャラクター選択画面**（`Screen.CHARACTER_SELECT`）へ遷移する。ロスター（`ROSTER_IDS`＝全 10 キャラ・fighter001〜010）をグリッド表示し、**P1 → P2 の順**にキャラを選ぶ：
 
 - `ARROWS`/`WASD` でカーソル移動（index ベース・左右±1／上下±列数）、`ENTER`/`SPACE`/`J` で確定。
 - 1 人目の確定で P1 をロック（表示が「Player 2 : choose your fighter」へ）、2 人目の確定で**選んだ 2 キャラでバトル開始**（`startBattle` がファイター/アニメ/ラウンド/AI を作り直して `BATTLE` へ）。
 - カーソル＝黄、P1 確定＝シアン、P2 確定＝橙で色分け。
-- ロスター名は遷移時に遅延ロード（`ensureRosterLoaded`・各 JSON の `name`）。新キャラを足したら `ROSTER_IDS` に追記する。
+- ロスター名は遷移時に遅延ロード（`ensureRosterLoaded`・各 JSON の `name`）。新キャラを足したら `ROSTER_IDS` に追記する。なお `Assets/Characters/` には fighter011〜020 の定義（JSON/PNG）も残っているが、現在のロスターは fighter001〜010 の 10 体に絞っている（過去に 20 体まで実装した名残・撮影は `-x p1char=fighter0NN` で 011〜020 も読み込み可能）。
 - トレーニングは既定キャラ・既定ステージで即バトル（キャラ/ステージ選択を経由しない）。撮影/リプレイは BATTLE 直行（`-x startscreen=charselect` でこの画面を撮れる）。
 - メニュー入力は `Gdx` キー直接参照の純 UI（戦闘ロジック・乱数に非干渉。撮影ハーネスの forced 入力では駆動しないため、撮影は既定状態のキャプチャ）。
 
