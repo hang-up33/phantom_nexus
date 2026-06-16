@@ -137,7 +137,7 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 
 - **ChatGPT Codex（Web 版エージェント）** を使用する。
 - chatgpt.com の **Codex** → **Settings** から GitHub を OAuth 連携し、`hang-up33/phantom_nexus` への権限を付与しておく。
-- **Codex 側の自動レビュー設定が有効** になっており、`ready-for-review` で PR を push すれば手動操作なしに Codex が PR コメントでレビューを返す。Claude は `gh pr view <番号> --comments` で結果を取得できる。
+- **Codex は枠節約のため自動レビューに任せず、`@codex review` コメントで明示発火する**（主レビュー収束後の最終 1 回のみ・上記「Codex の枠節約方針」参照）。Claude は `gh pr view <番号> --comments` で結果を取得できる。Codex が `"You have reached your Codex usage limits"` を返したら待たず・再依頼せずスキップする。
 
 ---
 
@@ -176,7 +176,7 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 
 ## ビルド / 環境の罠
 
-- **macOS で `./gradlew run` は `-XstartOnFirstThread` が無いと GLFW スレッドエラーで起動しない** — 症状：`java.lang.IllegalStateException: GLFW may only be used on the main thread and that thread must be the first thread in the process. Please run the JVM with -XstartOnFirstThread`（`glfwInit` → `Lwjgl3Application.<init>`）。原因：LWJGL3/GLFW は macOS では GLFW をプロセス最初のスレッドで動かす必要があるが、本プロジェクトは Windows 対象のため run タスクにこのフラグが無かった。対処：`Infra/Build/build.gradle` の run タスクに `if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) { jvmArgs '-XstartOnFirstThread' }` を追加済み（macOS 以外は従来どおり無付与＝Windows/Linux に無影響）。これで `./gradlew run` 一発で起動する。なお **ローカルに JDK が無い場合はまず JDK17 が必要**（Gradle wrapper の起動自体に JVM が要る・toolchain の自動取得はコンパイル用で launcher は別）。`brew install openjdk@17` → `export JAVA_HOME=/opt/homebrew/opt/openjdk@17` で解決（arm64 mac で確認済み・macos-arm64 ネイティブは依存に同梱済み）。起動時に出る `error messaging the mach port for IMKCFRunLoopWakeUpReliable` は macOS の IME 周りの無害な警告。
+- **macOS で `./gradlew run` は `-XstartOnFirstThread` が無いと GLFW スレッドエラーで起動しない** — 症状：`java.lang.IllegalStateException: GLFW may only be used on the main thread and that thread must be the first thread in the process. Please run the JVM with -XstartOnFirstThread`（`glfwInit` → `Lwjgl3Application.<init>`）。原因：LWJGL3/GLFW は macOS では GLFW をプロセス最初のスレッドで動かす必要があるが、本プロジェクトは Windows 対象のため run タスクにこのフラグが無かった。対処：`Infra/Build/build.gradle` の run タスクに `def osName = System.getProperty('os.name','').toLowerCase(Locale.ROOT); if (osName.contains('mac')) { jvmArgs '-XstartOnFirstThread' }` を追加済み（macOS 以外は従来どおり無付与＝Windows/Linux に無影響）。OS 判定は標準の `System.getProperty("os.name")` を使う（Gradle の internal API `org.gradle.internal.os.OperatingSystem` は非サポートで将来のアップグレードで壊れ得るため・CodeRabbit 指摘で確定）。これで `./gradlew run` 一発で起動する。なお **ローカルに JDK が無い場合はまず JDK17 が必要**（Gradle wrapper の起動自体に JVM が要る・toolchain の自動取得はコンパイル用で launcher は別）。`brew install openjdk@17` → `export JAVA_HOME=/opt/homebrew/opt/openjdk@17` で解決（arm64 mac で確認済み・macos-arm64 ネイティブは依存に同梱済み）。起動時に出る `error messaging the mach port for IMKCFRunLoopWakeUpReliable` は macOS の IME 周りの無害な警告。
 - **`apply-template.sh` は `CLAUDE.md.template` を置換しない** — スクリプトは `*.md` のみ sed 対象とするため、拡張子 `.template` のファイルはプレースホルダー未置換のままリネームされる。テンプレ初期化時は `CLAUDE.md` のプレースホルダー（`{{BUILD_CMD}}` 等）を手で埋める必要がある（本リポジトリでは初期化時に対応済み）。
 - **`docs/` は小文字で統一する** — 設計書は `Docs/`（大文字）だが、テンプレ既存の `docs/`（小文字）と Windows の大文字小文字非区別により同一フォルダに衝突する。GitHub は casing を区別するため、ドキュメントパス・スクショ raw URL は **必ず `docs/` 小文字**で書く（大文字 `Docs/` を新規に書かない）。他のトップ階層（`GameRuntime/` 等）は衝突しないので設計書どおり大文字。
 - **`apply-template.sh` の置換対象は `*.md`/`*.json`/`*.sh`/`*.ps1` のみ** — `.github/workflows/*.yml` は対象外。Issue→PR 自動化（`claude-issue-to-pr.yml`）の `--allowedTools` は手で保守する必要があり、本プロジェクトのビルドツール `Bash(./gradlew:*),Bash(gradle:*)` を追加済み（ビルドツールを変えたら要更新）。また置換は `docs/customize.md`/`docs/setup.md` 内の placeholder 名（`{{OWNER}}` 等）まで潰すため、これらは初期コミットから復元してトークンを保持している。

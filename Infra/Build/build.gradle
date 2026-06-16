@@ -82,7 +82,10 @@ tasks.named('run', JavaExec) {
     // JVM に -XstartOnFirstThread を渡す（無いと glfwInit で
     // 「GLFW may only be used on the main thread」と落ちる）。
     // macOS 以外（Windows / Linux）では付けない＝従来挙動のまま。
-    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+    // OS 判定は標準の System.getProperty("os.name") を使う（Gradle の internal API
+    // org.gradle.internal.os.OperatingSystem は非サポートで将来のアップグレードで壊れ得るため）。
+    def osName = System.getProperty('os.name', '').toLowerCase(java.util.Locale.ROOT)
+    if (osName.contains('mac')) {
         jvmArgs '-XstartOnFirstThread'
     }
 
