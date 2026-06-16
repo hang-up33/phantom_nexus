@@ -99,52 +99,44 @@ public class Fighter {
      */
     public void update(int moveDir, boolean jumpPressed, AttackButton attackButton, boolean crouchHeld,
                        boolean throwReq) {
-        // 投げ抜け猶予窓・表示フレームを毎フレーム減衰させる（Task 36）。窓は投げボタン押下でアームされる。
-        if (throwTechWindow > 0) {
-            throwTechWindow--;
+        tickDisplayCounters();
+        tickStatusEffects(moveDir);
+        if (knockdownFrames > 0) {
+            processKnockdownState(moveDir, jumpPressed, attackButton, crouchHeld, throwReq);
+        } else if (hitstunFrames > 0 || dizzyFrames > 0) {
+            processHitstunState(attackButton, jumpPressed, throwReq);
+        } else if (airTechRecovery > 0) {
+            processAirTechRecoveryState();
+        } else {
+            processActiveState(moveDir, jumpPressed, attackButton, crouchHeld, throwReq);
         }
-        if (throwTechFrames > 0) {
-            throwTechFrames--;
-        }
-        // ガードクラッシュの表示/拘束フレームを減衰（Task 43。拘束自体は hitstunFrames が担う）。
-        if (guardBreakFrames > 0) {
-            guardBreakFrames--;
-        }
-        // クリーンヒットの白フラッシュ表示フレームを減衰（純描画・行動には影響しない・Task 136）。
-        if (impactFlashFrames > 0) {
-            impactFlashFrames--;
-        }
-        // カウンターヒット被弾の表示フレームを減衰（Task 71。ラベルの (CH) 表示専用・拘束は hitstunFrames が担う）。
-        if (counterHitFrames > 0) {
-            counterHitFrames--;
-        }
-        // 壁バウンド成立（跳ね返り）の表示フレームを減衰（Task 101・ラベル表示専用・拘束は hitstunFrames が担う）。
-        if (wallBounceFrames > 0) {
-            wallBounceFrames--;
-        }
-        // 床バウンド成立（跳ね返り）の表示フレームを減衰（Task 102・ラベル表示専用）。
-        if (groundBounceFrames > 0) {
-            groundBounceFrames--;
-        }
-        // パリィ成立の表示フレームを減衰（Task 105・ラベル表示専用・行動はロックしない）。
-        if (parryFrames > 0) {
-            parryFrames--;
-        }
-        // ジャストガード成立の表示フレームを減衰（Task 81。ラベルの [JUST] 表示専用）。
-        if (justGuardFrames > 0) {
-            justGuardFrames--;
-        }
-        // めまい（Task 79）の行動不能フレームを減衰。dizzyFrames が拘束の真の長さで、被弾で短い hitstun に上書き
-        // されても独立に減るため「めまい中はずっと無防備」が保たれる（コンボでリセットされない）。
-        if (dizzyFrames > 0) {
-            dizzyFrames--;
-        }
+        applyPhysics();
+    }
+
+    /** 表示用カウンタ（エフェクト残フレーム等）を毎フレーム 1 ずつ減衰させる。 */
+    private void tickDisplayCounters() {
+        if (throwTechWindow > 0)    throwTechWindow--;
+        if (throwTechFrames > 0)    throwTechFrames--;
+        if (guardBreakFrames > 0)   guardBreakFrames--;
+        if (impactFlashFrames > 0)  impactFlashFrames--;
+        if (counterHitFrames > 0)   counterHitFrames--;
+        if (wallBounceFrames > 0)   wallBounceFrames--;
+        if (groundBounceFrames > 0) groundBounceFrames--;
+        if (parryFrames > 0)        parryFrames--;
+        if (justGuardFrames > 0)    justGuardFrames--;
+        if (dizzyFrames > 0)        dizzyFrames--;
+    }
+
+    /**
+     * めまい・スタン値・回復可能ダメージを更新し、ガード/パリィ判定・ガードゲージ回復を計算する。
+     * ダウン被弾無敵ラッチ（knockdownInertThisFrame）もここで設定する。
+     */
+    private void tickStatusEffects(int moveDir) {
         // スタン値の自然減衰：完全に中立（のけぞり / ダウン / めまいでない）な間だけ抜けていく（Task 79）。
         if (hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0 && stunMeter > 0) {
             stunMeter = Math.max(0, stunMeter - GameConstants.STUN_DECAY_PER_FRAME);
         }
         // 回復可能ダメージ（レッドライフ・Task 104）：被弾していない（のけぞり/ダウン/めまいでない）間だけ遅延後に回復する。
-        // 遅延カウンタは中立時のみ進め、回復間隔ごとに赤ゲージ 1 を白 HP へ戻す（最後の被弾＝chip 含むからの猶予を表現）。
         if (hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0) {
             if (recoverDelay > 0) {
                 recoverDelay--;
@@ -158,287 +150,249 @@ public class Fighter {
             }
         }
         // ダウンの被弾無敵ラッチ（Task 60・Codex 指摘）：この update の処理前にダウン中だったか（＝このフレームは inert か）を
-        // 記録する。減算は下の inert 分岐内で行い 60F の行動不能を確保しつつ、当たり判定の被弾ゲート（isKnockedDown）は
-        // このラッチ ‖ knockdownFrames>0 で判定する。これにより、ダウンが解ける最終フレーム（inert 分岐で knockdownFrames が
-        // 0 になるフレーム）も resolveHit/描画では down 扱い＝被弾無敵になり、「行動可能フレーム」と「被弾可能フレーム」が揃う
-        // （まだ動けないのに被弾だけ可能、という 1F の無防備窓を作らない）。応用フレーム（applyKnockdown 直後）は
-        // knockdownFrames>0 側で無敵になる。
+        // 記録する。これにより、ダウンが解ける最終フレームも resolveHit/描画では down 扱い＝被弾無敵になる。
         knockdownInertThisFrame = knockdownFrames > 0;
-        // ガード判定：非のけぞり・非攻撃中に後退方向を保持しているか。接地でも滞空でも成立する（空中ガード・Task 59）。
-        // 後退方向保持は立ち（crouchHeld=false）でも しゃがみ（crouchHeld=true）でも成立し、
-        // しゃがみ後退は低姿勢ガード（crouch guard）になる（Task 30。しゃがみは接地時のみ）。低姿勢判定は crouching を併用。
-        // 滞空中の後退保持は空中ガード（air guard）＝立ち扱い（crouching=false）で、飛び道具・中段/上段を chip で凌ぐ（Task 59）。
+        // ガード判定（Task 27/30/59）：非のけぞり・非攻撃中に後退方向を保持しているか。接地でも滞空でも成立する。
         int backDir = facingRight ? -1 : 1;
         guarding = hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0
                    && attackPhase == AttackPhase.NONE
                    && moveDir != 0 && moveDir == backDir;
-        // ジャストガード判定用：ガード連続保持フレームを数える（Task 81）。保持し始めて JUST_GUARD_WINDOW 以内の
-        // ガード成立はジャストガード（chip / ゲージ削りなし＋メーター獲得）になる。非ガードで 0 リセット。
         guardHeldFrames = guarding ? guardHeldFrames + 1 : 0;
-        // パリィ判定用（Task 105）：前方（相手方向）を押し続けているフレーム数を数える。押し始めて PARRY_WINDOW 以内に
-        // 攻撃を受けるとパリィ成立。押しっぱなし（前進）では窓を超えて不成立＝タップし直した反応のみ拾う（just-guard の前方版）。
+        // パリィ判定用（Task 105）：前方を押し続けているフレーム数を数える。
         int forwardDir = facingRight ? 1 : -1;
         boolean pressingForward = hitstunFrames <= 0 && knockdownFrames <= 0 && dizzyFrames <= 0
                                   && attackPhase == AttackPhase.NONE && grounded && moveDir == forwardDir;
         forwardHeldFrames = pressingForward ? forwardHeldFrames + 1 : 0;
-        // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43。ガード中は減る一方）。
+        // ガードゲージは非ガード・非クラッシュ中に徐々に回復する（Task 43）。
         if (!guarding && guardBreakFrames <= 0 && guardGauge < GameConstants.GUARD_GAUGE_MAX) {
             guardGauge = Math.min(GameConstants.GUARD_GAUGE_MAX,
                                   guardGauge + GameConstants.GUARD_REGEN_PER_FRAME);
         }
-        if (knockdownFrames > 0) {
-            // ダウン（Task 60）：のけぞりと同じく行動不能だが、より長く・ダウン中は被弾無敵（起き攻め無し）。
-            // hitstun より優先（ダウン技は通常のけぞりを上書きする）。knockback の滑りは hitstun と同じ式で減衰。
-            // 減算はこの inert 分岐内で行い、KNOCKDOWN_FRAMES 分（60F）ちょうど行動不能にする。被弾ゲートとの整合は
-            // 上で記録した knockdownInertThisFrame ラッチが担う（最終フレームも resolveHit では down 扱い＝無敵）。
-            crouching = false;
-            guarding = false;
-            this.moveDir = 0;
-            // 受け身（ukemi・クイック起き上がり・Task 66）：ダウン開始から UKEMI_WINDOW 以内に行動入力（攻撃/ジャンプ/投げ）が
-            // あれば残りダウンを UKEMI_RISE_FRAMES へ短縮して早く起き上がる（起き攻めへの対抗択）。経過フレームは減算前の
-            // knockdownFrames から算出。短縮済み（残り ≤ UKEMI_RISE_FRAMES）や窓を過ぎたら無効＝フルダウンを待つ。乱数なし。
-            int elapsed = GameConstants.KNOCKDOWN_FRAMES - knockdownFrames;
-            boolean ukemiInput = attackButton != null || jumpPressed || throwReq;
-            // 受け身不能ダウン（Task 88）はクイック起き上がりを許さない（必ずフルダウン＝起き攻め確定）。
-            if (!hardKnockdown && ukemiInput && elapsed <= GameConstants.UKEMI_WINDOW
-                    && knockdownFrames > GameConstants.UKEMI_RISE_FRAMES) {
-                knockdownFrames = GameConstants.UKEMI_RISE_FRAMES;
-                ukemiRecovery = true; // 表示用（クイック起き上がりであることを識別）
+    }
+
+    /** ダウン中（knockdownFrames > 0）の状態更新：受け身・ディレイ起き上がり・knockback 減衰。 */
+    private void processKnockdownState(int moveDir, boolean jumpPressed, AttackButton attackButton,
+                                       boolean crouchHeld, boolean throwReq) {
+        crouching = false;
+        guarding = false;
+        this.moveDir = 0;
+        // 受け身（ukemi・クイック起き上がり・Task 66）
+        int elapsed = GameConstants.KNOCKDOWN_FRAMES - knockdownFrames;
+        boolean ukemiInput = attackButton != null || jumpPressed || throwReq;
+        // 受け身不能ダウン（Task 88）はクイック起き上がりを許さない。
+        if (!hardKnockdown && ukemiInput && elapsed <= GameConstants.UKEMI_WINDOW
+                && knockdownFrames > GameConstants.UKEMI_RISE_FRAMES) {
+            knockdownFrames = GameConstants.UKEMI_RISE_FRAMES;
+            ukemiRecovery = true;
+        }
+        // ディレイ起き上がり（Task 122）：下を押し続けると起き上がりタイマーを凍結する。
+        delayWakeupActive = crouchHeld && !ukemiRecovery && delayWakeupFrames < GameConstants.DELAY_WAKEUP_MAX;
+        if (delayWakeupActive) {
+            delayWakeupFrames++;
+        } else {
+            knockdownFrames--;
+            if (knockdownFrames == 0) {
+                comboCount = 0;
             }
-            // ディレイ起き上がり（Task 122）：下（しゃがみ方向）を押し続けると起き上がりタイマーを凍結し、最大 DELAY_WAKEUP_MAX
-            // フレームだけ起き上がりを遅らせる（起き攻めの重ねタイミングをずらす）。受け身（早く起きる）と対の「遅く起きる」択。
-            // 受け身成立中（ukemiRecovery）は対象外。凍結中もダウン中無敵は維持される（knockdownFrames>0 のまま）。乱数なし。
-            delayWakeupActive = crouchHeld && !ukemiRecovery && delayWakeupFrames < GameConstants.DELAY_WAKEUP_MAX;
-            if (delayWakeupActive) {
-                delayWakeupFrames++; // 凍結（このフレームは減算しない）
-            } else {
-                knockdownFrames--;
-                // 起き上がった瞬間にコンボを終了（ダウンはコンボの締め＝次の被弾は新規コンボ）（Task 39/60）。
-                if (knockdownFrames == 0) {
+        }
+        x += velocityX;
+        clampToStage();
+        velocityX *= GameConstants.KNOCKBACK_FRICTION;
+        if (Math.abs(velocityX) < 0.1f) {
+            velocityX = 0f;
+        }
+    }
+
+    /** のけぞり中（hitstunFrames > 0 または dizzyFrames > 0）の状態更新：空中受け身・knockback 減衰・壁バウンド。 */
+    private void processHitstunState(AttackButton attackButton, boolean jumpPressed, boolean throwReq) {
+        crouching = false;
+        this.moveDir = 0;
+        // 空中受け身（air recovery / air tech・Task 126）
+        boolean airTechInput = attackButton != null || jumpPressed || throwReq;
+        if (!grounded && hitstunFrames > 0 && dizzyFrames <= 0 && guardBreakFrames <= 0 && throwTechFrames <= 0
+                && airHitstunElapsed >= GameConstants.AIR_TECH_MIN_FRAMES && airTechInput) {
+            hitstunFrames = 0;
+            wallBounceArmed = false;
+            groundBounceArmed = false;
+            airHitstunElapsed = 0;
+            airTechRecovery = GameConstants.AIR_TECH_RECOVERY_FRAMES;
+            velocityX = 0f;
+            comboCount = 0;
+        } else {
+            if (hitstunFrames > 0) {
+                hitstunFrames--;
+                if (hitstunFrames == 0) {
                     comboCount = 0;
                 }
             }
+            x += velocityX;
+            clampToStage();
+            // 壁バウンド（Task 101）
+            if (wallBounceArmed && atStageEdge() && pushingIntoEdge()) {
+                velocityX = -velocityX * GameConstants.WALL_BOUNCE_REBOUND_SCALE;
+                velocityY = GameConstants.WALL_BOUNCE_POP;
+                grounded = false;
+                hitstunFrames += GameConstants.WALL_BOUNCE_BONUS_HITSTUN;
+                wallBounceArmed = false;
+                wallBounceFrames = GameConstants.WALL_BOUNCE_LABEL_FRAMES;
+            }
+            velocityX *= GameConstants.KNOCKBACK_FRICTION;
+            if (Math.abs(velocityX) < 0.1f) {
+                velocityX = 0f;
+            }
+            // 空中やられの経過を数える（落下際の受け身判定用）。接地中は 0（地上 hitstun は受け身不可）。
+            if (!grounded) {
+                airHitstunElapsed++;
+            } else {
+                airHitstunElapsed = 0;
+            }
+        }
+    }
+
+    /** 空中受け身リカバリ中（airTechRecovery > 0）の状態更新。 */
+    private void processAirTechRecoveryState() {
+        crouching = false;
+        this.moveDir = 0;
+        // リカバリ中は行動不能＝ガードもできない（後退保持で tickStatusEffects が guarding=true にしても打ち消す）。
+        guarding = false;
+        airTechRecovery--;
+    }
+
+    /**
+     * 通常の行動処理（移動・ダッシュ・ジャンプ・攻撃）。
+     * knockdown / hitstun / airTechRecovery がいずれも 0 のとき呼ばれる。
+     */
+    private void processActiveState(int moveDir, boolean jumpPressed, AttackButton attackButton,
+                                    boolean crouchHeld, boolean throwReq) {
+        // ガード knockback：hitstun 無しでも velocityX（applyGuard 由来）を位置へ反映する。
+        if (velocityX != 0) {
             x += velocityX;
             clampToStage();
             velocityX *= GameConstants.KNOCKBACK_FRICTION;
             if (Math.abs(velocityX) < 0.1f) {
                 velocityX = 0f;
             }
-        } else if (hitstunFrames > 0 || dizzyFrames > 0) {
-            // のけぞり（Task 13）＋めまい（Task 79）：いずれも無防備で行動不能。めまいは hitstun より長く、被弾で
-            // 短い hitstun に上書きされても dizzyFrames が独立に拘束を保つ（上で減衰済み）。被弾無敵ではない（ダウンと違う）。
-            crouching = false;
-            this.moveDir = 0;
-            // 空中受け身（air recovery / air tech・Task 126）：空中やられ（滞空＋hitstun）が AIR_TECH_MIN_FRAMES 以上
-            // 経過したとき行動入力（攻撃/ジャンプ/投げ）があれば、空中やられを抜けて中立の滞空状態へ復帰する（短い
-            // AIR_TECH_RECOVERY の後に行動可）。被弾でリセットされる airHitstunElapsed により、連続被弾中（多段ジャグル）は
-            // 受け身できず、コンボが途切れて初めて抜けられる＝攻撃側の確定ジャグルを残しつつ防御側に脱出択を与える。
-            // dizzy（地上の無防備）は対象外（hitstunFrames>0 を要求）。被弾無敵ではない（受け身狩りが成立する）。
-            // ガードクラッシュ（Task 43・`guardBreakFrames`）と投げ抜け硬直（Task 36・`throwTechFrames`）は hitstun を
-            // 流用するため、これらを空中受け身で抜けられないよう除外する（空中ガードクラッシュ等の確定反撃時間を守る・Codex 指摘）。
-            // めまい（Task 79・`dizzyFrames`）も除外する：launch/バウンドでしきい値を超えると空中で dizzy と hitstun が併存し得るが、
-            // めまいは「フルコンボ確定」の無防備硬直なので空中受け身で hitstun/コンボ/バウンドだけリセットされてはならない（Codex 指摘）。
-            boolean airTechInput = attackButton != null || jumpPressed || throwReq;
-            if (!grounded && hitstunFrames > 0 && dizzyFrames <= 0 && guardBreakFrames <= 0 && throwTechFrames <= 0
-                    && airHitstunElapsed >= GameConstants.AIR_TECH_MIN_FRAMES && airTechInput) {
-                hitstunFrames = 0;
-                wallBounceArmed = false;   // 受け身でジャグル（壁/床バウンド）を打ち切る
-                groundBounceArmed = false;
-                airHitstunElapsed = 0;
-                airTechRecovery = GameConstants.AIR_TECH_RECOVERY_FRAMES;
-                velocityX = 0f;            // 水平 knockback を打ち消し中立復帰（落下は重力に委ねる）
-                comboCount = 0;            // 受け身でコンボ終了
-            } else {
-                if (hitstunFrames > 0) {
-                    hitstunFrames--;
-                    // hitstun から復帰した瞬間にコンボを終了（次の被弾は新規コンボ＝1 から数え直す）（Task 39）。
-                    if (hitstunFrames == 0) {
-                        comboCount = 0;
-                    }
-                }
-                x += velocityX;
-                clampToStage();
-                // 壁バウンド（Task 101）：壁バウンド技を食らって横へ飛ばされ、画面端（壁）に達したら一度だけ跳ね返る。
-                // 反対方向へ WALL_BOUNCE_REBOUND_SCALE 倍の速度で戻し、再び浮かせて（POP）のけぞりを延長＝跳ね返り際を追撃可能。
-                if (wallBounceArmed && atStageEdge() && pushingIntoEdge()) {
-                    velocityX = -velocityX * GameConstants.WALL_BOUNCE_REBOUND_SCALE;
-                    velocityY = GameConstants.WALL_BOUNCE_POP;
-                    grounded = false;
-                    hitstunFrames += GameConstants.WALL_BOUNCE_BONUS_HITSTUN;
-                    wallBounceArmed = false;
-                    wallBounceFrames = GameConstants.WALL_BOUNCE_LABEL_FRAMES;
-                }
-                velocityX *= GameConstants.KNOCKBACK_FRICTION;
-                if (Math.abs(velocityX) < 0.1f) {
-                    velocityX = 0f;
-                }
-                // 空中やられの経過を数える（落下際の受け身判定用）。接地中は 0（地上 hitstun は受け身不可）。
-                if (!grounded) {
-                    airHitstunElapsed++;
-                } else {
-                    airHitstunElapsed = 0;
-                }
-            }
-        } else if (airTechRecovery > 0) {
-            // 空中受け身の成立後リカバリ（Task 126）：滞空したまま行動不能で落下する短い隙。被弾無敵ではないので
-            // 相手が受け身を釣って再度浮かせ直せる（受け身狩り）。リカバリ後（=0）は通常の滞空行動が可能になる。
-            crouching = false;
-            this.moveDir = 0;
-            // リカバリ中は行動不能＝ガードもできない（後退保持で update 冒頭の guarding が true になっても打ち消す）。
-            // これを落とさないと受け身後に後退保持で打撃/飛び道具を防げてしまい「受け身狩り可」が崩れる（Codex 指摘）。
-            guarding = false;
-            airTechRecovery--;
-        } else {
-            // ガード knockback：hitstun 無しでも velocityX（applyGuard 由来）を位置へ反映する。
-            if (velocityX != 0) {
-                x += velocityX;
-                clampToStage();
-                velocityX *= GameConstants.KNOCKBACK_FRICTION;
-                if (Math.abs(velocityX) < 0.1f) {
-                    velocityX = 0f;
-                }
-            }
-            // ダッシュ（二度押しステップ・Task 49）：方向入力の立ち上がりエッジを検出し、直近の同方向タップが
-            // 受付窓内なら短いダッシュを開始する（接地・非攻撃・非しゃがみのみ）。窓は毎フレーム減衰。
-            if (dashTapWindow > 0) {
-                dashTapWindow--;
-            }
-            boolean dirEdge = moveDir != 0 && moveDir != prevMoveDir;
-            if (dirEdge) {
-                boolean canGroundDash = grounded && attackPhase == AttackPhase.NONE && !crouchHeld && dashFrames <= 0;
-                // 空中ダッシュ（Task 69）：滞空中の二度押しで水平バースト。データ駆動（airDashes>0 のキャラのみ）。
-                // !dashTapGrounded：1 度目のタップも空中でアームされた窓のみ消費する（地上アーム窓の流用を防ぐ＝
-                // 「地上で 1 度押し→ジャンプ→空中で 1 度押し」で発動しない。仕様は滞空中の二度押し・Codex 指摘）。
-                // attackButton==null && !throwReq：同フレームで空中攻撃/投げが始まる入力では成立させない。
-                //   （後段の beginAttack が dashFrames を 0 に戻すため水平バーストは出ず、airDashesRemaining だけ
-                //    無駄に消費されるのを防ぐ。攻撃が優先＝この frame は air dash を成立させず窓を再アームする・Codex 指摘）。
-                boolean canAirDash = !grounded && attackPhase == AttackPhase.NONE && airDashesRemaining > 0
-                        && dashFrames <= 0 && !dashTapGrounded && attackButton == null && !throwReq;
-                if ((canGroundDash || canAirDash) && moveDir == dashTapDir && dashTapWindow > 0) {
-                    dashFrames = GameConstants.DASH_FRAMES; // 二度押し成立 → ダッシュ開始（接地＝地上ステップ / 滞空＝空中ダッシュ）
-                    dashDir = moveDir;
-                    dashTapWindow = 0;
-                    velocityX = 0f; // 残留 knockback を打ち消し、ダッシュ移動との二重加算を防ぐ
-                    if (canAirDash) {
-                        airDashesRemaining--; // 空中ダッシュ回数を消費（接地で回復・Task 69）
-                    }
-                } else {
-                    dashTapDir = moveDir;                    // 1 度目の押下 → 受付窓をアーム
-                    dashTapWindow = GameConstants.DASH_TAP_WINDOW;
-                    dashTapGrounded = grounded;              // アーム時の接地状態を記録（空中ダッシュ判定用・Task 69）
-                }
-            }
-            prevMoveDir = moveDir;
-            // ダッシュ中（特にバックステップ）は後退方向保持と被るためガードを抑止する。
-            if (dashFrames > 0) {
-                guarding = false;
-            }
-            // 攻撃の発動：接地時はしゃがみ遷移フレーム（crouchHeld かつ未しゃがみ）を除いて可。
-            // 空中では空中攻撃（Task 32）として発動可（しゃがみ条件は無視）。
-            if (attackPhase == AttackPhase.NONE && (attackButton != null || throwReq)
-                    && (grounded ? (!crouchHeld || crouching) : true)) {
-                // 投げ（Task 35）は throwReq で起動するガード不能掴み。地上では地上投げ（地上の相手専用）、
-                // 滞空中では空中投げ（Task 70・空中の相手専用）を選ぶ。throwing フラグは両者共通（接地状態で種別を区別）。
-                // 通常技 / 空中攻撃 / しゃがみ攻撃のいずれにも分類しない。
-                // ダッシュ攻撃（Task 65）：接地ダッシュ中の攻撃で、キャラが dashAttack を持つなら通常技でなく突進技を出す。
-                boolean dashAtk = !throwReq && grounded && !crouchHeld
-                        && dashFrames > 0 && def.getDashAttack() != null;
-                Move move = throwReq ? (grounded ? def.getThrowMove() : def.getAirThrowMove())
-                        : dashAtk ? def.getDashAttack()
-                        : selectNormalMove(attackButton);
-                if (move != null) {
-                    throwing = throwReq;
-                    dashAttacking = dashAtk;                              // ダッシュ突進攻撃フラグ（Task 65）
-                    crouchAttacking = !throwReq && !dashAtk && grounded && crouching; // しゃがみ中に発動 → 下段攻撃フラグ（投げ / ダッシュ / 空中は不可）
-                    aerialAttacking = !throwReq && !grounded;             // 空中で発動 → 空中攻撃フラグ（Task 32）
-                    int lungeDir = dashDir;                               // beginAttack が dashFrames を 0 にする前に方向を退避
-                    beginAttack(move);
-                    if (dashAtk) {
-                        // ダッシュの勢いを引き継ぐ突進：velocityX に前方初速を与える（既存の velocityX 適用＋減衰経路を流用）。
-                        velocityX = lungeDir * GameConstants.DASH_ATTACK_LUNGE_SPEED;
-                    }
-                }
-            } else if (attackButton != null && !throwReq && canChainInto(attackButton)) {
-                // チェーンキャンセル（Task 45）：命中した通常技を上位ボタンの通常技へ即キャンセルし、
-                // 硬直を待たずに繋いで連続ヒットにする。新技は接地の立ち通常技として開始する。
-                Move move = selectNormalMove(attackButton);
-                if (move != null) {
-                    crouchAttacking = false;
-                    aerialAttacking = false;
-                    throwing = false;
-                    dashAttacking = false;
-                    beginAttack(move); // attackConnected/phase をリセット → 新技が改めて命中判定される
-                }
-            }
-
-            if (attackPhase != AttackPhase.NONE) {
-                if (!crouchAttacking) {
-                    crouching = false; // 立ち攻撃中はしゃがみ解除
-                }
-                this.moveDir = 0;
-                advanceAttack();
-                if (attackPhase == AttackPhase.NONE) {
-                    crouchAttacking = false; // 攻撃終了でフラグクリア
-                    aerialAttacking = false; // 空中攻撃も終了でクリア
-                    throwing = false;        // 投げも終了でクリア（Task 35）
-                    dashAttacking = false;   // ダッシュ攻撃も終了でクリア（Task 65）
-                    if (!crouchHeld) {
-                        crouching = false; // DOWN を離していれば攻撃終了と同フレームに姿勢解除
-                    }
-                }
-            } else if (crouchHeld && grounded) {
-                crouching = true;
-                dashFrames = 0;                             // しゃがみでダッシュをキャンセル（凍結回避・Task 49）
-                this.moveDir = moveDir;                     // 低速クロール：方向を記録
-                x += moveDir * def.getWalkSpeed() * 0.5f;  // 通常の半速で移動
-                clampToStage();
-                // ジャンプ入力は無視
-            } else if (dashFrames > 0) {
-                // ダッシュ中（Task 49）：通常歩行より速く確定移動する（方向を離しても継続）。ジャンプでキャンセル可。
-                crouching = false;
-                dashFrames--;
-                this.moveDir = dashDir;
-                x += dashDir * def.getWalkSpeed() * GameConstants.DASH_SPEED_MULTIPLIER;
-                clampToStage();
-                // ラン（Task 123）：canRun キャラが前ダッシュ中に前方を保持し続けている限りダッシュを更新して走り続ける
-                // （前方を離すと dashFrames が減衰して停止）。前ダッシュ限定（バックステップは固定長）。grounded のみ。
-                // forwardDir は update 冒頭（パリィ判定・Task 105）で宣言済みのものを再利用する（同 update 内で facing 不変）。
-                int runForwardDir = facingRight ? 1 : -1;
-                running = def.isCanRun() && grounded && dashDir == runForwardDir && moveDir == runForwardDir;
-                if (running) {
-                    dashFrames = GameConstants.DASH_FRAMES;
-                }
-                if (jumpPressed && grounded) {
-                    velocityY = def.getJumpPower();
-                    grounded = false;
-                    dashFrames = 0; // ジャンプでダッシュをキャンセル（飛び込みへ）
-                    // 空中ガード可（Task 59）：後退保持なら滞空後も guarding を維持（前ジャンプは moveDir != backDir で自然に false）。
+        }
+        // ダッシュ二度押し検出（Task 49/69）
+        if (dashTapWindow > 0) {
+            dashTapWindow--;
+        }
+        boolean dirEdge = moveDir != 0 && moveDir != prevMoveDir;
+        if (dirEdge) {
+            boolean canGroundDash = grounded && attackPhase == AttackPhase.NONE && !crouchHeld && dashFrames <= 0;
+            boolean canAirDash = !grounded && attackPhase == AttackPhase.NONE && airDashesRemaining > 0
+                    && dashFrames <= 0 && !dashTapGrounded && attackButton == null && !throwReq;
+            if ((canGroundDash || canAirDash) && moveDir == dashTapDir && dashTapWindow > 0) {
+                dashFrames = GameConstants.DASH_FRAMES;
+                dashDir = moveDir;
+                dashTapWindow = 0;
+                velocityX = 0f;
+                if (canAirDash) {
+                    airDashesRemaining--;
                 }
             } else {
-                crouching = false;
-                this.moveDir = moveDir;
-                x += moveDir * def.getWalkSpeed();
-                clampToStage();
-                if (jumpPressed && grounded) {
-                    velocityY = def.getJumpPower();
-                    grounded = false;
-                    // 空中ガード可（Task 59）：後退保持なら滞空後も guarding を維持（前ジャンプは moveDir != backDir で自然に false）。
-                } else if (jumpPressed && !grounded && airJumpsRemaining > 0) {
-                    // 二段ジャンプ（Task 68）：空中でジャンプ入力の立ち上がりがあれば、残り回数を消費して再度跳ぶ。
-                    // velocityY を上向き初速へ上書き（下降中でも再上昇）。回数は接地で回復する。データ駆動（airJumps>0 のキャラのみ）。
-                    velocityY = def.getJumpPower();
-                    airJumpsRemaining--;
-                }
+                dashTapDir = moveDir;
+                dashTapWindow = GameConstants.DASH_TAP_WINDOW;
+                dashTapGrounded = grounded;
             }
         }
+        prevMoveDir = moveDir;
+        // ダッシュ中（特にバックステップ）は後退方向保持と被るためガードを抑止する。
+        if (dashFrames > 0) {
+            guarding = false;
+        }
+        // 攻撃の発動
+        if (attackPhase == AttackPhase.NONE && (attackButton != null || throwReq)
+                && (grounded ? (!crouchHeld || crouching) : true)) {
+            boolean dashAtk = !throwReq && grounded && !crouchHeld
+                    && dashFrames > 0 && def.getDashAttack() != null;
+            Move move = throwReq ? (grounded ? def.getThrowMove() : def.getAirThrowMove())
+                    : dashAtk ? def.getDashAttack()
+                    : selectNormalMove(attackButton);
+            if (move != null) {
+                throwing = throwReq;
+                dashAttacking = dashAtk;
+                crouchAttacking = !throwReq && !dashAtk && grounded && crouching;
+                aerialAttacking = !throwReq && !grounded;
+                int lungeDir = dashDir;
+                beginAttack(move);
+                if (dashAtk) {
+                    velocityX = lungeDir * GameConstants.DASH_ATTACK_LUNGE_SPEED;
+                }
+            }
+        } else if (attackButton != null && !throwReq && canChainInto(attackButton)) {
+            // チェーンキャンセル（Task 45）
+            Move move = selectNormalMove(attackButton);
+            if (move != null) {
+                crouchAttacking = false;
+                aerialAttacking = false;
+                throwing = false;
+                dashAttacking = false;
+                beginAttack(move);
+            }
+        }
+        if (attackPhase != AttackPhase.NONE) {
+            if (!crouchAttacking) {
+                crouching = false;
+            }
+            this.moveDir = 0;
+            advanceAttack();
+            if (attackPhase == AttackPhase.NONE) {
+                crouchAttacking = false;
+                aerialAttacking = false;
+                throwing = false;
+                dashAttacking = false;
+                if (!crouchHeld) {
+                    crouching = false;
+                }
+            }
+        } else if (crouchHeld && grounded) {
+            crouching = true;
+            dashFrames = 0;
+            this.moveDir = moveDir;
+            x += moveDir * def.getWalkSpeed() * 0.5f;
+            clampToStage();
+        } else if (dashFrames > 0) {
+            // ダッシュ中（Task 49）
+            crouching = false;
+            dashFrames--;
+            this.moveDir = dashDir;
+            x += dashDir * def.getWalkSpeed() * GameConstants.DASH_SPEED_MULTIPLIER;
+            clampToStage();
+            // ラン（Task 123）
+            int runForwardDir = facingRight ? 1 : -1;
+            running = def.isCanRun() && grounded && dashDir == runForwardDir && moveDir == runForwardDir;
+            if (running) {
+                dashFrames = GameConstants.DASH_FRAMES;
+            }
+            if (jumpPressed && grounded) {
+                velocityY = def.getJumpPower();
+                grounded = false;
+                dashFrames = 0;
+            }
+        } else {
+            crouching = false;
+            this.moveDir = moveDir;
+            x += moveDir * def.getWalkSpeed();
+            clampToStage();
+            if (jumpPressed && grounded) {
+                velocityY = def.getJumpPower();
+                grounded = false;
+            } else if (jumpPressed && !grounded && airJumpsRemaining > 0) {
+                // 二段ジャンプ（Task 68）
+                velocityY = def.getJumpPower();
+                airJumpsRemaining--;
+            }
+        }
+    }
 
+    /** 重力の適用・床との衝突判定・各種接地時リセット。 */
+    private void applyPhysics() {
         boolean wasGrounded = grounded;
         velocityY -= GameConstants.GRAVITY;
         y += velocityY;
-
         if (y <= GameConstants.GROUND_Y) {
-            // 床バウンド（Task 102）：床バウンド技を食らって浮いた相手が、のけぞり中に着地したら一度だけ跳ね返る。
-            // 接地せず POP で再び浮かせ、のけぞりを延長＝叩きつけ→跳ね上がりの追撃が成立する。armed を倒して一度限りに。
+            // 床バウンド（Task 102）
             if (groundBounceArmed && hitstunFrames > 0) {
                 y = GameConstants.GROUND_Y;
                 velocityY = GameConstants.GROUND_BOUNCE_POP;
@@ -450,13 +404,13 @@ public class Fighter {
                 y = GameConstants.GROUND_Y;
                 velocityY = 0f;
                 grounded = true;
-                groundBounceArmed = false; // 跳ね返らずに通常着地したら保留中の床バウンドを破棄（残留での遅延暴発防止・Task 102）
-                airJumpsRemaining = def.getAirJumps();   // 接地で空中ジャンプ回数を回復（Task 68）
-                airDashesRemaining = def.getAirDashes();  // 接地で空中ダッシュ回数を回復（Task 69）
-                airHitstunElapsed = 0;     // 接地で空中やられ経過をリセット（Task 126）
-                airTechRecovery = 0;       // 着地で空中受け身リカバリを終了（地上行動可へ・Task 126）
+                groundBounceArmed = false;
+                airJumpsRemaining = def.getAirJumps();
+                airDashesRemaining = def.getAirDashes();
+                airHitstunElapsed = 0;
+                airTechRecovery = 0;
                 if (!wasGrounded && dashFrames > 0) {
-                    dashFrames = 0; // 着地で空中ダッシュを終了（地上ダッシュへ持ち越さない・Task 69）
+                    dashFrames = 0;
                 }
             }
         }

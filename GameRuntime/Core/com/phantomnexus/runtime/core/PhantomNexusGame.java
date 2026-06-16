@@ -796,7 +796,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (throwReq) {
             // 投げ要求時は通常攻撃を抑止（発動は throwReq として Fighter.update へ渡す）。
             attackButton = null;
-        } else if (cmd == Command.SUPER && anyAttack) {
+        } else if (handleCommandInput(f, cmd, anyAttack)) {
+            attackButton = null;
+        }
+        f.update(dir, jump, attackButton, crouchHeld, throwReq);
+    }
+
+    /**
+     * コマンド入力に対応する必殺技（スーパー / EX / 通常特殊）を発動する。
+     * 発動成功時は true を返し、呼び出し元が attackButton を null にして通常攻撃を抑止する。
+     */
+    private boolean handleCommandInput(Fighter f, Command cmd, boolean anyAttack) {
+        if (cmd == Command.SUPER && anyAttack) {
             // スーパー必殺技（Task 108）：236236＋攻撃。super 技を所持しメーター満タンなら消費して発動＋スーパーフラッシュ凍結。
             // 条件を満たさなければ波動拳（HADOUKEN）にフォールバック（236236 は 236 を内包するため・満タンなら EX 波動拳）。
             Move superMove = findSpecialMove(f.getDef(), Command.SUPER);
@@ -806,25 +817,24 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 if (superMove.isProjectile()) {
                     spawnProjectile(f, superMove, false);
                 }
-                attackButton = null;
-            } else {
-                Move hado = findSpecialMove(f.getDef(), Command.HADOUKEN);
-                boolean ex = hado != null && f.hasFullMeter();
-                if (hado != null && f.startSpecial(hado, ex)) {
-                    if (ex) {
-                        f.spendFullMeter();
-                    }
-                    if (hado.isProjectile()) {
-                        spawnProjectile(f, hado, ex);
-                    }
-                    attackButton = null;
-                }
+                return true;
             }
+            // フォールバック：HADOUKEN（EX 対応）
+            Move hado = findSpecialMove(f.getDef(), Command.HADOUKEN);
+            boolean ex = hado != null && f.hasFullMeter();
+            if (hado != null && f.startSpecial(hado, ex)) {
+                if (ex) {
+                    f.spendFullMeter();
+                }
+                if (hado.isProjectile()) {
+                    spawnProjectile(f, hado, ex);
+                }
+                return true;
+            }
+            return false;
         } else if (cmd != Command.NONE && anyAttack) {
-            // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。通常攻撃は抑止。
+            // 必殺技（Task 20/24）：コマンド成立かつ攻撃ボタンありなら対応する必殺技を発動。
             Move special = findSpecialMove(f.getDef(), cmd);
-            // メーター満タンなら EX（消費して強化）で出す。飛び道具は大型・高ダメージ弾（Task 44）、
-            // 打撃必殺技はダメージ強化（Task 54）。ex を startSpecial に渡し、打撃の EX を Fighter が扱う。
             boolean ex = special != null && f.hasFullMeter();
             if (special != null && f.startSpecial(special, ex)) {
                 if (ex) {
@@ -833,10 +843,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 if (special.isProjectile()) {
                     spawnProjectile(f, special, ex);
                 }
-                attackButton = null;
+                return true;
             }
         }
-        f.update(dir, jump, attackButton, crouchHeld, throwReq);
+        return false;
     }
 
     /** キャラの specialMoves[] からコマンドに対応する技を返す（見つからなければ null）。 */
@@ -997,6 +1007,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
         int dealtDamage = counter
                 ? Math.max(1, Math.round(hb.getDamage() * GameConstants.COUNTER_HIT_DAMAGE_SCALE))
                 : hb.getDamage();
+        applyHitDamage(attacker, defender, hb, knockbackDir, blocked, armored, counter, dealtDamage, before);
+    }
+
+    /**
+     * ヒット解決の最終段階：ダメージ適用・スタン蓄積・エフェクト生成をまとめて行う。
+     * resolveHit() の投げ・パリィ処理後に呼ばれる通常打撃ヒットの共通処理。
+     */
+    private void applyHitDamage(Fighter attacker, Fighter defender, Hitbox hb, int knockbackDir,
+                                 boolean blocked, boolean armored, boolean counter, int dealtDamage,
+                                 int hpBefore) {
         if (blocked) {
             // ガード成立：chip ダメージのみ（のけぞりなし）。
             defender.applyGuard(hb.getDamage(), knockbackDir);
@@ -1006,9 +1026,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             // アーマー吸収：のけぞらず damage のみ受けて技を継続（Task 80）。
             defender.absorbArmorHit(dealtDamage, knockbackDir);
         } else if (attacker.getCurrentMove() != null && attacker.getCurrentMove().isKnockdown()) {
-            // ダウン技（Task 60）：非ガードヒットで相手をダウンさせる（通常のけぞりの代わり・ダウン中無敵）。
-            // ダウンは既に長い拘束のため hitstun ボーナスは加えず、カウンター時はダメージ倍率のみ適用する。
-            // 受け身不能ダウン（Task 88）の技なら hard を渡してクイック起き上がりを禁止する。
+            // ダウン技（Task 60）
             defender.applyKnockdown(dealtDamage, knockbackDir, attacker.getCurrentMove().isHardKnockdown());
         } else {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
@@ -1016,33 +1034,27 @@ public class PhantomNexusGame extends ApplicationAdapter {
             boolean groundBounce = attacker.getCurrentMove() != null && attacker.getCurrentMove().isGroundBounce();
             float launch = attacker.getCurrentMove() != null ? attacker.getCurrentMove().getLaunch() : 0f;
             if (wallBounce) {
-                // 壁バウンド技（Task 101）：相手を横へ吹き飛ばし、画面端で跳ね返らせて再び浮かせる（画面端ジャグル延長）。
-                // 浮かせより優先（同時指定なら横飛ばし＋壁跳ね返りを採用）。
                 defender.applyWallBounce(dealtDamage, hitstun, knockbackDir);
             } else if (groundBounce) {
-                // 床バウンド技（Task 102）：相手を打ち上げ、着地時に跳ね返らせて再び浮かせる（ジャグル延長）。
-                // 壁バウンドより後・浮かせより優先。
                 defender.applyGroundBounce(dealtDamage, hitstun, knockbackDir);
             } else if (launch > 0f) {
-                // 浮かせ技（Task 83）：相手を打ち上げて空中やられ（ジャグル起点）にする。
                 defender.applyLaunch(dealtDamage, hitstun, knockbackDir, launch);
             } else {
                 defender.applyHit(dealtDamage, hitstun, knockbackDir);
             }
         }
         if (!blocked && !armored) {
-            defender.addStun(dealtDamage); // めまい蓄積（Task 79・通常ヒット。閾値超えで dizzy。stunThreshold=0 なら no-op）
+            defender.addStun(dealtDamage);
         }
         if (counter) {
-            defender.markCounterHit(); // 被弾ラベルに (CH) を付す（差し返しの証跡）
+            defender.markCounterHit();
         }
-        // 実際に減った HP 量を命中位置（hitbox 中心）に数字で浮かべ、同位置に火花を出す。
         float sparkX = hb.getX() + hb.getWidth() / 2f;
         float sparkY = hb.getY() + hb.getHeight() / 2f;
-        spawnDamagePopup(before - defender.getCurrentHp(), blocked, sparkX, sparkY);
+        spawnDamagePopup(hpBefore - defender.getCurrentHp(), blocked, sparkX, sparkY);
         spawnHitSpark(blocked, sparkX, sparkY);
         awardMeter(attacker, defender, blocked);
-        triggerHitstop(blocked); // ヒットストップ（Task 86・打撃命中 / ガード）
+        triggerHitstop(blocked);
     }
 
     /**
