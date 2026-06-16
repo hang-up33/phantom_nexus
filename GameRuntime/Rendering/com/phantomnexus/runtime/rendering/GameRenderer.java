@@ -528,7 +528,10 @@ public class GameRenderer {
             drawCentered("Stage: " + stageName, GameConstants.WORLD_WIDTH / 2f, 100f);
         }
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
-        drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        // 位置/向きの読み出し（"Aoi x=N y=N >" 等）は開発者向け情報なので F1 デバッグ表示時のみ出す（Task 168）。
+        if (debug.isEnabled()) {
+            drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        }
         drawInputDisplay(p1Inputs); // P1 入力表示 HUD（Task 96）
         if (moveListVisible) {
             drawMoveList(p1, p2); // コマンド表 HUD（技/コマンド一覧・F5・Task 112）
