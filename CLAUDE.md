@@ -82,11 +82,11 @@
 
 | レビュアー | 形態 | 発火 |
 |---|---|---|
-| **Claude（fresh context）＝主レビュー** | CI 上で別セッション起動 → PR コメント | `pull_request` イベントで**毎 push 自動**（[.github/workflows/claude-review.yml](.github/workflows/claude-review.yml)）。サブスク枠＝追加課金なし |
-| **CodeRabbit** | PR 自動レビュー | PR push を契機に自動 |
+| **CodeRabbit＝自動の主レビュー** | PR 自動レビュー | PR push を契機に**自動**（無料枠）。常時走る反復レビューの軸 |
+| **Claude（fresh context）＝オンデマンド** | CI 上で別セッション起動 → PR コメント | 現在は**手動（`workflow_dispatch`）のみ**＝自動発火はコスト削減のため停止中（[.github/workflows/claude-review.yml](.github/workflows/claude-review.yml)）。重要 PR は `gh workflow run claude-review.yml --ref <branch>` で都度起動できる。サブスク枠＝追加課金なし。自動に戻すなら同ワークフローの `pull_request` トリガを復活させる |
 | **Codex GitHub App＝最終確認のみ** | PR コメント（日本語） | **主レビュー収束後に `@codex review` を最終 1 回だけ**明示発火（[codex-pr](.claude/skills/codex-pr/SKILL.md)）。ChatGPT 枠を消費しすぐ上限に達するため、毎 push では打たず節約する |
 
-**Codex の枠節約方針**：Codex は ChatGPT プラン側の利用枠を消費し、すぐ `"You have reached your Codex usage limits"` で無反応になる。よって**反復レビューは枠を消費しない CI Claude / CodeRabbit / self-gate で回し、Codex は最終確認の 1 回に限定**する。修正は**バッチ**（複数指摘をまとめて 1 push）にして発火回数を抑える。Codex が枠上限を返したら待たず・再依頼せずスキップし、CI Claude / CodeRabbit のクリーンを以て完了とする。
+**Codex の枠節約方針**：Codex は ChatGPT プラン側の利用枠を消費し、すぐ `"You have reached your Codex usage limits"` で無反応になる。よって**反復レビューは枠を消費しない self-gate ＋ CodeRabbit（自動）で回し、必要に応じて CI Claude を手動起動（`workflow_dispatch`）、Codex は最終確認の 1 回に限定**する。修正は**バッチ**（複数指摘をまとめて 1 push）にして発火回数を抑える。Codex が枠上限を返したら待たず・再依頼せずスキップし、CodeRabbit / self-gate（必要なら CI Claude 手動）のクリーンを以て完了とする。
 
 さらに **push 前に [self-review](.claude/skills/self-review/SKILL.md) スキル**でローカル self-gate を行う（自分の差分を別コンテキストに点検させ、明白なミスを PR 前に潰す）。
 
@@ -113,8 +113,8 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 3. [kaizen-close](.claude/skills/kaizen-close/SKILL.md) スキルを実行
 4. `task/<N>-<短い名>` ブランチを作成し、コミット
 5. **push 前に [self-review](.claude/skills/self-review/SKILL.md) スキルで差分をセルフレビュー**（明白なミスを PR 前に潰す self-gate）
-6. `gh pr create` で **ready-for-review** の PR を作成（draft にしない — CI Claude / CodeRabbit に即レビューさせるため）
-7. **主レビュー（CI Claude / CodeRabbit）で先に指摘を潰す**（毎 push 自動・枠消費なし。修正はバッチで 1 push にまとめる）
+6. `gh pr create` で **ready-for-review** の PR を作成（draft にしない — CodeRabbit に即レビューさせるため）
+7. **主レビュー（CodeRabbit＝自動・必要なら CI Claude を `gh workflow run claude-review.yml --ref <branch>` で手動起動）で先に指摘を潰す**（枠消費なし。修正はバッチで 1 push にまとめる）
 8. **収束後に Codex を最終 1 回だけ発火**：`gh pr comment <N> --body "@codex review"`（枠上限なら待たずスキップ）
 9. PR URL をユーザーに提示
 
@@ -140,7 +140,7 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 
 - **ChatGPT Codex（Web 版エージェント）** を使用する。
 - chatgpt.com の **Codex** → **Settings** から GitHub を OAuth 連携し、`hang-up33/phantom_nexus` への権限を付与しておく。
-- **Codex 側の自動レビュー設定が有効** になっており、`ready-for-review` で PR を push すれば手動操作なしに Codex が PR コメントでレビューを返す。Claude は `gh pr view <番号> --comments` で結果を取得できる。
+- **Codex は枠節約のため自動レビューに任せず、`@codex review` コメントで明示発火する**（主レビュー収束後の最終 1 回のみ・上記「Codex の枠節約方針」参照）。Claude は `gh pr view <番号> --comments` で結果を取得できる。Codex が `"You have reached your Codex usage limits"` を返したら待たず・再依頼せずスキップする。
 
 ---
 

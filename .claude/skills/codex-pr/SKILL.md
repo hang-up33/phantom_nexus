@@ -5,14 +5,14 @@ description: タスク完了時にレビュー（CI Claude / CodeRabbit を主�
 
 # Codex 向け PR 作成ワークフロー
 
-本プロジェクトのコードレビューは **3 系統 + push 前 self-gate** で回す。**Codex は ChatGPT プラン側の利用枠を消費し、すぐ上限（"You have reached your Codex usage limits"）に達して無反応になる**ため、**枠を消費しない 2 系統（self-gate / CI Claude / CodeRabbit）を主レビューにし、Codex は「最終確認の 1 回」に節約して使う**運用とする：
+本プロジェクトのコードレビューは **3 系統 + push 前 self-gate** で回す。**Codex は ChatGPT プラン側の利用枠を消費し、すぐ上限（"You have reached your Codex usage limits"）に達して無反応になる**ため、**枠を消費しない self-gate ＋ CodeRabbit（自動）を主レビューにし（必要なら CI Claude を手動起動）、Codex は「最終確認の 1 回」に節約して使う**運用とする：
 
 1. **push 前セルフレビュー**（[self-review](../self-review/SKILL.md) スキル）— ローカルで自分の差分を別コンテキストに点検させ、明白なミスを PR 前に潰す。**無料・毎回必須**。
-2. **CI 上の Claude（fresh context）＝主レビュー** — `.github/workflows/claude-review.yml` が `pull_request`（opened / synchronize / ready_for_review）契機で**毎 push 自動起動**し、実装の経緯を持たない別 Claude が diff だけを見てレビューを投稿する。サブスク枠（`CLAUDE_CODE_OAUTH_TOKEN`）で追加課金なし＝**反復レビューの軸はこれ**。
-3. **CodeRabbit** — PR push を契機に自動レビュー（無料枠）。
-4. **Codex GitHub App＝最終確認のみ** — PR に日本語レビューをコメント（`@codex review` で明示発火）。**枠が貴重なので毎 push では打たず、self-gate / CI Claude / CodeRabbit の反復が落ち着いた「最終 1 回」だけ**発火する。
+2. **CodeRabbit＝自動の主レビュー** — PR push を契機に**自動**レビュー（無料枠）。**毎 push 自動で走る反復レビューの軸はこれ**。
+3. **CI 上の Claude（fresh context）＝オンデマンド** — `.github/workflows/claude-review.yml`。**現在は自動発火をコスト削減のため停止し、手動（`workflow_dispatch`）のみ**。実装の経緯を持たない別 Claude が diff だけを見てレビューする。サブスク枠（`CLAUDE_CODE_OAUTH_TOKEN`）で追加課金なし＝**重要 PR は `gh workflow run claude-review.yml --ref <branch>` で都度起動**する（自動に戻すなら同ワークフローの `pull_request` トリガを復活）。
+4. **Codex GitHub App＝最終確認のみ** — PR に日本語レビューをコメント（`@codex review` で明示発火）。**枠が貴重なので毎 push では打たず、self-gate / CodeRabbit の反復が落ち着いた「最終 1 回」だけ**発火する。
 
-本スキルはタスク完了時に上記がすぐ回る形で PR を作り、**主に CI Claude / CodeRabbit / self-gate で指摘を潰し切ってから、Codex を最終 1 回だけ回して仕上げる**標準手順。Codex が上限到達で無反応・エラー文言（usage limit）を返したら、それ以上 Codex を待たず CI Claude / CodeRabbit のクリーンを以て完了とする。
+本スキルはタスク完了時に上記がすぐ回る形で PR を作り、**主に CodeRabbit / self-gate（必要なら CI Claude を手動起動）で指摘を潰し切ってから、Codex を最終 1 回だけ回して仕上げる**標準手順。Codex が上限到達で無反応・エラー文言（usage limit）を返したら、それ以上 Codex を待たず CodeRabbit / self-gate のクリーンを以て完了とする。
 
 ## 適用タイミング（When to Use）
 
@@ -23,11 +23,11 @@ description: タスク完了時にレビュー（CI Claude / CodeRabbit を主�
 ## 前提
 
 - **ChatGPT Codex（Web 版）** を使用。chatgpt.com の Codex → Settings から `hang-up33/phantom_nexus` を GitHub OAuth 連携済み（GitHub の Installed Apps 一覧には "ChatGPT" / "OpenAI Codex" などの名前で出現する。マーケットプレイス検索ではヒットしない）
-- Codex 側の自動レビュー設定が有効で、`ready-for-review` で PR を push すれば手動操作なしに Codex が PR コメントでレビューを返す
+- Codex は枠節約のため自動レビューに任せず、最終確認時に `@codex review` コメントで 1 回だけ発火する（上記の運用方針を参照）
 - `gh` CLI で認証済み（`gh auth status` で確認）
 - リモート `origin` が GitHub の本リポジトリを指していること
 
-CI Claude / CodeRabbit は PR を `ready-for-review` で push した時点で**自動でレビューを投稿**する。Claude 側は **PR をきれいに作り、これらの指摘を解消し切るところまで** が責任範囲。Codex は枠節約のため自動発火に任せず、最終確認のタイミングで**手動の `@codex review` を 1 回だけ**打つ。ユーザーが Codex に URL を貼る手動操作は不要。
+CodeRabbit は PR を `ready-for-review` で push した時点で**自動でレビューを投稿**する（CI Claude は手動起動時のみ）。Claude 側は **PR をきれいに作り、これらの指摘を解消し切るところまで** が責任範囲。Codex は枠節約のため自動発火に任せず、最終確認のタイミングで**手動の `@codex review` を 1 回だけ**打つ。ユーザーが Codex に URL を貼る手動操作は不要。
 
 ## 規約
 
@@ -35,7 +35,7 @@ CI Claude / CodeRabbit は PR を `ready-for-review` で push した時点で**�
 |---|---|
 | ブランチ名 | `task/<N>-<短い名>`（例：`task/2-login-form`） |
 | PR タイトル | `<タスク識別子>: <短い説明>`（コミット先頭行と同じ） |
-| PR 状態 | **ready-for-review**（draft にしない — CI Claude / CodeRabbit に即レビューさせるため） |
+| PR 状態 | **ready-for-review**（draft にしない — CodeRabbit に即レビューさせるため） |
 | マージ戦略 | Squash and merge（Claude はマージしない、ユーザーが行う） |
 
 ## 手順（How It Works）
@@ -127,7 +127,7 @@ EOF
 gh pr create --title "<タスク識別子>: <短い説明>" --body-file /tmp/pr_body.md
 ```
 
-- `--draft` を **付けない**（Codex がレビュー対象として扱いやすい状態にする）
+- `--draft` を **付けない**（CodeRabbit がレビュー対象として扱いやすい状態にする）
 - `## Screenshot` セクションは **GUI 変化があるタスクで必須**。撮影方法は [CLAUDE.md](../../../CLAUDE.md)「動作証跡スクリーンショット運用」を参照（純粋なロジック / docs / 設定のみのタスクは省略可）。
 - **`gh pr create --body "$(cat <<EOF ... EOF)"` で unquoted HEREDOC を使うのは禁止**。本文中の `$VAR` / `$(...)` / バッククォートが全てシェルに展開されて意図しないコマンド実行・本文破壊を招く。可変値は必ずプレースホルダ + 後置換で扱う。
 
@@ -135,9 +135,9 @@ gh pr create --title "<タスク識別子>: <短い説明>" --body-file /tmp/pr_
 
 **PR 作成直後に `@codex review` を打たない**。まずは**枠を消費しない主レビュー**で指摘を潰し切る：
 
-- PR を push した時点で **CI Claude（`claude-review.yml`）と CodeRabbit が自動起動**する（`@codex review` は不要・毎 push 自動）。
-- これらの指摘を取得（手順 7-A）→ **複数の指摘を 1 回の push にまとめて**修正（バッチ）→ push（自動で再レビューが走る）を、主レビューがクリーンになるまで繰り返す。
-- **修正は必ずバッチ**：指摘 1 件ごとに push して都度レビューを呼ばない（CI Claude も無駄に何度も走り、後段の Codex 発火回数も増える）。関連する複数修正をまとめてから 1 回 push する。
+- PR を push した時点で **CodeRabbit が自動起動**する（`@codex review` は不要・毎 push 自動）。**CI Claude は手動のみ**なので、重要 PR は `gh workflow run claude-review.yml --ref <branch>` で都度起動する（任意）。
+- これらの指摘を取得（手順 7-A）→ **複数の指摘を 1 回の push にまとめて**修正（バッチ）→ push（CodeRabbit は自動で再レビュー・CI Claude は再度手動起動）を、主レビューがクリーンになるまで繰り返す。
+- **修正は必ずバッチ**：指摘 1 件ごとに push して都度レビューを呼ばない（後段の Codex 発火回数も増える）。関連する複数修正をまとめてから 1 回 push する。
 
 ### 7. Codex は「最終確認の 1 回」だけ発火する
 
@@ -160,13 +160,13 @@ gh pr comment <PR番号> --body "@codex review"
 
 取得は 3 種類の API（reviews / review comments / issue comments）を見る点はどのレビュアーでも共通で、**`select(.user.login == ...)` のボット名だけを切り替える**：
 
-- **Codex**：`chatgpt-codex-connector[bot]`
-- **CI Claude**：`github-actions[bot]`（`claude-review.yml` が `gh` で投稿）。本文に Claude のレビュー見出しが入る
-- **CodeRabbit**：`coderabbitai[bot]`
+- **CodeRabbit**：`coderabbitai[bot]`（自動・毎 push）
+- **CI Claude**：`github-actions[bot]`（`claude-review.yml` が `gh` で投稿）。本文に Claude のレビュー見出しが入る。**手動起動時のみ**
+- **Codex**：`chatgpt-codex-connector[bot]`（最終 1 回・手動発火）
 
-主レビュー（CI Claude / CodeRabbit）は**毎 push 自動起動**なので `@codex review` のような発火コメントは不要。push 後にそのまま取得・判定する。
+CodeRabbit は**毎 push 自動起動**なので発火コメント不要（push 後にそのまま取得・判定）。CI Claude は手動起動（`gh workflow run`）したときだけ結果が出る。
 
-**ループ前の確定（毎ラウンド必須）**：CI Claude / CodeRabbit は **`git push` 直後**、Codex は **`gh pr comment <N> --body "@codex review"` を投稿し終えた直後**に、以降のラウンド全体で使う基準時刻を確定する：
+**ループ前の確定（毎ラウンド必須）**：CodeRabbit は **`git push` 直後**、CI Claude は **`gh workflow run claude-review.yml` 直後**、Codex は **`gh pr comment <N> --body "@codex review"` を投稿し終えた直後**に、以降のラウンド全体で使う基準時刻を確定する：
 
 ```sh
 SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # 例: 2026-06-05T04:20:00Z
@@ -210,7 +210,7 @@ HEAD_SHA=$(git rev-parse HEAD)
    - 上のいずれにも該当せず、かつ Codex が当該 HEAD 以降に issue comments / reviews のどちらかへ `"Didn't find any major issues"` 等のクリーン文言を投稿 → ループ脱出して完了報告
    - **どのシグナルも出ていない**（reviews も inline も issue comment もまだ無い）→ Codex がまだレビュー中。手順 1 の待機に戻る（ループは脱出しない）
 4. **修正（必ずバッチ）**：そのラウンドの**指摘をまとめて**該当箇所を編集 → `./gradlew build` 成功確認 → 修正ファイルを明示的に `git add` → コミット（指摘 1 件ごとに push しない）
-5. **push**：`git push`（force-push は基本しない、追加コミットで対応）。主レビュー（CI Claude / CodeRabbit）は自動で再起動する
+5. **push**：`git push`（force-push は基本しない、追加コミットで対応）。CodeRabbit は自動で再レビュー（CI Claude を使うなら `gh workflow run` で再起動）
 6. **Codex のみ再依頼**：主レビュー対応の push では `@codex review` を打たない。**Codex 指摘対応の push 後に限り**、主レビューのクリーンを確認してから `gh pr comment <N> --body "@codex review"` を最終 1 回
 7. **「ループ前の確定」に戻る** — `SINCE` と `HEAD_SHA` を **必ず再取得** してから手順 1 の待機へ。再取得しないと旧ラウンドの値で判定して誤動作する
 
@@ -234,7 +234,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 ## やってはいけないこと（Must Never）
 
 - `main` に直接 push / コミットする
-- PR を draft で作る（CI Claude / CodeRabbit のレビュー開始が遅れる）
+- PR を draft で作る（CodeRabbit のレビュー開始が遅れる）
 - **毎 push で `@codex review` を打つ**（Codex 枠浪費の最大要因。主レビューが収束してからの最終 1 回に限定する）
 - **指摘 1 件ごとに push する**（修正はバッチでまとめて 1 push にする）
 - Codex の usage limit を待ち続ける / 何度も再依頼する（スキップして主レビューのクリーンで完了する）
