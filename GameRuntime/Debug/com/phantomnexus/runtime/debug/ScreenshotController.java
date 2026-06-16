@@ -288,6 +288,18 @@ public final class ScreenshotController {
         return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.training")));
     }
 
+    /**
+     * 決着後の「タイトルへ戻る」操作ヒントを撮影モードでも結果バナーに表示するか（{@code -x returntotitle=true}）。
+     * 既定は false＝撮影では非表示（既存の結果バナー・PERFECT 等のスクショレシピを変えない後方互換）。
+     * 証跡用にヒント表示の見え方を撮るときだけ true を指定する。通常起動は無関係（マッチ確定時は常に表示）。
+     */
+    public boolean returnToTitleHintForced() {
+        if (!isEnabled()) {
+            return false;
+        }
+        return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.returntotitle")));
+    }
+
     /** コマンド表 HUD（Task 112）を撮影モードで初期表示するか（{@code -x movelist=true}）。通常起動・未指定は {@code fallback}（F5 トグルの初期値）。 */
     public boolean moveListEnabled(boolean fallback) {
         if (!isEnabled()) {
