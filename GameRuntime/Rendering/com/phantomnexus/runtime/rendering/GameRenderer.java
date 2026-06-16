@@ -274,6 +274,9 @@ public class GameRenderer {
     // スーパーフラッシュ演出（Task 169）：Core から毎フレーム受け取る残りフレーム（>0 で金色縁フラッシュ）。
     private int superFlashFrames;
     private final Color superFlashColor = new Color();
+    // 決着後「タイトルへ戻る」ヒント表示フラグ。通常プレイのマッチ確定時のみ Core が立てる
+    // （撮影/リプレイでは false＝結果バナーのスクショ・決定性は従来どおり不変）。
+    private boolean returnToTitleHint;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -301,6 +304,11 @@ public class GameRenderer {
     /** スーパー必殺技発動時のスーパーフラッシュ残りフレームを Core から受け取る（Task 169・>0 で金色縁フラッシュ）。 */
     public void setSuperFlash(int frames) {
         this.superFlashFrames = frames;
+    }
+
+    /** 決着後の結果バナーに「タイトルへ戻る」操作ヒントを表示するか（通常プレイのみ true・撮影/リプレイは false）。 */
+    public void setReturnToTitleHint(boolean show) {
+        this.returnToTitleHint = show;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -672,6 +680,11 @@ public class GameRenderer {
         Color resultColor = round.getMatchWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
         drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
         drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
+        // 通常プレイのマッチ確定時のみ、スタート画面へ戻る操作ヒントを表示する（撮影/リプレイは非表示＝既存レシピ不変）。
+        if (returnToTitleHint) {
+            drawBannerText("PRESS ENTER TO RETURN TO TITLE",
+                    cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, ROUND_INTRO_COLOR);
+        }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }

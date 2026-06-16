@@ -82,11 +82,15 @@
 
 | レビュアー | 形態 | 発火 |
 |---|---|---|
-| **Codex GitHub App** | PR コメント（日本語） | `@codex review` を毎 push 後に明示発火（[codex-pr](.claude/skills/codex-pr/SKILL.md)） |
-| **CodeRabbit** | PR 自動レビュー | PR push を契機に自動 |
-| **Claude（fresh context）** | CI 上で別セッション起動 → PR コメント | `pull_request` イベント（[.github/workflows/claude-review.yml](.github/workflows/claude-review.yml)） |
+| **CodeRabbit＝自動の主レビュー** | PR 自動レビュー | PR push を契機に**自動**（無料枠）。常時走る反復レビューの軸 |
+| **Claude（fresh context）＝オンデマンド** | CI 上で別セッション起動 → PR コメント | 現在は**手動（`workflow_dispatch`）のみ**＝自動発火はコスト削減のため停止中（[.github/workflows/claude-review.yml](.github/workflows/claude-review.yml)）。重要 PR は `gh workflow run claude-review.yml --ref <branch>` で都度起動できる。サブスク枠＝追加課金なし。自動に戻すなら同ワークフローの `pull_request` トリガを復活させる |
+| **Codex GitHub App＝最終確認のみ** | PR コメント（日本語） | **主レビュー収束後に `@codex review` を最終 1 回だけ**明示発火（[codex-pr](.claude/skills/codex-pr/SKILL.md)）。ChatGPT 枠を消費しすぐ上限に達するため、毎 push では打たず節約する |
+
+**Codex の枠節約方針**：Codex は ChatGPT プラン側の利用枠を消費し、すぐ `"You have reached your Codex usage limits"` で無反応になる。よって**反復レビューは枠を消費しない self-gate ＋ CodeRabbit（自動）で回し、必要に応じて CI Claude を手動起動（`workflow_dispatch`）、Codex は最終確認の 1 回に限定**する。修正は**バッチ**（複数指摘をまとめて 1 push）にして発火回数を抑える。Codex が枠上限を返したら待たず・再依頼せずスキップし、CodeRabbit / self-gate（必要なら CI Claude 手動）のクリーンを以て完了とする。
 
 さらに **push 前に [self-review](.claude/skills/self-review/SKILL.md) スキル**でローカル self-gate を行う（自分の差分を別コンテキストに点検させ、明白なミスを PR 前に潰す）。
+
+> ⚠️ **GitHub Actions の課金に関する注意（必ず確認）**：本リポジトリ（`hang-up33/phantom_nexus`）は **public** のため GitHub Actions の標準ランナーが無料で、`claude-review.yml` 等のワークフローは分数課金されない（消費するのは Claude サブスク枠のみ）。**将来 public → private に切り替えると、GitHub Actions が無料枠を超えた分は課金対象になり得る**。可視性を private に変更する／その話題が出たときは、この点を**必ずユーザーに伝える**こと（ユーザーは Actions の金銭課金に敏感。過去にコスト削減で `claude-review.yml` の自動発火を停止した経緯がある）。private 化する場合は、自動発火の停止／必要時だけ手動起動（`workflow_dispatch`）への切替も提案する。
 
 **「Claude が自分の書いたコードを自身でレビューする」の肝**は、レビュー役を **実装の経緯を持たない別コンテキストの Claude** にすること。同一セッションでそのまま見直すと自分の判断を正当化するバイアスで粗を見逃すため、(1) CI の `claude-review.yml` は **fresh な別セッション**が diff だけを見てレビューし、(2) self-gate は **サブエージェント / `/code-review`** に切り出す。レビュー観点（単一の真実・フレーム正しさ・後方互換・Must Never 再導入・docs 同期・スクショ）は [AGENTS.md](AGENTS.md) と両スキルで共有する。
 
@@ -111,9 +115,10 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 3. [kaizen-close](.claude/skills/kaizen-close/SKILL.md) スキルを実行
 4. `task/<N>-<短い名>` ブランチを作成し、コミット
 5. **push 前に [self-review](.claude/skills/self-review/SKILL.md) スキルで差分をセルフレビュー**（明白なミスを PR 前に潰す self-gate）
-6. `gh pr create` で **ready-for-review** の PR を作成（draft にしない — Codex GitHub App に即レビューさせるため）
-7. **`gh pr comment <N> --body "@codex review"` で明示的にレビュー依頼**（自動レビュー任せにせず毎回コメントで発火）
-8. PR URL をユーザーに提示
+6. `gh pr create` で **ready-for-review** の PR を作成（draft にしない — CodeRabbit に即レビューさせるため）
+7. **主レビュー（CodeRabbit＝自動・必要なら CI Claude を `gh workflow run claude-review.yml --ref <branch>` で手動起動）で先に指摘を潰す**（枠消費なし。修正はバッチで 1 push にまとめる）
+8. **収束後に Codex を最終 1 回だけ発火**：`gh pr comment <N> --body "@codex review"`（枠上限なら待たずスキップ）
+9. PR URL をユーザーに提示
 
 詳細は [codex-pr](.claude/skills/codex-pr/SKILL.md) スキルを参照。
 
@@ -127,17 +132,17 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 - **Squash and merge**。1 タスク = main 上の 1 コミットになるよう統合する。
 - マージは **ユーザーが行う**（Codex のレビュー指摘を反映してから）。Claude は勝手にマージしない。
 
-### Codex 指摘への対応
+### レビュー指摘への対応
 
-- Codex のレビュー結果は **PR コメントとして自動投稿される**。Claude は `codex-pr` スキルの「自走ループ」セクションに従い、`gh pr view <番号> --comments` と `gh api repos/hang-up33/phantom_nexus/pulls/<N>/comments` で内容を取得し、当該ブランチで対応コミットを追加 push する。
-- 修正 push の **直後にも必ず** `gh pr comment <N> --body "@codex review"` で再レビューを依頼する（PR 作成時と同じ運用）。
+- 主レビュー（CI Claude / CodeRabbit）の結果は push を契機に **PR へ自動投稿される**。Claude は `codex-pr` スキルの「自走ループ」セクションに従い、`gh pr view <番号> --comments` と `gh api repos/hang-up33/phantom_nexus/pulls/<N>/comments` で内容を取得し、当該ブランチで**指摘をバッチで**対応コミットを追加 push する（指摘 1 件ごとに push しない）。主レビュー対応の push では `@codex review` を**打たない**（毎 push 自動で再レビューが走る）。
+- Codex は主レビューが収束してから**最終 1 回だけ** `gh pr comment <N> --body "@codex review"` で発火する。Codex 指摘があればまとめて修正 → 主レビューのクリーン確認後に**もう 1 回だけ**再依頼。Codex が枠上限（usage limit）を返したら待たず・再依頼せずスキップする。
 - 大きな方針差し戻しになる場合は新タスクとして切り出すかを相談する。
 
 ### 前提（Codex 側のセットアップ）
 
 - **ChatGPT Codex（Web 版エージェント）** を使用する。
 - chatgpt.com の **Codex** → **Settings** から GitHub を OAuth 連携し、`hang-up33/phantom_nexus` への権限を付与しておく。
-- **Codex 側の自動レビュー設定が有効** になっており、`ready-for-review` で PR を push すれば手動操作なしに Codex が PR コメントでレビューを返す。Claude は `gh pr view <番号> --comments` で結果を取得できる。
+- **Codex は枠節約のため自動レビューに任せず、`@codex review` コメントで明示発火する**（主レビュー収束後の最終 1 回のみ・上記「Codex の枠節約方針」参照）。Claude は `gh pr view <番号> --comments` で結果を取得できる。Codex が `"You have reached your Codex usage limits"` を返したら待たず・再依頼せずスキップする。
 
 ---
 
@@ -176,10 +181,12 @@ Codex 向けの永続的な指示は **リポジトリ直下の [AGENTS.md](AGEN
 
 ## ビルド / 環境の罠
 
+- **macOS で `./gradlew run` は `-XstartOnFirstThread` が無いと GLFW スレッドエラーで起動しない** — 症状：`java.lang.IllegalStateException: GLFW may only be used on the main thread and that thread must be the first thread in the process. Please run the JVM with -XstartOnFirstThread`（`glfwInit` → `Lwjgl3Application.<init>`）。原因：LWJGL3/GLFW は macOS では GLFW をプロセス最初のスレッドで動かす必要があるが、本プロジェクトは Windows 対象のため run タスクにこのフラグが無かった。対処：`Infra/Build/build.gradle` の run タスクに `def osName = System.getProperty('os.name','').toLowerCase(Locale.ROOT); if (osName.contains('mac')) { jvmArgs '-XstartOnFirstThread' }` を追加済み（macOS 以外は従来どおり無付与＝Windows/Linux に無影響）。OS 判定は標準の `System.getProperty("os.name")` を使う（Gradle の internal API `org.gradle.internal.os.OperatingSystem` は非サポートで将来のアップグレードで壊れ得るため・CodeRabbit 指摘で確定）。これで `./gradlew run` 一発で起動する。なお **ローカルに JDK が無い場合はまず JDK17 が必要**（Gradle wrapper の起動自体に JVM が要る・toolchain の自動取得はコンパイル用で launcher は別）。`brew install openjdk@17` → `export JAVA_HOME=/opt/homebrew/opt/openjdk@17` で解決（arm64 mac で確認済み・macos-arm64 ネイティブは依存に同梱済み）。起動時に出る `error messaging the mach port for IMKCFRunLoopWakeUpReliable` は macOS の IME 周りの無害な警告。
 - **`apply-template.sh` は `CLAUDE.md.template` を置換しない** — スクリプトは `*.md` のみ sed 対象とするため、拡張子 `.template` のファイルはプレースホルダー未置換のままリネームされる。テンプレ初期化時は `CLAUDE.md` のプレースホルダー（`{{BUILD_CMD}}` 等）を手で埋める必要がある（本リポジトリでは初期化時に対応済み）。
 - **`docs/` は小文字で統一する** — 設計書は `Docs/`（大文字）だが、テンプレ既存の `docs/`（小文字）と Windows の大文字小文字非区別により同一フォルダに衝突する。GitHub は casing を区別するため、ドキュメントパス・スクショ raw URL は **必ず `docs/` 小文字**で書く（大文字 `Docs/` を新規に書かない）。他のトップ階層（`GameRuntime/` 等）は衝突しないので設計書どおり大文字。
 - **`apply-template.sh` の置換対象は `*.md`/`*.json`/`*.sh`/`*.ps1` のみ** — `.github/workflows/*.yml` は対象外。Issue→PR 自動化（`claude-issue-to-pr.yml`）の `--allowedTools` は手で保守する必要があり、本プロジェクトのビルドツール `Bash(./gradlew:*),Bash(gradle:*)` を追加済み（ビルドツールを変えたら要更新）。また置換は `docs/customize.md`/`docs/setup.md` 内の placeholder 名（`{{OWNER}}` 等）まで潰すため、これらは初期コミットから復元してトークンを保持している。
 - **`.gitignore` の `build/` は必ずルート固定 `/build/` で書く** — Windows は `core.ignorecase=true` のため、非アンカーの `build/` が大文字小文字を無視して設計書フォルダ **`Infra/Build/`（大文字 B）に一致し、ビルドロジック本体ごと無視**してしまう（`docs/`↔`Docs/` と同種の casing 罠）。ビルド出力は単一モジュール root 直下のみなので `/build/`・`/.gradle/` とアンカーする。`.gitignore` 変更時は `git check-ignore -v Infra/Build/build.gradle` が空（＝未無視）であることを必ず確認する。
+- **決着後の凍結画面（結果バナー）から抜ける導線は「`render()` 冒頭で `round.isFinished()`＋キーを見て `screen=TITLE`・再開は各遷移が round/fighter を作り直す」で足せる**（タイトル復帰で確立）— マッチ確定後は `update()` が `if (round.isFinished()) return;` で全更新を凍結して結果を静止表示するだけで、タイトルへ戻る導線が無かった。対処：`render()` の BATTLE 処理冒頭（メニュー画面の早期 return 群の後）で `round.isFinished() && 通常プレイ` のとき ENTER/SPACE/J/ESC を見て `returnToTitle()`（`screen=TITLE`）し、遷移フレームは `return`（メニュー遷移と同じ作法＝確定入力の再消費防止）。**再開時のバトル構築は各遷移に委ねる**（対戦＝キャラ/ステージ選択→`startBattle`／トレーニング＝`startTraining` が `new RoundManager`＋`resetFighters()`）ので `returnToTitle` は画面状態を戻すだけでよい。**罠：既存のトレーニング title-path は round/fighter を作り直さず現在状態を再利用していた**ため、決着後にタイトルへ戻ってトレーニングを選ぶと前マッチの確定済み round・KO 済みファイターを持ち越して即結果表示になる。`startTraining()` に切り出して `new RoundManager`＋`resetFighters()` を入れた（create 直後の初回起動では no-op・後方互換）。**後方互換**：撮影/リプレイでは復帰を無効化し結果を凍結したまま（既存スクショレシピ・決定性を壊さない）。**ヒント表示（`PRESS ENTER TO RETURN TO TITLE`）は通常プレイのみ＝撮影では既定非表示**（結果バナー・PERFECT 等のスクショ不変）にし、証跡用に `-x returntotitle=true` で撮影時も重ねられる専用オーバーライドを足した（メニュー操作と同じく forced 入力では駆動できないので復帰挙動自体は撮影で再現不可・ヒントの見え方だけ撮れる）。
 - **`Infra/Build/build.gradle` は `apply from:` で読まれるため `plugins {}` DSL が使えない** — applied script の制約。コアプラグインは `apply plugin: 'java'` / `apply plugin: 'application'` のレガシー構文で適用する（`plugins {}` ブロックは root の `build.gradle`/`settings.gradle` のみ）。なお相対パス（`srcDirs` 等）は applied script でも **root プロジェクトディレクトリ基準**で解決される。
 - **Gradle の `Executing Gradle on JVM versions 16 and lower has been deprecated` は無害** — ローカル launcher JVM が Java 11 のため出るが、コンパイルは settings.gradle の foojay が auto-provision する **JDK17 toolchain** を使う。Gradle 9 移行時のみ要対応。`./gradlew javaToolchains` で Temurin 17 が provisioned 済みか確認できる。
 - **日本語を含む `.ps1` は UTF-8 BOM 付きで保存する** — 症状：`capture-app-window.ps1` 等を `powershell.exe`（Windows PowerShell **5.1**）で実行すると `A 'using' statement must appear before any other statements` 等のパースエラーで全滅する。原因：本環境の ANSI コードページは **932（Shift-JIS）** で、PS 5.1 は **BOM 無しスクリプトを ANSI で読む**ため、BOM 無し UTF-8 の日本語コメント/文字列がモジバケしトークンが壊れる（`[System.Text.Encoding]::Default.CodePage` で確認可）。対処：`.ps1` は **UTF-8 BOM 付き**で保存する（`[IO.File]::WriteAllText($p,$txt,(New-Object System.Text.UTF8Encoding($true)))`）。検証：`[System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$null,[ref]$e); $e.Count` が 0。`.gitattributes` で `*.ps1 text eol=crlf` も固定済み（BOM は内容として保持される）。新規 `.ps1` を作る時も同様に BOM 付きにすること。
@@ -336,6 +343,7 @@ scripts/capture-app-screenshot-linux.sh -o docs/screenshots/<N>-<短い名>.png 
   - `aidiff=easy|normal|hard`：P2 の AI 難易度（Task 56・既定 HARD＝全反応）。難易度別の反応の見え方を撮り分ける（例：`-x aidiff=easy` でガード反応が消える）。**唯一の例外：これだけは撮影モードに依らず通常起動でも効く**（ゲームプレイ設定のため・他の `-x` は撮影モード限定）。実行時は F3 でも循環切替できる（Task 78）
   - `training=true`：トレーニングモード（Task 90・HP 無限のダミーでコンボ練習）を起動時 ON（実行時は F4 トグル）。コンボの全段・ダメージ/スタン蓄積の見え方を KO させずに撮る用（例：`-x training=true`）
   - `movelist=true`：コマンド表 HUD（Task 112・技/コマンド一覧）を起動時 ON（実行時は F5 トグル）。両キャラの技リストを撮る用
+  - `returntotitle=true`：決着後の結果バナーに「タイトルへ戻る」操作ヒント（`PRESS ENTER TO RETURN TO TITLE`）を撮影モードでも表示する。既定は false＝撮影では非表示（既存の結果バナー・PERFECT 等のスクショレシピ不変）。証跡用にヒントの見え方を撮るときのみ指定。通常起動はマッチ確定時に常に表示し、ENTER/SPACE/J/ESC でタイトルへ戻れる（撮影ハーネスの forced 入力では駆動しないため、復帰挙動そのものは撮影で再現不可）
   - `startscreen=title|charselect|stageselect|battle`：開始画面（Task 116/117/128）。**撮影は既定 `battle`＝即バトル**（既存スクショレシピ・リプレイの後方互換）。`title`/`charselect`/`stageselect` 指定時のみタイトル/キャラ選択/ステージ選択画面を撮れる。通常起動（非撮影）は常にタイトルから始まる（このキーは無関係）。新トークンは `parseStartScreen` に足すだけで既存 `startscreen` キーを流用＝build.gradle 転送リストの追記は不要。**注意：タイトル/キャラ/ステージ選択のメニュー操作は `Gdx.input` キー直参照のため撮影ハーネスの forced 入力では駆動できない＝既定状態のキャプチャのみ**
   - `script=start-end:tok+tok;...`：タイムド入力スクリプト（コマンド技の再現）。例（波動拳）：`-x "script=1-12:p1.down;8-18:p1.down+p1.right;19-30:p1.right;22-22:p1.attack" -f 42`。区間は重ねてよく、各フレームで和集合を `setForcedHold`。攻撃の立ち上がりエッジは押下開始フレームのみ発火するため、連続フレームに置いても発火は 1 回（基礎 `-k` hold と script の併用でも基礎 hold が毎フレーム再発火しない。`PlayerInput.setForcedHold` が「前フレーム未押下 → 今フレーム押下」のアクションにのみエッジを供給する仕様に修正済み）。
 - **強制エッジは 1 フレーム 1 回しか消費されない** — `PlayerInput.isPressed`（forced 時）は `forcedEdgePending.remove` で消費するため、同一フレームに 2 回呼ぶと 2 回目は false。Core は攻撃/ジャンプ入力を 1 回だけ読み、その値を `Fighter.update` と入力履歴の両方に使い回す（`updateFighterInput`）。
