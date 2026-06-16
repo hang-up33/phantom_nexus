@@ -53,7 +53,7 @@ public class MakeSpriteSheet {
             System.exit(1);
         }
 
-        // 1 セルサイズにリサイズ（アスペクト比維持でクロップ）
+        // 1 セルサイズにリサイズ（アスペクト比維持で透過セルにレターボックス）
         BufferedImage cell = resizeFit(src, CELL_W, CELL_H);
 
         // シート全体を透過 PNG で作成
