@@ -52,6 +52,7 @@ sourceSets {
                 'GameRuntime/Input',
                 'GameRuntime/Battle',
                 'GameRuntime/Debug',
+                'GameRuntime/Audio',
                 'Shared/Schema',
                 'Shared/Types',
                 'Shared/Constants',
