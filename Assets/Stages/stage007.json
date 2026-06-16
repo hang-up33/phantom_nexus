@@ -3,5 +3,12 @@
   "name": "Volcanic Rift",
   "skyTop": [0.12, 0.04, 0.04],
   "skyBottom": [0.86, 0.36, 0.10],
-  "groundColor": [0.20, 0.07, 0.05]
+  "groundColor": [0.20, 0.07, 0.05],
+  "layers": [
+    { "shape": "peaks", "color": [0.34, 0.14, 0.10], "baseY": 120, "height": 270, "count": 5, "alpha": 0.8 },
+    { "shape": "band", "color": [0.98, 0.50, 0.16], "baseY": 126, "height": 12, "count": 1, "alpha": 0.85 },
+    { "shape": "peaks", "color": [0.15, 0.05, 0.05], "baseY": 120, "height": 200, "count": 8, "alpha": 1.0 },
+    { "shape": "hills", "color": [0.09, 0.03, 0.03], "baseY": 120, "height": 48, "count": 1, "alpha": 1.0 },
+    { "shape": "embers", "color": [1.0, 0.62, 0.20], "baseY": 120, "height": 480, "count": 34, "alpha": 0.9, "drift": 0.8 }
+  ]
 }

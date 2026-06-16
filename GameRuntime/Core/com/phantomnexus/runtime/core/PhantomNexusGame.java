@@ -95,14 +95,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
-        "fighter001", "fighter002", "fighter003", "fighter004", "fighter005", "fighter006",
-        "fighter007", "fighter008", "fighter009", "fighter010", "fighter011", "fighter012",
-        "fighter013", "fighter014", "fighter015", "fighter016", "fighter017", "fighter018",
-        "fighter019", "fighter020"
+        "fighter001", "fighter002", "fighter003", "fighter004", "fighter005",
+        "fighter006", "fighter007", "fighter008", "fighter009", "fighter010"
     };
-    /** キャラクター選択グリッドの列数（Task 117）。 */
-    private static final int ROSTER_COLS = 6;
+    /** キャラクター選択グリッドの列数（Task 117）。10体＝5列×2行。 */
+    private static final int ROSTER_COLS = 5;
     private String[] rosterNames;   // ロスターの表示名（遅延ロード・charselect に入ったとき構築・Task 117）
+    private Character[] rosterDefs;  // ロスターのキャラ定義（選択画面でスプライト立ち絵を描くためキャッシュ・Task 161）
     private int charCursor;         // 選択カーソルの現在 index（Task 117）
     private int charSelP1 = -1;     // P1 が確定したキャラ index（未確定 -1・Task 117）
     private int charSelP2 = -1;     // P2 が確定したキャラ index（未確定 -1・Task 117）
@@ -118,7 +117,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** ステージ選択グリッドの列数（Task 128）。 */
     private static final int STAGE_COLS = 5;
     private String[] stageNames;    // ステージの表示名（遅延ロード・stageselect に入ったとき構築・Task 128）
+    private Stage[] stagePreviews;  // ステージ選択のライブプレビュー用にロード済み Stage をキャッシュ（Task 159）
     private int stageCursor;        // ステージ選択カーソルの現在 index（Task 128）
+    private int titleBgIndex;       // タイトル裏デモリール背景の現在ステージ index（Task 160）
+    private int titleBgTimer;       // 同・次ステージへ切り替えるまでのフレームカウンタ（Task 160）
+    private static final int TITLE_BG_CYCLE_FRAMES = 300; // タイトル背景の 1 ステージ表示時間（≒5 秒@60fps・Task 160）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -300,8 +303,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             return;
         }
         rosterNames = new String[ROSTER_IDS.length];
+        rosterDefs = new Character[ROSTER_IDS.length];
         for (int i = 0; i < ROSTER_IDS.length; i++) {
-            rosterNames[i] = CharacterLoader.load(ROSTER_IDS[i]).getName();
+            Character def = CharacterLoader.load(ROSTER_IDS[i]);
+            rosterDefs[i] = def;            // Task 161: 選択画面でスプライト立ち絵を描くためキャッシュ
+            rosterNames[i] = def.getName();
         }
     }
 
@@ -351,8 +357,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             return;
         }
         stageNames = new String[STAGE_IDS.length];
+        stagePreviews = new Stage[STAGE_IDS.length];
         for (int i = 0; i < STAGE_IDS.length; i++) {
-            stageNames[i] = StageLoader.load(STAGE_IDS[i]).getName();
+            Stage s = StageLoader.load(STAGE_IDS[i]);
+            stagePreviews[i] = s;       // Task 159: 選択画面で実際の多層背景をライブプレビューするためキャッシュ
+            stageNames[i] = s.getName();
         }
     }
 
@@ -408,7 +417,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 通常はここに来ない（-x startscreen=title 指定時のみ撮影でも表示）。選択確定で対戦/トレーニングへ遷移する。
         if (screen == Screen.TITLE) {
             updateTitle();
-            renderer.renderTitle(titleSelection);
+            // タイトル裏のデモリール背景（Task 160）：全ステージの実背景をゆっくり巡回表示する。
+            ensureStagesLoaded();
+            titleBgTimer++;
+            if (titleBgTimer >= TITLE_BG_CYCLE_FRAMES) {
+                titleBgTimer = 0;
+                titleBgIndex = (titleBgIndex + 1) % stagePreviews.length;
+            }
+            renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex]);
             screenshot.maybeCapture();
             return;
         }
@@ -418,9 +434,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 同一 render() 内で後続のステージ選択にも再消費され、ステージを選ばず即バトルしてしまう（Codex 指摘）。
         if (screen == Screen.CHARACTER_SELECT) {
             ensureRosterLoaded();
+            ensureStagesLoaded(); // Task 161: 選択画面の背景に使う（タイトル/ステージ選択と同じ実背景）
             updateCharacterSelect();
             if (screen == Screen.CHARACTER_SELECT) { // ステージ選択へ遷移していなければ描画
-                renderer.renderCharacterSelect(rosterNames, charCursor, charSelP1, charSelP2, charP1Locked, ROSTER_COLS);
+                renderer.renderCharacterSelect(rosterDefs, rosterNames, charCursor, charSelP1, charSelP2,
+                        charP1Locked, ROSTER_COLS, stagePreviews[0]);
                 screenshot.maybeCapture();
             }
             return; // 遷移したフレームはここで終了し、次フレームから新画面を処理（確定入力の再消費を防ぐ）。
@@ -432,7 +450,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             ensureStagesLoaded();
             updateStageSelect();
             if (screen == Screen.STAGE_SELECT) { // バトルへ遷移していなければ描画
-                renderer.renderStageSelect(stageNames, stageCursor, STAGE_COLS);
+                renderer.renderStageSelect(stagePreviews[stageCursor], stageNames, stageCursor, STAGE_COLS);
                 screenshot.maybeCapture();
             }
             return; // 遷移したフレームはここで終了し、次フレームからバトルを処理。
@@ -477,6 +495,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
         update();
+        renderer.setSuperFlash(superFlashFrames); // スーパーフラッシュ演出（Task 169）：残りフレームをレンダラへ
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。

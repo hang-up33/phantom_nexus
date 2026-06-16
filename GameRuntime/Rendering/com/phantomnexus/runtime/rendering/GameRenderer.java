@@ -28,6 +28,7 @@ import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
+import com.phantomnexus.shared.types.StageLayer;
 
 /**
  * バトルシーンの描画担当（Task 6: キャラクター描画 / Task 7: 移動・向き）。
@@ -117,6 +118,8 @@ public class GameRenderer {
     private static final int KO_FLASH_FRAMES = 14;       // フラッシュ持続フレーム
     private static final Color KO_FLASH_COLOR = new Color(1f, 1f, 1f, 0.85f); // 縁の白（α は残りフレーム比で減衰）
     private static final float KO_FLASH_BAND = 220f;     // 縁から内側へ白がフェードする帯の幅（px）
+    private static final Color SUPER_FLASH_COLOR = new Color(1f, 0.86f, 0.32f, 0.82f); // スーパー発動の金色縁フラッシュ（Task 169）
+    private static final float SUPER_FLASH_BAND = 300f;  // スーパーフラッシュの縁帯幅（KO より広く劇的に・Task 169）
     // 勝者グロー（Task 149）。決着 / ラウンド間に勝者の足元へ金色のパルス光輪を出して際立たせる。
     private static final Color WINNER_GLOW_COLOR = new Color(1f, 0.85f, 0.30f, 0.55f);
     private static final float WINNER_GLOW_WIDTH_SCALE = 1.9f; // 勝者光輪の横径＝キャラ幅 × これ
@@ -157,6 +160,7 @@ public class GameRenderer {
     // ラウンド開始イントロ（Task 42）："ROUND N"=白系 / "FIGHT!"=赤系で開始を強調。
     private static final Color ROUND_INTRO_COLOR = new Color(0.96f, 0.96f, 0.98f, 1f);
     private static final Color FIGHT_FLASH_COLOR = new Color(0.98f, 0.30f, 0.26f, 1f);
+    private static final Color BANNER_SHADOW_COLOR = new Color(0f, 0f, 0f, 0.6f); // バナー文字のドロップシャドウ（Task 162）
     private static final float ROUND_INTRO_ZOOM = 0.82f; // ラウンド開始イントロの寄り倍率（<1 で寄り・Task 138）
     private static final int SPARK_SPOKES = 8;        // 放射スポーク本数
     private static final float SPARK_CORE_RADIUS = 9f; // 中心コア（縮小していく）の初期半径
@@ -216,6 +220,10 @@ public class GameRenderer {
     private static final String STATE_LABEL_SUPER_SUFFIX = " [SUPER]"; // スーパー必殺技中の付加表示（Task 108）
     private static final Color MOVE_LIST_COLOR = new Color(0.95f, 0.95f, 0.78f, 1f); // コマンド表 HUD の文字色（Task 112）
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
+    private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
+    private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
+    private static final float TITLE_BAR_H = 200f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160）
+    private static final float CHARSEL_BAR_H = 200f; // キャラ選択下部の操作バー高さ（不透明・グリッド4行＋状況・Task 161）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
@@ -263,6 +271,9 @@ public class GameRenderer {
     private boolean prevConcluded;
     private final Color koFlashColor = new Color();
     private final Color winnerGlowColor = new Color();
+    // スーパーフラッシュ演出（Task 169）：Core から毎フレーム受け取る残りフレーム（>0 で金色縁フラッシュ）。
+    private int superFlashFrames;
+    private final Color superFlashColor = new Color();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -271,6 +282,10 @@ public class GameRenderer {
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
     private final Color groundColor = new Color(GROUND_COLOR);
     private String stageName = "";
+    // 背景の多層シルエット（Task 151）。setStage で受け取り、パス 1 で空と地面の間に奥から描く。
+    private StageLayer[] stageLayers;
+    private final Color layerColor = new Color(); // レイヤー描画用の作業色（毎フレーム再確保を避ける）
+    private final Color layerHighlight = new Color(); // 前景 frame の内側ハイライト用の作業色（Task 158）
 
     public GameRenderer() {
         camera = new OrthographicCamera();
@@ -283,12 +298,18 @@ public class GameRenderer {
         font = new BitmapFont();
     }
 
+    /** スーパー必殺技発動時のスーパーフラッシュ残りフレームを Core から受け取る（Task 169・>0 で金色縁フラッシュ）。 */
+    public void setSuperFlash(int frames) {
+        this.superFlashFrames = frames;
+    }
+
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
     public void setStage(Stage stage) {
         setColor(skyTop, stage.getSkyTop());
         setColor(skyBottom, stage.getSkyBottom());
         setColor(groundColor, stage.getGroundColor());
         stageName = stage.getName();
+        stageLayers = stage.getLayers(); // 背景の多層シルエット（任意・null なら従来どおり。Task 151）
     }
 
     /**
@@ -398,6 +419,9 @@ public class GameRenderer {
         // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
                 skyBottom, skyBottom, skyTop, skyTop);
+        // 背景の多層シルエット（Task 151）：空グラデーションの上、地面の前に奥（遠景）→手前（近景）の順で描く。
+        // front=false＝背景レイヤーのみ（前景レイヤー＝Task 158 はパス 2.5 でキャラの手前に描く）。
+        drawStageLayers(false);
         // 地面（床）。
         shapes.setColor(groundColor);
         shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
@@ -430,19 +454,29 @@ public class GameRenderer {
         drawFighterSprite(p2, anim2, mirror);
         batch.end();
 
+        // --- パス 2.5: 前景レイヤー（Task 158）---
+        // front=true のステージレイヤーをキャラの手前に描いて奥行き（被写界深度）を出す。
+        // HP バー等の HUD（パス 3）・デバッグ枠（パス 4）・テキスト（パス 5）はこの後なので前景の上に乗る。
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        drawStageLayers(true);
+        shapes.end();
+
         // --- パス 3: オーバーレイ（矩形フォールバック / ガード / 攻撃 strike / 接触 / 飛び道具 / HP）---
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawFighterOverlay(p1, anim1, P1_COLOR, false);
-        drawFighterOverlay(p2, anim2, P2_COLOR, mirror);
+        drawFighterOverlay(p1, anim1, P1_COLOR, false, debug.isEnabled());
+        drawFighterOverlay(p2, anim2, P2_COLOR, mirror, debug.isEnabled());
         // 飛び道具（必殺技の弾）。
         drawProjectiles(projectiles);
         // ヒットスパーク（命中位置で拡大＋フェードする火花。Task 38）。
         drawHitSparks(sparks);
         // 着地の砂煙（足元で広がり上昇しフェードする土埃。Task 131）。
         drawLandingDust(dusts);
-        // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。
-        drawContactMarker(p1, p2);
-        drawContactMarker(p2, p1);
+        // ヒット接触マーカー（active hitbox × 相手 hurtbox が重なるフレームに点灯）。当たり判定の可視化なので
+        // 通常プレイでは隠し、F1 デバッグ表示時のみ出す（Task 165）。
+        if (debug.isEnabled()) {
+            drawContactMarker(p1, p2);
+            drawContactMarker(p2, p1);
+        }
         // HP ゲージ（HUD 上端）。P1 は左から、P2 は右から減る方向に塗る。
         drawHpBar(p1, true);
         drawHpBar(p2, false);
@@ -461,6 +495,8 @@ public class GameRenderer {
         if (!concluded) {
             drawLowHpVignette(p1, p2);
         }
+        // スーパー必殺技発動の金色フラッシュ（Task 169）：凍結中に縁を金色に光らせて発動を劇的に見せる。
+        drawSuperFlash();
         // 決着演出（Task 148/149/150）：勝者グロー＋勝利の光の粒＋KO 白フラッシュ（バナーより後ろ＝テキストは最前面）。
         drawRoundEndOverlays(round, p1, p2);
         shapes.end();
@@ -490,8 +526,8 @@ public class GameRenderer {
         font.getData().setScale(1.0f);
         drawHpLabels(p1, true);
         drawHpLabels(p2, false);
-        drawNameLabel(p1, anim1);
-        drawNameLabel(p2, anim2);
+        drawNameLabel(p1, anim1, debug.isEnabled());
+        drawNameLabel(p2, anim2, debug.isEnabled());
         // コンボカウンター（連続ヒット中の相手の頭上に "N HITS!"。Task 39）。
         drawComboCounter(p1);
         drawComboCounter(p2);
@@ -504,7 +540,10 @@ public class GameRenderer {
             drawCentered("Stage: " + stageName, GameConstants.WORLD_WIDTH / 2f, 100f);
         }
         drawCentered(controlsHint, GameConstants.WORLD_WIDTH / 2f, 70f);
-        drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        // 位置/向きの読み出し（"Aoi x=N y=N >" 等）は開発者向け情報なので F1 デバッグ表示時のみ出す（Task 168）。
+        if (debug.isEnabled()) {
+            drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
+        }
         drawInputDisplay(p1Inputs); // P1 入力表示 HUD（Task 96）
         if (moveListVisible) {
             drawMoveList(p1, p2); // コマンド表 HUD（技/コマンド一覧・F5・Task 112）
@@ -558,20 +597,19 @@ public class GameRenderer {
         }
         int secsLeft = (round.getBetweenCountdown() + GameConstants.TARGET_FPS - 1) / GameConstants.TARGET_FPS;
         float cx = GameConstants.WORLD_WIDTH / 2f;
-        // PERFECT（ノーダメージ勝利・Task 127）：金色で決着理由の上に強調表示する。
+        // PERFECT（ノーダメージ勝利・Task 127）：金色＋パルスで決着理由の上に強調表示する。影付き（Task 163）。
         if (round.isRoundPerfect()) {
-            font.setColor(PERFECT_COLOR);
-            font.getData().setScale(2.0f);
-            drawCentered("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 95f);
-            font.setColor(Color.WHITE);
+            float pulse = 1f + 0.06f * Math.abs((float) Math.sin(auraTick * 0.3f));
+            drawBannerText("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 95f, 2.0f * pulse, PERFECT_COLOR);
         }
-        font.getData().setScale(2.5f);
-        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
-        font.getData().setScale(1.8f);
-        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f + 5f);
-        font.getData().setScale(1.2f);
-        drawCentered("ROUND " + (round.getCurrentRound() + 1) + "  in " + secsLeft,
-                cx, GameConstants.WORLD_HEIGHT / 2f - 35f);
+        // 決着理由（KO=赤/TIME UP=白）・ラウンド勝者（アクセント色/DRAW=白）・次ラウンド案内。すべて影付き（Task 163）。
+        Color reasonColor = round.getReason() == RoundManager.FinishReason.KO ? FIGHT_FLASH_COLOR : ROUND_INTRO_COLOR;
+        drawBannerText(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f, 2.5f, reasonColor);
+        Color resultColor = round.getRoundWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
+        drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f + 5f, 1.8f, resultColor);
+        drawBannerText("ROUND " + (round.getCurrentRound() + 1) + "  in " + secsLeft,
+                cx, GameConstants.WORLD_HEIGHT / 2f - 35f, 1.2f, Color.WHITE);
+        font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
 
@@ -583,17 +621,27 @@ public class GameRenderer {
     private void drawRoundIntroBanner(RoundManager round) {
         float cx = GameConstants.WORLD_WIDTH / 2f;
         float cy = GameConstants.WORLD_HEIGHT / 2f + 20f;
+        int total = round.getIntroTotalFrames();
         if (round.isFightFlash()) {
-            font.setColor(FIGHT_FLASH_COLOR);
-            font.getData().setScale(3.0f);
-            drawCentered("FIGHT!", cx, cy);
+            // "FIGHT!"：軽いパルスで脈打たせて開始の勢いを出す（auraTick からの決定的な波形）。
+            float pulse = 1f + 0.08f * Math.abs((float) Math.sin(auraTick * 0.4f));
+            drawBannerText("FIGHT!", cx, cy, 3.0f * pulse, FIGHT_FLASH_COLOR);
         } else {
-            font.setColor(ROUND_INTRO_COLOR);
-            font.getData().setScale(2.5f);
-            drawCentered("ROUND " + round.getCurrentRound(), cx, cy);
+            // "ROUND N"：開始時に大きく入り（スラムイン）、設置に向けて等倍へ縮む。countdown/total が 1→小 へ。
+            float t = total > 0 ? Math.max(0f, Math.min(1f, round.getIntroCountdown() / (float) total)) : 0f;
+            drawBannerText("ROUND " + round.getCurrentRound(), cx, cy, 2.5f + 1.0f * t, ROUND_INTRO_COLOR);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
+    }
+
+    /** イントロ/結果バナーの 1 行を、可読性のためドロップシャドウ付きで中央に描く（Task 162）。色・倍率は呼び出し側で戻す。 */
+    private void drawBannerText(String text, float cx, float cy, float scale, Color color) {
+        font.getData().setScale(scale);
+        font.setColor(BANNER_SHADOW_COLOR);
+        drawCentered(text, cx + 4f, cy - 4f);
+        font.setColor(color);
+        drawCentered(text, cx, cy);
     }
 
     /** マッチ決着時のバナー（決着理由 + マッチ勝者 + スコア）を画面中央に大きく描く。 */
@@ -613,19 +661,18 @@ public class GameRenderer {
         }
         String score = round.getP1Wins() + " - " + round.getP2Wins();
         float cx = GameConstants.WORLD_WIDTH / 2f;
-        // PERFECT（最終ラウンドをノーダメージで決めた場合・Task 127）：金色で決着理由の上に強調表示する。
+        // PERFECT（最終ラウンドをノーダメージで決めた場合・Task 127）：金色＋パルスで決着理由の上に強調表示する。
         if (round.isRoundPerfect()) {
-            font.setColor(PERFECT_COLOR);
-            font.getData().setScale(2.2f);
-            drawCentered("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 100f);
-            font.setColor(Color.WHITE);
+            float pulse = 1f + 0.06f * Math.abs((float) Math.sin(auraTick * 0.3f));
+            drawBannerText("PERFECT!", cx, GameConstants.WORLD_HEIGHT / 2f + 100f, 2.2f * pulse, PERFECT_COLOR);
         }
-        font.getData().setScale(3.0f);
-        drawCentered(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f);
-        font.getData().setScale(2.0f);
-        drawCentered(result, cx, GameConstants.WORLD_HEIGHT / 2f);
-        font.getData().setScale(1.5f);
-        drawCentered(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f);
+        // 決着理由：KO は赤で強く、TIME UP は白系で。勝者名はアクセント色、スコアは白。すべて影付き（Task 163）。
+        Color reasonColor = round.getReason() == RoundManager.FinishReason.KO ? FIGHT_FLASH_COLOR : ROUND_INTRO_COLOR;
+        drawBannerText(reason, cx, GameConstants.WORLD_HEIGHT / 2f + 50f, 3.0f, reasonColor);
+        Color resultColor = round.getMatchWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
+        drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
+        drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
+        font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
 
@@ -956,6 +1003,191 @@ public class GameRenderer {
     }
 
     /**
+     * 背景の多層シルエット（Task 151）を奥（遠景）→手前（近景）の順に描く。{@link Stage#getLayers()} の各レイヤーを
+     * 形状（band/buildings/peaks/hills/pillars）に応じてシルエット描画する。すべて要素番号と {@link #auraTick}（任意の
+     * ドリフト）からの固定計算＝**乱数なし＝決定的**。レイヤー未指定（null）なら何も描かず従来どおり（後方互換）。
+     * パス 1（空グラデーションの後・地面の前）で呼ぶ＝奥行きのある背景レイヤ。
+     */
+    /**
+     * ステージの多層シルエットを描く（Task 151）。{@code front=false} で背景（空と地面の間・キャラの後ろ）、
+     * {@code front=true} で前景（キャラの手前・Task 158）のレイヤーだけを描く。レイヤーの {@code isFront()} で振り分ける。
+     */
+    private void drawStageLayers(boolean front) {
+        if (stageLayers == null) {
+            return;
+        }
+        float w = GameConstants.WORLD_WIDTH;
+        for (StageLayer layer : stageLayers) {
+            if (layer == null) {
+                continue;
+            }
+            if (layer.isFront() != front) {
+                continue; // 当該パス（背景/前景）のレイヤーのみ描く
+            }
+            float[] c = layer.getColor();
+            if (c == null || c.length < 3) {
+                continue; // 色未指定のレイヤーはスキップ
+            }
+            layerColor.set(c[0], c[1], c[2], layer.getAlpha());
+            shapes.setColor(layerColor);
+            float baseY = layer.getBaseY();
+            float h = layer.getHeight();
+            int count = layer.getCount();
+            float spacing = w / count;
+            // ドリフト：要素間隔で wrap させて端で途切れないようタイル状に流す（雲・もや等の演出。0 で静止）。
+            float phase = layer.getDrift() != 0f ? (layer.getDrift() * auraTick) % spacing : 0f;
+            switch (layer.getShape()) {
+                case "buildings": drawLayerBuildings(baseY, h, count, spacing, phase); break;
+                case "peaks":     drawLayerPeaks(baseY, h, count, spacing, phase); break;
+                case "hills":     drawLayerHills(baseY, h, w); break;
+                case "pillars":   drawLayerPillars(baseY, h, count, spacing, phase); break;
+                case "clouds":    drawLayerClouds(baseY, h, count, w, layer.getDrift()); break;
+                case "snow":      drawLayerSnow(baseY, h, count, w, layer.getDrift()); break;
+                case "embers":    drawLayerEmbers(baseY, h, count, w, layer.getDrift()); break;
+                case "frame":     drawLayerFrame(baseY, h, w); break;
+                case "band":
+                default:          shapes.rect(0f, baseY, w, h); break; // 帯（遠景の地形/水平線）・未対応も帯に
+            }
+        }
+    }
+
+    /** 都市のスカイライン（高さの違う矩形ビル群）。要素番号からの sin で高さ/幅を決定的に散らす。Task 151。 */
+    private void drawLayerBuildings(float baseY, float h, int count, float spacing, float phase) {
+        for (int i = -1; i <= count; i++) {
+            float x = i * spacing + phase;
+            float bw = spacing * (0.62f + 0.22f * Math.abs((float) Math.sin(i * 1.3f)));
+            float bh = h * (0.42f + 0.58f * Math.abs((float) Math.sin(i * 1.7f + 0.5f)));
+            shapes.rect(x + (spacing - bw) / 2f, baseY, bw, bh);
+        }
+    }
+
+    /** 遠景の山並み（三角形のピーク群）。Task 151。 */
+    private void drawLayerPeaks(float baseY, float h, int count, float spacing, float phase) {
+        for (int i = -1; i <= count; i++) {
+            float cx = i * spacing + phase + spacing / 2f;
+            float pw = spacing * (1.0f + 0.35f * (float) Math.sin(i * 0.9f));
+            float ph = h * (0.5f + 0.5f * Math.abs((float) Math.sin(i * 1.27f)));
+            shapes.triangle(cx - pw / 2f, baseY, cx + pw / 2f, baseY, cx, baseY + ph);
+        }
+    }
+
+    /** なだらかな丘のシルエット（sin 曲線の下を細い矩形で塗る）。Task 151。 */
+    private void drawLayerHills(float baseY, float h, float w) {
+        float step = 8f;
+        for (float x = 0f; x < w; x += step) {
+            float hy = h * (0.55f + 0.45f * (float) Math.sin(x * 0.006f));
+            shapes.rect(x, baseY, step + 1f, hy);
+        }
+    }
+
+    /**
+     * たなびく雲（soft puffs）。各雲は重なる円のクラスタで、横位置を `drift × auraTick` で流し画面幅で wrap させる
+     * （Task 155）。円は本環境のソフトウェア GL でも正常にブレンドされる（全画面ソリッド rect の罠を避ける）。
+     * y は雲番号から決定的に散らす。空のあるステージを生き生きとさせる純演出（乱数なし）。
+     */
+    private void drawLayerClouds(float baseY, float h, int count, float w, float drift) {
+        float wrap = w + 240f; // 画面外マージン込みで wrap（端で途切れない）
+        for (int i = 0; i < count; i++) {
+            float x0 = (i * (wrap / count) + drift * auraTick) % wrap;
+            if (x0 < 0f) {
+                x0 += wrap;
+            }
+            float x = x0 - 120f;
+            float y = baseY + h * (0.2f + 0.6f * Math.abs((float) Math.sin(i * 1.9f)));
+            float s = 12f + 8f * Math.abs((float) Math.sin(i * 2.3f)); // 雲のスケール
+            // 重なる円で 1 つの雲（中央大・左右小）。
+            shapes.circle(x, y, s);
+            shapes.circle(x - s * 0.9f, y - s * 0.15f, s * 0.66f);
+            shapes.circle(x + s * 0.9f, y - s * 0.1f, s * 0.72f);
+            shapes.circle(x + s * 0.3f, y + s * 0.35f, s * 0.6f);
+            shapes.circle(x - s * 0.4f, y + s * 0.3f, s * 0.55f);
+        }
+    }
+
+    /**
+     * 降る情景（雪・桜の花びら）。Task 156。`count` 個の粒を上端から `baseY..baseY+h` の帯へ落とし、
+     * 落下位置は `auraTick` で循環させ画面端で wrap させる（横位置は `sin` で左右に揺らぐ＝雪/花びらの漂い）。
+     * 落下速度は `drift` を基準に粒ごとに散らす。色は JSON 指定（白＝雪／桜色＝花びら）。
+     * 円で描く（ソフトウェア GL でも正常合成＝全画面ソリッド rect の罠を回避）。乱数なし・決定的。
+     */
+    private void drawLayerSnow(float baseY, float h, int count, float w, float drift) {
+        float span = h <= 0f ? GameConstants.WORLD_HEIGHT : h; // 落下帯の高さ
+        float top = baseY + span;
+        float baseSpeed = drift <= 0f ? 0.6f : drift; // 落下基準速度（px/frame）
+        for (int i = 0; i < count; i++) {
+            float speed = baseSpeed * (0.6f + 0.5f * Math.abs((float) Math.sin(i * 1.7f)));
+            // 上端 top から下へ落ち span で wrap（粒ごとに位相をずらす）。
+            float fall = (auraTick * speed + i * (span / count)) % span;
+            float y = top - fall;
+            // 横位置：均等配置＋ゆっくりした左右の揺らぎ。
+            float sway = 18f * (float) Math.sin(auraTick * 0.03f + i * 1.3f);
+            float x0 = (i * (w / count) + sway) % w;
+            if (x0 < 0f) {
+                x0 += w;
+            }
+            float r = 2.5f + 2f * Math.abs((float) Math.sin(i * 2.1f)); // 粒のサイズ差
+            shapes.circle(x0, y, r);
+        }
+    }
+
+    /**
+     * 立ち昇る火の粉（embers）。Task 157。`snow`（落下）と対で、粒を `baseY` から上へ昇らせ `baseY+h` で wrap。
+     * 横位置は `sin` で揺らぎ、上昇につれて粒を小さく＝薄くして消え際を表現する。色は JSON 指定（火＝橙）。
+     * `drift`=上昇速度。円描画（ソフトウェア GL でも正常合成）。乱数なし・決定的。
+     */
+    private void drawLayerEmbers(float baseY, float h, int count, float w, float drift) {
+        float span = h <= 0f ? GameConstants.WORLD_HEIGHT : h; // 上昇帯の高さ
+        float baseSpeed = drift <= 0f ? 0.7f : drift; // 上昇基準速度（px/frame）
+        for (int i = 0; i < count; i++) {
+            float speed = baseSpeed * (0.6f + 0.5f * Math.abs((float) Math.sin(i * 1.5f)));
+            // baseY から上へ昇り span で wrap（粒ごとに位相をずらす）。
+            float rise = (auraTick * speed + i * (span / count)) % span;
+            float y = baseY + rise;
+            float life = rise / span; // 0（生成・下）→1（消滅・上）
+            float sway = 14f * (float) Math.sin(auraTick * 0.05f + i * 1.7f);
+            float x0 = (i * (w / count) + sway) % w;
+            if (x0 < 0f) {
+                x0 += w;
+            }
+            float r = (2.5f + 2f * Math.abs((float) Math.sin(i * 2.3f))) * (1f - 0.6f * life); // 上昇で縮小
+            shapes.circle(x0, y, Math.max(0.8f, r));
+        }
+    }
+
+    /**
+     * 舞台額縁（proscenium）。Task 158。画面の左右端に縦柱を立て、上端を梁で渡してアリーナを縁取る前景。
+     * 中央（試合領域）は空けるので、{@code front=true} で手前に描いてもキャラを隠さず奥行き（被写界深度）だけを足す。
+     * 柱幅は画面幅比で決定的。各柱は外側が濃く内側がやや明るい 2 段で立体感を出す。
+     */
+    private void drawLayerFrame(float baseY, float h, float w) {
+        float barW = w * 0.072f;     // 各柱の幅（≒92px）。中央の試合領域は十分空く。
+        float inner = barW * 0.34f;  // 内側のハイライト帯
+        // 左柱。
+        shapes.rect(0f, baseY, barW, h);
+        // 右柱。
+        shapes.rect(w - barW, baseY, barW, h);
+        // 上部の梁（左右の柱をつなぐ）。
+        shapes.rect(0f, baseY + h * 0.9f, w, h * 0.1f);
+        // 内側のハイライト帯（やや明るくして円柱の丸みを示唆）。元色に白を少し混ぜる。
+        layerHighlight.set(layerColor).lerp(1f, 1f, 1f, layerColor.a, 0.22f);
+        shapes.setColor(layerHighlight);
+        shapes.rect(barW - inner, baseY, inner * 0.5f, h * 0.9f);
+        shapes.rect(w - barW + inner * 0.5f, baseY, inner * 0.5f, h * 0.9f);
+        shapes.setColor(layerColor); // 後続レイヤーのため元色へ戻す
+    }
+
+    /** 神殿の柱列（一定間隔の縦矩形）＋上部の梁。Task 151。 */
+    private void drawLayerPillars(float baseY, float h, int count, float spacing, float phase) {
+        float cw = spacing * 0.38f;
+        for (int i = -1; i <= count; i++) {
+            float x = i * spacing + phase + (spacing - cw) / 2f;
+            shapes.rect(x, baseY, cw, h);
+        }
+        // 上部の梁（エンタブラチュア）：柱の上端を水平に渡す。
+        shapes.rect(0f, baseY + h * 0.86f, GameConstants.WORLD_WIDTH, h * 0.14f);
+    }
+
+    /**
      * 空の光の帯（sky sweep）を描く（純描画演出。Task 147）。背景をゆっくり横切る淡い光の縦帯で空気感を出す。
      * 帯の中心 X は描画フレームカウンタ（{@link #auraTick}）で横移動し画面幅で wrap（乱数なし＝決定的）。
      * 帯は中心が最も明るく左右でフェードする 3 枚の縦 rect 近似。スプライト（パス 2）の前＝背景レイヤ。
@@ -1064,6 +1296,20 @@ public class GameRenderer {
         shapes.rect(0f, h - band, w, band, clear, clear, edge, edge);           // 上
     }
 
+    /**
+     * スーパー必殺技発動のスーパーフラッシュ（Task 169）。Core が両者を凍結する間（{@code superFlashFrames>0}）、
+     * 画面の縁を金色にフラッシュさせて発動を劇的に見せる。残りフレーム比で減衰し、帯幅も縮める。KO 白フラッシュ
+     * （Task 148）と同じ縁グラデ手法＝ソフトウェア GL でも安全（全画面ソリッド半透明の罠を回避）。乱数なし・決定的。
+     */
+    private void drawSuperFlash() {
+        if (superFlashFrames <= 0) {
+            return;
+        }
+        float t = Math.min(1f, superFlashFrames / (float) GameConstants.SUPER_FLASH_FRAMES); // 1→0 へ減衰
+        superFlashColor.set(SUPER_FLASH_COLOR.r, SUPER_FLASH_COLOR.g, SUPER_FLASH_COLOR.b, SUPER_FLASH_COLOR.a * t);
+        drawEdgeVignette(superFlashColor, SUPER_FLASH_BAND * (0.55f + 0.45f * t));
+    }
+
     /** 勝者の足元に金色のパルス光輪を描く（Task 149）。メーター満タンオーラと同型だがより大きく金色で目立たせる。 */
     private void drawWinnerGlow(Fighter f) {
         Character d = f.getDef();
@@ -1083,7 +1329,8 @@ public class GameRenderer {
      * ここで描く（後方互換）。スプライト描画済みのキャラは本体矩形を省き、ガードオーバーレイ・攻撃 strike・
      * フレームピップのみを重ねる（これらは矩形 / スプライトの双方に共通の可視化）。
      */
-    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback, boolean paletteSwap) {
+    private void drawFighterOverlay(Fighter f, FighterAnimator anim, Color fallback, boolean paletteSwap,
+                                    boolean showDebugViz) {
         Character d = f.getDef();
         float left = f.getX() - d.getWidth() / 2f;
         // 待機 / 歩行の進行を縦ボブで可視化（空中は物理で位置が変わるためボブ 0）。
@@ -1120,12 +1367,15 @@ public class GameRenderer {
             shapes.setColor(GUARD_COLOR);
             shapes.rect(left, bottom, d.getWidth(), drawHeight);
         }
-        // 攻撃中は前方の strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描く。
-        if (f.isAttacking()) {
+        // 攻撃中は前方の strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描く。当たり判定の可視化
+        // （投げの紫 grab box 含む）なので通常プレイでは隠し、F1 デバッグ表示時のみ出す（Task 165）。
+        if (showDebugViz && f.isAttacking()) {
             drawAttackStrike(f);
         }
-        // フレームピップ：足元下に総フレーム数だけ並べ、現在フレームを点灯（アニメ進行の証跡）。
-        drawFramePips(f, anim);
+        // フレームピップ：足元下に総フレーム数だけ並べ、現在フレームを点灯（アニメ進行の証跡）。これも debug 時のみ。
+        if (showDebugViz) {
+            drawFramePips(f, anim);
+        }
     }
 
     /**
@@ -1195,10 +1445,20 @@ public class GameRenderer {
                 shapes.circle(p.getTrailX(i), cy, r * (PROJECTILE_TRAIL_MIN_SCALE
                         + (PROJECTILE_TRAIL_MAX_SCALE - PROJECTILE_TRAIL_MIN_SCALE) * t));
             }
+            // エネルギーの脈動オーラ（Task 166）：本体グローの外側に薄い光輪を重ね、auraTick で半径を脈打たせて
+            // 「気の塊」感を出す（円描画＝ソフトウェア GL でも安全・乱数なし＝決定的）。
+            float pulse = 1.25f + 0.18f * Math.abs((float) Math.sin(auraTick * 0.5f));
+            projectileTrailColor.set(glow.r, glow.g, glow.b, 0.22f);
+            shapes.setColor(projectileTrailColor);
+            shapes.circle(cx, cy, r * pulse);
             shapes.setColor(glow);
             shapes.circle(cx, cy, r);
             shapes.setColor(PROJECTILE_CORE);
             shapes.circle(cx, cy, r * 0.55f);
+            // 白熱中心：コアのさらに内側に近白の点を置いて高エネルギーの芯を示す（Task 166）。
+            projectileTrailColor.set(1f, 1f, 1f, 0.85f);
+            shapes.setColor(projectileTrailColor);
+            shapes.circle(cx, cy, r * 0.26f);
         }
     }
 
@@ -1342,11 +1602,16 @@ public class GameRenderer {
     }
 
     /** ファイターの名前と現在の状態（攻撃中は区間、それ以外はアニメ状態 / フレーム）を矩形の上に表示する。 */
-    private void drawNameLabel(Fighter f, FighterAnimator anim) {
+    private void drawNameLabel(Fighter f, FighterAnimator anim, boolean showDebugViz) {
         float centerX = f.getX();
         float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
         float top = f.getY() + displayHeight;
         drawCentered(f.getDef().getName(), centerX, top + 30f);
+        // 状態ラベル（"idle f2"/"attack:active [INV]" 等の開発者向け情報）は当たり判定可視化と同様、通常プレイでは
+        // 隠し F1 デバッグ表示時のみ出す（Task 167）。名前はフィールド上にも残す（識別用）。
+        if (!showDebugViz) {
+            return;
+        }
         String stateLabel;
         if (f.isKnockedDown()) {
             // ダウン（Task 60）。HITSTUN ポーズを流用しつつ knockdown ラベルで識別する（ダウン中は被弾無敵）。
@@ -1431,15 +1696,15 @@ public class GameRenderer {
             return;
         }
         float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
-        float y = f.getY() + displayHeight + 58f; // 名前ラベル（+30）のさらに上
+        float y = f.getY() + displayHeight + 64f; // 名前ラベル（+30）のさらに上
         // コンボ継続中は "N HITS!" を小刻みに拡大パルスさせて勢いを出す（Task 143・auraTick の sin・乱数なし）。
         float pulse = 1f + COMBO_PULSE * (float) Math.sin(auraTick * COMBO_PULSE_SPEED);
-        font.getData().setScale(COMBO_SCALE * pulse);
-        font.setColor(COMBO_COLOR);
-        drawCentered(combo + " HITS!", f.getX(), y);
+        // ヒット数が伸びるほど大きく（上限 1.4 倍）・色を橙→赤→金へエスカレーションさせて達成感を出す（Task 164）。
+        float sizeBoost = Math.min(1.4f, 1f + (combo - 2) * 0.05f);
+        Color comboColor = combo >= 10 ? PERFECT_COLOR : (combo >= 6 ? FIGHT_FLASH_COLOR : COMBO_COLOR);
+        drawBannerText(combo + " HITS!", f.getX(), y, COMBO_SCALE * sizeBoost * pulse, comboColor);
         // コンボ累計ダメージ（Task 121）：ヒット数の下に補正後の実ダメージ合計を表示する。
-        font.getData().setScale(COMBO_SCALE * 0.7f);
-        drawCentered(f.getComboDamage() + " DMG", f.getX(), y - 24f);
+        drawBannerText(f.getComboDamage() + " DMG", f.getX(), y - 28f, COMBO_SCALE * 0.7f, COMBO_COLOR);
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
     }
@@ -1488,27 +1753,51 @@ public class GameRenderer {
      * タイトル画面を描く（Task 116）。モード選択（0=対戦 / 1=トレーニング）。選択中の項目を黄色で強調する。
      * 独立した clear + テキストパス（バトル描画とは別フレーム）。
      */
-    public void renderTitle(int selection) {
+    public void renderTitle(int selection, Stage backdrop) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
+
+        // --- タイトル裏のライブ背景（デモリール・Task 160）---
+        // 全ステージの実背景をゆっくり巡回（Core が切り替え）。可読性のため、ステージ選択（Task 159）と同じく
+        // 下部に不透明の操作バーを重ねる（半透明全画面の暗転はソフトウェア GL で化けるため不使用＝不透明 rect）。
+        auraTick = (auraTick + 1) % 36000;
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (backdrop != null) {
+            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            drawStageLayers(false);
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+            drawStageLayers(true);
+        }
+        // 下部のメニュー操作バー（不透明）。
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, TITLE_BAR_H);
+        shapes.end();
+
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-        font.getData().setScale(2.4f);
+        // タイトルロゴ（上部・暗い上空に重なり読める）。
+        font.getData().setScale(2.6f);
         font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 180f);
+        drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 110f);
+        // メニュー（不透明バー内）。
         font.getData().setScale(1.5f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, 380f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 45f);
         font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, 312f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 100f);
         font.setColor(Color.WHITE);
-        font.getData().setScale(1.0f);
-        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 200f);
+        font.getData().setScale(0.95f);
+        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
         drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
-                GameConstants.WORLD_WIDTH / 2f, 168f);
+                GameConstants.WORLD_WIDTH / 2f, 28f);
+        font.getData().setScale(1.0f);
         batch.end();
     }
 
@@ -1516,24 +1805,68 @@ public class GameRenderer {
      * キャラクター選択画面を描く（Task 117）。ロスターをグリッド表示し、カーソル（黄）・P1 確定（シアン）・P2 確定（橙）を
      * 色で区別する。上部に選択中プレイヤーと確定済みの選択を表示する。独立した clear + テキストパス。
      */
-    public void renderCharacterSelect(String[] names, int cursor, int p1, int p2, boolean p1Locked, int cols) {
+    public void renderCharacterSelect(Character[] defs, String[] names, int cursor, int p1, int p2,
+                                      boolean p1Locked, int cols, Stage backdrop) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
+        auraTick = (auraTick + 1) % 36000;
+
+        // --- 背景（実ステージ）＋下部の不透明操作バー（Task 161・タイトル/ステージ選択と同じ作法）---
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (backdrop != null) {
+            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            drawStageLayers(false);
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+            drawStageLayers(true);
+        }
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, CHARSEL_BAR_H);
+        shapes.end();
+
+        // --- スプライト立ち絵（カーソル中央＝大・確定 P1 左/P2 右＝小）とテキスト ---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
+        // 確定済みの立ち絵（左右の脇）。
+        if (defs != null) {
+            // 確定済みは本来の色のまま（位置＝左 P1/右 P2 と名前ラベルの色で識別）。
+            if (p1 >= 0 && p1 < defs.length) {
+                drawCharPortrait(defs[p1], 150f, CHARSEL_BAR_H + 8f, 300f, null, false);
+            }
+            if (p2 >= 0 && p2 < defs.length) {
+                drawCharPortrait(defs[p2], GameConstants.WORLD_WIDTH - 150f, CHARSEL_BAR_H + 8f, 300f, null, true);
+            }
+            // カーソル中の立ち絵（中央・大きめ）。選択中プレイヤーに応じた向き（P1=右/P2=左）。
+            if (cursor >= 0 && cursor < defs.length) {
+                drawCharPortrait(defs[cursor], GameConstants.WORLD_WIDTH / 2f, CHARSEL_BAR_H + 8f, 380f,
+                        null, p1Locked);
+            }
+        }
+        // タイトル＋選択中プレイヤーの案内。
         font.getData().setScale(1.6f);
         font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("CHARACTER SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
+        drawCentered("CHARACTER SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 40f);
         font.getData().setScale(1.1f);
         font.setColor(p1Locked ? CHARSEL_P2_COLOR : CHARSEL_P1_COLOR);
         drawCentered(p1Locked ? "Player 2 : choose your fighter" : "Player 1 : choose your fighter",
-                GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 130f);
-        font.getData().setScale(0.95f);
+                GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 90f);
+        // カーソル中キャラ名（中央立ち絵の足元上＝バー直上）。
+        font.getData().setScale(1.2f);
+        font.setColor(Color.YELLOW);
+        if (cursor >= 0 && cursor < names.length) {
+            drawCentered(names[cursor], GameConstants.WORLD_WIDTH / 2f, CHARSEL_BAR_H + 28f);
+        }
+
+        // --- 下部バー内：ロスター名グリッド＋確定状況＋操作説明 ---
+        font.getData().setScale(0.9f);
         float gridLeft = 150f;
-        float gridTop = 460f;
+        float gridTop = CHARSEL_BAR_H - 26f;
         float cellW = 165f;
-        float rowH = 64f;
+        float rowH = 36f;
         for (int i = 0; i < names.length; i++) {
             int col = i % cols;
             int row = i / cols;
@@ -1555,38 +1888,97 @@ public class GameRenderer {
             font.setColor(c);
             drawCentered(label, cx, cy);
         }
-        font.getData().setScale(1.0f);
+        font.getData().setScale(0.9f);
         font.setColor(CHARSEL_P1_COLOR);
-        drawCentered("P1: " + (p1 >= 0 ? names[p1] : "..."), GameConstants.WORLD_WIDTH / 2f - 180f, 150f);
+        drawCentered("P1: " + (p1 >= 0 ? names[p1] : "..."), GameConstants.WORLD_WIDTH / 2f - 220f, 30f);
         font.setColor(CHARSEL_P2_COLOR);
-        drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 180f, 150f);
+        drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 220f, 30f);
         font.setColor(Color.WHITE);
-        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
+        drawCentered("ARROWS / WASD : move    ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 30f);
         font.getData().setScale(1.0f);
         batch.end();
+    }
+
+    /**
+     * 選択画面のキャラ立ち絵を描く（Task 161）。アイドル先頭フレームを `targetH` 高さで中心 `centerX`・足元 `footY` に描く。
+     * `faceLeft` で左向き（P2 側）に反転。現状は P1/P2 を「位置（左/右）＋名前ラベルの色」で識別するため `tint` には
+     * `null` を渡し本来の色のまま描く（`tint` 非 null なら乗算ティントを掛ける将来用フック）。スプライト未読込なら読み込む。
+     * スプライト未指定（region==null）のキャラは描かない（名前のみで識別＝後方互換）。
+     */
+    private void drawCharPortrait(Character def, float centerX, float footY, float targetH, Color tint, boolean faceLeft) {
+        if (def == null) {
+            return;
+        }
+        sprites.ensureLoaded(def);
+        TextureRegion region = sprites.region(def, AnimationState.IDLE, 0);
+        if (region == null) {
+            return;
+        }
+        if (region.isFlipX() != faceLeft) {
+            region.flip(true, false);
+        }
+        float scale = targetH / def.getHeight();
+        float w = def.getWidth() * scale;
+        if (tint != null) {
+            tintColor.set(Color.WHITE).mul(tint);
+            batch.setColor(tintColor);
+        }
+        batch.draw(region, centerX - w / 2f, footY, w, targetH);
+        if (tint != null) {
+            batch.setColor(Color.WHITE);
+        }
     }
 
     /**
      * ステージ選択画面を描く（Task 128）。全ステージ名をグリッド表示し、カーソル（黄）を強調する。
      * キャラ選択（Task 117）と同じグリッド作法。確定で選んだステージが対戦の背景になる。独立した clear + テキストパス。
      */
-    public void renderStageSelect(String[] names, int cursor, int cols) {
+    public void renderStageSelect(Stage preview, String[] names, int cursor, int cols) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
+
+        // --- 選択中ステージのライブプレビュー（Task 159）---
+        // 実際のバトル背景（空グラデ + 多層シルエット + 地面 + 前景）を全画面に描く。カーソル移動で背景が切り替わる。
+        if (preview != null) {
+            setStage(preview); // skyTop/skyBottom/groundColor/stageLayers をプレビュー対象へ（バトル開始時に再設定されるので一時上書きで安全）
+        }
+        auraTick = (auraTick + 1) % 36000; // ドリフト/情景アニメ用の描画カウンタ（renderScene 同様）
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        if (preview != null) {
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            drawStageLayers(false); // 背景レイヤー
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+            drawStageLayers(true);  // 前景レイヤー（Task 158）
+        } else {
+            shapes.setColor(0.05f, 0.05f, 0.10f, 1f);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+        }
+        // 下部の操作バー（不透明 rect＝ソフトウェア GL でも安全。テキストの可読性確保）。
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, STAGE_SELECT_BAR_H);
+        shapes.end();
+
+        // --- テキスト（上部タイトル + 下部バー内のリスト/操作説明）---
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
         font.getData().setScale(1.6f);
         font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("STAGE SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 70f);
-        font.getData().setScale(1.1f);
+        drawCentered("STAGE SELECT", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 40f);
+        // 選択中ステージ名を大きくプレビューの上に重ねる。
+        font.getData().setScale(1.3f);
         font.setColor(Color.WHITE);
-        drawCentered("choose your stage", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 130f);
-        font.getData().setScale(0.95f);
+        drawCentered(names[cursor], GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 95f);
+
+        // 下部バー内：ステージ名グリッド（カーソルは黄色）。
+        font.getData().setScale(0.9f);
         float gridLeft = 90f;
-        float gridTop = 420f;
+        float gridTop = STAGE_SELECT_BAR_H - 26f;
         float cellW = 220f;
-        float rowH = 80f;
+        float rowH = 34f;
         for (int i = 0; i < names.length; i++) {
             int col = i % cols;
             int row = i / cols;
@@ -1596,11 +1988,9 @@ public class GameRenderer {
             String label = i == cursor ? "[" + names[i] + "]" : names[i];
             drawCentered(label, cx, cy);
         }
-        font.getData().setScale(1.0f);
-        font.setColor(TITLE_ACCENT_COLOR);
-        drawCentered("Stage: " + names[cursor], GameConstants.WORLD_WIDTH / 2f, 150f);
+        font.getData().setScale(0.85f);
         font.setColor(Color.WHITE);
-        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 100f);
+        drawCentered("ARROWS / WASD : move      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 18f);
         font.getData().setScale(1.0f);
         batch.end();
     }

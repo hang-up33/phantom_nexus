@@ -3,5 +3,11 @@
   "name": "Neon Alley",
   "skyTop": [0.06, 0.03, 0.12],
   "skyBottom": [0.42, 0.10, 0.46],
-  "groundColor": [0.10, 0.06, 0.16]
+  "groundColor": [0.10, 0.06, 0.16],
+  "layers": [
+    { "shape": "buildings", "color": [0.34, 0.16, 0.44], "baseY": 120, "height": 330, "count": 9, "alpha": 0.55 },
+    { "shape": "buildings", "color": [0.22, 0.10, 0.34], "baseY": 120, "height": 400, "count": 13, "alpha": 0.85 },
+    { "shape": "buildings", "color": [0.11, 0.05, 0.18], "baseY": 120, "height": 290, "count": 19, "alpha": 1.0 },
+    { "shape": "frame", "color": [0.05, 0.02, 0.09], "baseY": 120, "height": 600, "alpha": 0.94, "front": true }
+  ]
 }
