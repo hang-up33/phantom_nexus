@@ -514,8 +514,8 @@ public class GameRenderer {
         font.getData().setScale(1.0f);
         drawHpLabels(p1, true);
         drawHpLabels(p2, false);
-        drawNameLabel(p1, anim1);
-        drawNameLabel(p2, anim2);
+        drawNameLabel(p1, anim1, debug.isEnabled());
+        drawNameLabel(p2, anim2, debug.isEnabled());
         // コンボカウンター（連続ヒット中の相手の頭上に "N HITS!"。Task 39）。
         drawComboCounter(p1);
         drawComboCounter(p2);
@@ -1573,11 +1573,16 @@ public class GameRenderer {
     }
 
     /** ファイターの名前と現在の状態（攻撃中は区間、それ以外はアニメ状態 / フレーム）を矩形の上に表示する。 */
-    private void drawNameLabel(Fighter f, FighterAnimator anim) {
+    private void drawNameLabel(Fighter f, FighterAnimator anim, boolean showDebugViz) {
         float centerX = f.getX();
         float displayHeight = f.isCrouching() ? f.getDef().getHeight() / 3f : f.getDef().getHeight();
         float top = f.getY() + displayHeight;
         drawCentered(f.getDef().getName(), centerX, top + 30f);
+        // 状態ラベル（"idle f2"/"attack:active [INV]" 等の開発者向け情報）は当たり判定可視化と同様、通常プレイでは
+        // 隠し F1 デバッグ表示時のみ出す（Task 167）。名前はフィールド上にも残す（識別用）。
+        if (!showDebugViz) {
+            return;
+        }
         String stateLabel;
         if (f.isKnockedDown()) {
             // ダウン（Task 60）。HITSTUN ポーズを流用しつつ knockdown ラベルで識別する（ダウン中は被弾無敵）。
