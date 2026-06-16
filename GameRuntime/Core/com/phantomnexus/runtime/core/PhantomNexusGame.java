@@ -11,6 +11,7 @@ import com.phantomnexus.runtime.battle.LandingDust;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
+import com.phantomnexus.runtime.audio.SoundManager;
 import com.phantomnexus.runtime.debug.DebugOverlay;
 import com.phantomnexus.runtime.debug.ReplayController;
 import com.phantomnexus.runtime.debug.ScreenshotController;
@@ -47,6 +48,8 @@ import java.util.List;
 public class PhantomNexusGame extends ApplicationAdapter {
 
     private GameRenderer renderer;
+    private SoundManager sounds;
+    private boolean fightSoundPlayed; // "FIGHT!" バナー表示時の音を 1 回だけ再生するフラグ
     private PlayerInput p1Input;
     private PlayerInput p2Input;
     private Fighter fighter1;
@@ -137,6 +140,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     @Override
     public void create() {
         renderer = new GameRenderer();
+        sounds = new SoundManager();
         // ヘッドレス自動スクショ（phantom.screenshot.* 指定時のみ有効。通常起動には無影響）。
         // ステージ/キャラ等のオーバーライドを参照するため、他のロードより先に初期化する。
         screenshot = new ScreenshotController();
@@ -490,6 +494,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             moveListVisible = !moveListVisible;
             controlsHint = buildControlsHint();
         }
+        // M キー：SE のミュート/アンミュートを切り替える（純演出なので記録/再生中も操作可）。
+        if (Gdx.input.isKeyJustPressed(Input.Keys.M)) {
+            sounds.toggle();
+            controlsHint = buildControlsHint();
+        }
         // 記録モード：update が消費する前にこのフレームの入力スナップショットを残す。
         if (replay.isRecording()) {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
@@ -534,6 +543,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             if (koSlowFrames % GameConstants.KO_SLOW_FACTOR != 0) {
                 return;
             }
+        }
+        // ラウンド開始の "FIGHT!" バナーが初出のフレームに SE を 1 回だけ鳴らす。
+        if (round.isFightFlash() && !fightSoundPlayed) {
+            fightSoundPlayed = true;
+            sounds.playRoundStart();
         }
         // ラウンド間インターバル中・ラウンド開始イントロ（"ROUND N"/"FIGHT!"）中は
         // ファイター操作・判定を停止し、カウントダウンのみ進める。
@@ -600,6 +614,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (koSlowFrames <= 0 && !koSlowTriggered && (fighter1.isKO() || fighter2.isKO())) {
             koSlowFrames = GameConstants.KO_SLOW_FRAMES;
             koSlowTriggered = true;
+            sounds.playKO();
         }
         // 勝敗 / ラウンド間カウントダウンを進める（KO スロー再生中は保留＝スロー終了後に確定）。
         if (koSlowFrames <= 0) {
@@ -638,6 +653,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         superFlashFrames = 0; // スーパーフラッシュ（Task 108）もラウンド間でクリア
         koSlowFrames = 0; // KO スローモーション（Task 115）もラウンド間でクリア
         koSlowTriggered = false; // 次ラウンドで再び KO スローを使えるようにする（Task 115）
+        fightSoundPlayed = false; // 新ラウンドでまた "FIGHT!" 音を鳴らせるようにリセット
         p1Inputs.clear(); // 入力表示ログ（Task 96）もラウンド間でクリア
         lastInputToken = "";
         p2Ai.reset();
@@ -672,6 +688,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 画面の微振動（hit shake・Task 132）：接触の手応えを増す純描画演出。クリーンヒットは強め・ガードは弱め。
         // 火花と同じ接触の単一チョークポイントから呼ぶので、打撃 / 飛び道具 / 投げ / 投げ抜けすべてで揺れる。
         renderer.triggerShake(blocked ? GameConstants.GUARD_SHAKE_MAGNITUDE : GameConstants.HIT_SHAKE_MAGNITUDE);
+        // SE：ガードなら防御音、ヒットなら打撃音（blocked 一律で区別。投げ/飛び道具も共有）。
+        if (blocked) {
+            sounds.playGuard();
+        } else {
+            sounds.playHitLight();
+        }
     }
 
     /** 着地の砂煙を 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出。Task 131）。 */
@@ -888,6 +910,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         float spawnY = f.getY() + move.getHitboxOffsetY();
         float vx = (f.isFacingRight() ? 1f : -1f) * move.getProjectileSpeed();
         projectiles.add(new Projectile(spawnX, spawnY, vx, width, height, damage, f, ex));
+        sounds.playSpecial();
         // 発射のマズルフラッシュ（Task 144）：弾の生成位置に火花を 1 つ出して発射の手応えを足す（純演出）。
         // 発射は「接触」ではないので画面振動（spawnHitSpark が伴う hit shake）は誘発せず、火花だけを直接追加する。
         hitSparks.add(new HitSpark(HitSpark.Kind.HIT, spawnX, spawnY + height / 2f, GameConstants.HIT_SPARK_FRAMES));
@@ -961,6 +984,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
             // 投げ成立：ガード中でもフルダメージ＋長い hitstun を適用する（Task 35）。
             defender.applyThrow(hb.getDamage(), knockbackDir);
+            sounds.playThrow();
             spawnDamagePopup(before - defender.getCurrentHp(), false,
                     hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
             spawnHitSpark(false, hb.getX() + hb.getWidth() / 2f, hb.getY() + hb.getHeight() / 2f);
@@ -1113,7 +1137,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String buildControlsHint() {
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
-                + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")";
+                + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")"
+                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")";
     }
 
     private String statusLine() {
@@ -1152,5 +1177,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
             replay.close();
         }
         renderer.dispose();
+        sounds.dispose();
     }
 }
