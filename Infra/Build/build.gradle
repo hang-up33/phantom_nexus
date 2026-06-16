@@ -78,6 +78,14 @@ application {
 // 指定が無ければ何もしない（通常の `./gradlew run` には一切影響しない）。
 // 新しい phantom.* プロパティを足したら、このリストにも追記すること。
 tasks.named('run', JavaExec) {
+    // macOS では LWJGL3/GLFW を「プロセス最初のスレッド」で動かす必要があるため、
+    // JVM に -XstartOnFirstThread を渡す（無いと glfwInit で
+    // 「GLFW may only be used on the main thread」と落ちる）。
+    // macOS 以外（Windows / Linux）では付けない＝従来挙動のまま。
+    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+        jvmArgs '-XstartOnFirstThread'
+    }
+
     ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold',
      'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit',
      'phantom.screenshot.debug', 'phantom.screenshot.script', 'phantom.screenshot.ai',

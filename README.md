@@ -40,7 +40,7 @@
 ./gradlew run        # デスクトップ（LWJGL3）で起動
 ```
 
-JDK は Gradle toolchain で Java 17 を自動取得する（要ネットワーク）。Windows は `gradlew.bat` でも可。
+JDK は Gradle toolchain で Java 17 を自動取得する（要ネットワーク）。Windows は `gradlew.bat` でも可。macOS では `run` タスクが LWJGL3/GLFW のために `-XstartOnFirstThread` を自動付与するので、追加設定なしで `./gradlew run` が起動する。
 
 ---
 
