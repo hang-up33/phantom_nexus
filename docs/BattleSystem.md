@@ -114,7 +114,7 @@
 - **技選択**：`Fighter.update(moveDir, jumpPressed, attackButton, crouchHeld)` の `attackButton`（`Shared/Types.AttackButton` の `LIGHT`/`MEDIUM`/`HEAVY`、null = 攻撃なし）を受け取り、`selectNormalMove()` が `normalMoves[]` をスキャンして `Move.getButton()` と enum 同一性で照合する（JSON トークンの正規化は `AttackButton.fromToken` に集約。`crouchHeld` はしゃがみ遷移用 → Task 25 参照）。
 - **行動拘束**：攻撃中は横移動・ジャンプ・新規攻撃を受け付けない（`moveDir` を 0 に固定）。重力・着地は攻撃中も適用（地上開始のため通常は接地維持）。
 - **hitbox 有効**：`isHitboxActive()` は `ACTIVE` 区間のみ true（実際の重なり判定は Task 12、デバッグ枠表示は Task 18）。
-- **可視化（MVP）**：`GameRenderer` が攻撃中に前方へ strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描き、状態ラベルを `attack:<区間>` に切り替える。アニメは `AnimationState.ATTACK`（攻撃 > 空中 > 歩行 > 待機の優先順）。**※ Task 165 以降、strike 矩形・投げ grab box・フレームピップ・接触マーカー等の当たり判定可視化は通常プレイでは非表示にし、F1 デバッグ表示（`debug.isEnabled()`）時のみ描く（モダンな見た目のため）。状態ラベル・スプライト・ヒットスパーク・着弾フラッシュは通常プレイでも表示。**
+- **可視化（MVP）**：`GameRenderer` が攻撃中に前方へ strike 矩形を区間色（startup=黄 / active=赤 / recovery=灰）で描き、状態ラベルを `attack:<区間>` に切り替える。アニメは `AnimationState.ATTACK`（攻撃 > 空中 > 歩行 > 待機の優先順）。**※ Task 165 以降、strike 矩形・投げ grab box・フレームピップ・接触マーカー等の当たり判定可視化は通常プレイでは非表示にし、F1 デバッグ表示（`debug.isEnabled()`）時のみ描く（モダンな見た目のため）。さらに Task 167 でフィールド上の状態ラベル（"idle f2"/"attack:active [INV]" 等の開発者向け文字列）も F1 時のみに限定（フィールド上のキャラ名は通常プレイでも残す）。スプライト・ヒットスパーク・着弾フラッシュ・ガードオーバーレイ・HUD は通常プレイでも表示。**
 
 ---
 
