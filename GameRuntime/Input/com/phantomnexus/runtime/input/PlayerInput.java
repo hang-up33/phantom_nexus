@@ -23,10 +23,26 @@ public class PlayerInput {
     private EnumSet<InputAction> forcedHold = EnumSet.noneOf(InputAction.class);
     /** 強制押下の「押された瞬間」を 1 回だけ供給するための未消費エッジ集合。 */
     private final EnumSet<InputAction> forcedEdgePending = EnumSet.noneOf(InputAction.class);
+    /** 接続済みコントローラー入力（任意）。null ならキーボードのみ。 */
+    private GamepadInput gamepad = null;
+    /** このプレイヤーが使うコントローラーのスロット（0=1P / 1=2P）。 */
+    private int gamepadSlot = -1;
 
     public PlayerInput(Map<InputAction, Integer> bindings) {
         this.bindings = new EnumMap<>(InputAction.class);
         this.bindings.putAll(bindings);
+    }
+
+    /**
+     * このプレイヤーにコントローラー入力を接続する（任意）。接続後はキーボードと OR 合成され、
+     * どちらでも操作できる。{@code gamepad} の {@code poll()} はフレーム先頭で別途呼ぶこと。
+     *
+     * @param gamepad 集約コントローラー入力（null で切断＝キーボードのみ）
+     * @param slot    使用スロット（0=1P / 1=2P）
+     */
+    public void attachGamepad(GamepadInput gamepad, int slot) {
+        this.gamepad = gamepad;
+        this.gamepadSlot = slot;
     }
 
     /**
@@ -99,17 +115,26 @@ public class PlayerInput {
             return true;
         }
         Integer key = bindings.get(action);
-        return key != null && Gdx.input.isKeyPressed(key);
+        if (key != null && Gdx.input.isKeyPressed(key)) {
+            return true;
+        }
+        // コントローラーが接続されていればそちらの押下も拾う（キーボードと OR）。
+        return gamepad != null && gamepad.isDown(gamepadSlot, action);
     }
 
     /** 当該フレームでアクションのキーが押された瞬間か（立ち上がりエッジ検出。ジャンプ / 攻撃向け）。 */
     public boolean isPressed(InputAction action) {
         if (forcedHold.contains(action)) {
             // 強制押下：最初の呼び出しだけ立ち上がりとして消費し、以降は false（押しっぱなし扱い）。
+            // 撮影/リプレイの決定性を保つため、強制押下中はコントローラーを参照しない。
             return forcedEdgePending.remove(action);
         }
         Integer key = bindings.get(action);
-        return key != null && Gdx.input.isKeyJustPressed(key);
+        if (key != null && Gdx.input.isKeyJustPressed(key)) {
+            return true;
+        }
+        // コントローラーが接続されていれば、その立ち上がりエッジも拾う（キーボードと OR）。
+        return gamepad != null && gamepad.isJustPressed(gamepadSlot, action);
     }
 
     /** アクションに割り当てられた物理キーコード（未割当は {@code -1}）。 */

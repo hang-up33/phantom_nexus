@@ -17,6 +17,7 @@ import com.phantomnexus.runtime.debug.ReplayController;
 import com.phantomnexus.runtime.debug.ScreenshotController;
 import com.phantomnexus.runtime.input.Command;
 import com.phantomnexus.runtime.input.CommandDetector;
+import com.phantomnexus.runtime.input.GamepadInput;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.InputHistory;
 import com.phantomnexus.runtime.input.PlayerInput;
@@ -52,6 +53,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean fightSoundPlayed; // "FIGHT!" バナー表示時の音を 1 回だけ再生するフラグ
     private PlayerInput p1Input;
     private PlayerInput p2Input;
+    /** 接続済みコントローラー入力（gdx-controllers）。撮影/リプレイ再生では無効（決定性維持）。 */
+    private GamepadInput gamepad;
+    /** コントローラー入力が有効か（撮影モード・リプレイ再生では false＝poll もしない＝全クエリ false）。 */
+    private boolean gamepadActive;
     private Fighter fighter1;
     private Fighter fighter2;
     private FighterAnimator animator1;
@@ -204,6 +209,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
         } else if (replay.isReplaying()) {
             controlsHint = "[REPLAY] " + replay.frameCount() + "f   [F1] hitboxes";
         }
+        // ゲームパッド入力：PC にコントローラーが繋がっていればそれで操作できる（1P=スロット0 / 2P=スロット1）。
+        // 撮影モード・リプレイ再生では無効化する（強制入力 / 記録済み入力のみで決定的に再現するため）。
+        // 記録モード（isRecording）では有効＝コントローラー操作も記録される。
+        // gamepadActive=false のときは render() で poll() せず、メニュー / 攻撃いずれのクエリも全て false に縮退する
+        // （poll が唯一の状態更新点なので、ポーリングしなければエッジ / 押下集合は空のまま＝完全に無効）。
+        gamepad = new GamepadInput();
+        gamepadActive = !screenshot.isEnabled() && !replay.isReplaying();
+        if (gamepadActive) {
+            p1Input.attachGamepad(gamepad, 0);
+            p2Input.attachGamepad(gamepad, 1);
+        }
         // 画面状態の初期化（Task 116/117）：通常起動はタイトル画面から始める。撮影モード・リプレイは
         // 後方互換のため BATTLE 直行（既存スクショレシピ・リプレイは frame1 から戦闘開始の前提）。
         // 撮影で各画面を撮るときだけ -x startscreen=title/charselect で上書きできる（既定 battle）。
@@ -269,12 +285,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void updateTitle() {
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
-                || Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+                || Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
+                || gamepad.menuUp() || gamepad.menuDown()) {
             titleSelection = titleSelection == 0 ? 1 : 0; // 2 択トグル
         }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
-                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+                || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                || gamepad.menuConfirm();
         if (confirm) {
             if (titleSelection == 1) {
                 // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
@@ -342,21 +360,26 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void updateCharacterSelect() {
         int n = ROSTER_IDS.length;
-        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)
+                || gamepad.menuRight()) {
             charCursor = (charCursor + 1) % n;
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)
+                || gamepad.menuLeft()) {
             charCursor = (charCursor - 1 + n) % n;
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
+                || gamepad.menuDown()) {
             charCursor = Math.min(n - 1, charCursor + ROSTER_COLS);
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
+                || gamepad.menuUp()) {
             charCursor = Math.max(0, charCursor - ROSTER_COLS);
         }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
-                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+                || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                || gamepad.menuConfirm();
         if (confirm) {
             if (!charP1Locked) {
                 charSelP1 = charCursor;
@@ -396,21 +419,26 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void updateStageSelect() {
         int n = STAGE_IDS.length;
-        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)
+                || gamepad.menuRight()) {
             stageCursor = (stageCursor + 1) % n;
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)
+                || gamepad.menuLeft()) {
             stageCursor = (stageCursor - 1 + n) % n;
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
+                || gamepad.menuDown()) {
             stageCursor = Math.min(n - 1, stageCursor + STAGE_COLS);
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
+                || gamepad.menuUp()) {
             stageCursor = Math.max(0, stageCursor - STAGE_COLS);
         }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
-                || Gdx.input.isKeyJustPressed(Input.Keys.J);
+                || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                || gamepad.menuConfirm();
         if (confirm) {
             startBattle(ROSTER_IDS[charSelP1], ROSTER_IDS[charSelP2], STAGE_IDS[stageCursor]);
         }
@@ -438,6 +466,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     @Override
     public void render() {
+        // ゲームパッドをフレーム先頭で 1 回ポーリングし、押下状態と立ち上がりエッジを更新する
+        // （以降の入力読み取り・メニュー操作がこのフレームの値を参照する）。未接続/未対応環境では no-op。
+        // 撮影モード・リプレイ再生（gamepadActive=false）では poll しない＝メニュー含む全クエリが false に
+        // 縮退し、コントローラーが繋がっていても決定的再現を一切乱さない（CodeRabbit 指摘）。
+        if (gamepadActive) {
+            gamepad.poll();
+        }
         // タイトル画面（Task 116）：モード選択（対戦 / トレーニング）。撮影/リプレイでは create() で BATTLE 直行のため
         // 通常はここに来ない（-x startscreen=title 指定時のみ撮影でも表示）。選択確定で対戦/トレーニングへ遷移する。
         if (screen == Screen.TITLE) {
@@ -488,7 +523,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                     || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                     || Gdx.input.isKeyJustPressed(Input.Keys.J)
-                    || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE))) {
+                    || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
+                    || gamepad.menuConfirm() || gamepad.menuCancel())) {
             returnToTitle();
             return;
         }
