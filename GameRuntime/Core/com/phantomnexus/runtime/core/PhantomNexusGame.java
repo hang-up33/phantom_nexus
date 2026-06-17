@@ -213,6 +213,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         renderer.setStage(stage);
         p1Input = PlayerInput.player1Defaults();
         p2Input = PlayerInput.player2Defaults();
+        // 保存済みキー割当を読み込む（Task 189）。ファイルがなければデフォルト割当を維持。
+        SettingsManager.load(p1Input, p2Input);
         // 過渡状態の撮影用に、指定があれば起動時から入力を押下状態に固定する（通常は空＝無影響）。
         p1Input.setForcedHold(screenshot.heldActions(1));
         p2Input.setForcedHold(screenshot.heldActions(2));
@@ -456,12 +458,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 keyConfigWaiting = false;
                 keyConfigAction = null;
             } else if (pressedKey >= 0) {
-                // 割り当て適用。
+                // 割り当て適用して設定ファイルへ保存する（Task 189）。
                 if (keyConfigPlayer == 0) {
                     p1Input.setBinding(keyConfigAction, pressedKey);
                 } else {
                     p2Input.setBinding(keyConfigAction, pressedKey);
                 }
+                SettingsManager.save(p1Input, p2Input);
                 keyConfigWaiting = false;
                 keyConfigAction = null;
             }
