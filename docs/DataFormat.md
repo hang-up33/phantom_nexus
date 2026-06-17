@@ -333,8 +333,28 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 | `skyBottom` | float[3] | ✅ | 空の下端（地平線側）色 RGB |
 | `groundColor` | float[3] | ✅ | 地面色 RGB |
 | `layers` | StageLayer[] | ⛔（任意） | 背景の多層シルエット（遠景→近景の順）。未指定なら従来どおり空＋地面のみ（後方互換）。Task 151 |
+| `background` | string | ⛔（任意） | 全画面 1 枚絵の背景 PNG パス（クラスパス相対・例 `"Stages/stage011_bg.png"`）。指定があり画像が読めれば手続き背景の代わりにこの 1 枚絵を敷く。外部デザイン取り込み用 |
 
-> 描画は空を下端→上端のグラデーションで塗り、`layers` があれば空と地面の間に遠景→近景の順でシルエットを重ね、最後に地面を `groundColor` で塗る。
+> 描画は空を下端→上端のグラデーションで塗り、`layers` があれば空と地面の間に遠景→近景の順でシルエットを重ね、最後に地面を `groundColor` で塗る。`background` 指定時はこれらの手続き背景の代わりに 1 枚絵を全画面へ描く（足元の影とゲージオーラは引き続き重ねる）。
+
+#### background（全画面 1 枚絵の背景・任意。外部デザイン取り込み）
+
+外部デザインツール（ClaudeDesign / Canva 等）で作ったステージアートを、そのまま背景に敷くための任意フィールド。`background` に PNG のクラスパス相対パスを書くだけで、手続き的な空グラデ・多層シルエット・地面塗り・空の演出（光の帯・浮遊粒・前景レイヤー）の代わりにその 1 枚絵を全画面（1280×720）へ描く（キャラの `sprite` と同じ「画像を置くだけ」方式）。
+
+```json
+{
+  "id": "stage011",
+  "name": "Custom Art Arena",
+  "skyTop": [0.11, 0.08, 0.22],
+  "skyBottom": [0.91, 0.50, 0.28],
+  "groundColor": [0.13, 0.09, 0.16],
+  "background": "Stages/stage011_bg.png"
+}
+```
+
+- 画像欠落・読み込み失敗・未指定（`null`）時は従来どおり手続き背景へフォールバックするため、`skyTop`/`skyBottom`/`groundColor`（と任意で `layers`）はフォールバック用に引き続き定義しておく。
+- 画像は `Texture` として描画側（`GameRuntime/Rendering/StageBackgroundLibrary`）が 1 度だけ読み込み線形フィルタで全画面に伸ばす。データ（パス）の単一の真実は `Shared/Types/Stage` 側、`StageLoader` は `setIgnoreUnknownFields` で吸収し**追加検証なし**（実在チェックは描画層に委ねる＝データ層は GL に触れない）。
+- 制作・取り込み手順は [docs/StageDesignSpec.md](StageDesignSpec.md) と変換スクリプト `scripts/make-stage-background.sh`（1 枚絵→1280×720 へ cover 変換）を参照。撮影は `-x stage=<id>` で読み分け。
 
 #### StageLayer（背景レイヤー・任意。Task 151）
 
@@ -373,6 +393,7 @@ SpriteStateRow 要素：`state`（string・必須・アニメ状態の小文字�
 - (Task 157) `StageLayer` の `shape` に **`embers`（立ち昇る火の粉）** を追加。`snow`（落下）と対で、粒を `baseY` から上昇させ `baseY+h` で wrap・横は `sin` で揺らぎ・上昇につれ縮小（消え際）。`drift`=上昇速度。`GameRenderer.drawLayerEmbers`。stage007 Volcanic Rift に追加。乱数なし・決定的・後方互換。
 - (Task 156) `StageLayer` の `shape` に **`snow`（降る情景＝雪/花びら）** を追加。`count` 個の粒を上端から落とし `auraTick` で循環＋画面端 wrap・横位置は `sin` で左右に揺らぎ・`drift`=落下速度。色で雪（白）/桜の花びら（桜色）を区別。`GameRenderer.drawLayerSnow`。stage004 Frozen Peak・stage009 Aurora Tundra に雪、stage006 Sakura Court に花びらを追加。乱数なし・決定的・後方互換。
 - (Task 155) `StageLayer` の `shape` に **`clouds`（たなびく雲）** を追加。重なる円のクラスタを `drift × auraTick` で横に流し画面幅で wrap させる（円はソフトウェア GL でも正常合成＝全画面ソリッド rect の罠を回避）。`GameRenderer.drawLayerClouds`。空のあるステージ（stage002/004/006）に雲レイヤーを追加。乱数なし・決定的・後方互換（JSON 形式は不変）。
+- (機能追加) `Stage` に **全画面 1 枚絵の背景 `background`**（任意・PNG パス文字列）を追加。外部デザインツール（ClaudeDesign 等）で作ったステージアートを「画像を置くだけ」で背景にできる（キャラの `sprite` のステージ版）。指定があり画像が読めれば手続き背景（空グラデ＋多層シルエット＋地面塗り＋空の演出＋前景レイヤー）の代わりに 1 枚絵を全画面へ描く。欠落・未指定なら従来どおり手続き背景へフォールバック（後方互換）。`StageBackgroundLibrary`（Rendering・Texture を null セーフにキャッシュ）を新設、`StageLoader` は追加検証なし（`setIgnoreUnknownFields` で吸収）。制作仕様 `docs/StageDesignSpec.md` ＋ 変換スクリプト `scripts/make-stage-background.sh`（1 枚絵→1280×720 cover）を追加。例示として `stage011.json`＋`stage011_bg.png`（選択ロスター外＝`-x stage=stage011` で読み込み）。乱数なし・既存 10 ステージは不変。
 - (Task 151) `Stage` に **背景の多層シルエット `layers`**（任意・`StageLayer[]`・遠景→近景の順）を追加（SF6/スマブラのステージデザインを参考に奥行きを出す）。`StageLayer` は `shape`（band/buildings/peaks/hills/pillars）/`color`/`baseY`/`height`/`count`/`alpha`/`drift` を持ち、描画側 `GameRenderer.drawStageLayers` が空グラデーションと地面の間にシルエットを重ねる（要素番号と `auraTick` からの固定計算＝**乱数なし＝決定的**）。未指定の旧 JSON はフィールド初期化子（`layers=null`）により従来どおり空＋地面のみ（後方互換）。`Shared/Types/StageLayer` を新設、`StageLoader` は `layers` を任意（`setIgnoreUnknownFields` で吸収・追加検証なし）。例示として stage001 を都市夜景（peaks＋buildings×2＋hills）に再設計。`Stage` フィールド表・`StageLayer` 節を追加。
 - (Task 123) `Character` に任意 bool `canRun`（ラン・既定 false＝後方互換）を追加。`true` のキャラは前ダッシュ（二度押し）中に前方を保持し続けるとダッシュが継続して走り続ける（離すと停止・バックステップは固定長）。`Fighter` のダッシュ分岐で `canRun && grounded && 前ダッシュ && 前方保持` のとき `dashFrames` を更新して継続、ラベル `run`。例示として fighter019（Mei）に `canRun:true`。`Character` フィールド表に `canRun` を追加。
 - (Task 120) 20 体目キャラ `Assets/Characters/fighter020.json`（"Genji"・HP1020・**全ツール装備の万能 shoto 型**の grape `[160,60,200]`）＋スプライト `fighter020.png`（256×896）を追加。`ROSTER_IDS` にも追記＝**ロスター計 20 体到達**。アーキタイプ：飛び道具 `ki_blast`（HADOUKEN）、無敵対空 `dragon_rise`（CHARGE_SHOT・`invincibleFrames`＋`launch`）、**飛び道具スーパー `phantom_nova`（`superMove`＋`hardKnockdown`・dmg250）**、overhead `overhead_chop`（`knockdown`）、地上/空中投げ。撮影は `-x p1char=fighter020 -x p1meter=100`。

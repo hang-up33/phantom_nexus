@@ -282,6 +282,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 171 | ダメージ数値ポップアップ（追加機能・被弾/ガード時に与ダメージを命中位置に表示） | ✅ 完了 |
 | 172 | SE（サウンドエフェクト）：ヒット/ガード/投げ/必殺技/KO/ラウンド開始を WAV で実装・M キーでミュートトグル（`GameRuntime/Audio/SoundManager`） | ✅ 完了 |
 | 173 | 決着後にスタート画面（タイトル）へ戻る（追加機能・結果画面で ENTER/SPACE/J/ESC・通常プレイのみ・撮影/リプレイは結果凍結のまま後方互換） | ✅ 完了 |
+| 174 | ステージ全画面 1 枚絵背景（`Stage.background`）：外部デザイン（ClaudeDesign 等）のステージアートを PNG 1 枚で背景に敷ける（キャラ `sprite` のステージ版）。`StageBackgroundLibrary`＋仕様書 `docs/StageDesignSpec.md`＋変換 `scripts/make-stage-background.sh`。欠落時は手続き背景にフォールバック（後方互換） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
 
