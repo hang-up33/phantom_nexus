@@ -23,5 +23,8 @@ Thumbs.db
 # ログ
 *.log
 
+# リプレイファイル（ゲーム実行時に生成・バイナリ）
+/replays/
+
 # Claude Code エージェントの worktree（内部アーティファクト）
 /.claude/worktrees/
