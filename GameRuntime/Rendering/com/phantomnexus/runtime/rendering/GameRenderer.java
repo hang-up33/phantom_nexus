@@ -1968,7 +1968,7 @@ public class GameRenderer {
         font.setColor(CHARSEL_P2_COLOR);
         drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 220f, 30f);
         font.setColor(Color.WHITE);
-        drawCentered("ARROWS / WASD : move    ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 30f);
+        drawCentered("ARROWS / WASD : move    ENTER : confirm    R : random", GameConstants.WORLD_WIDTH / 2f, 30f);
         font.getData().setScale(1.0f);
         batch.end();
     }

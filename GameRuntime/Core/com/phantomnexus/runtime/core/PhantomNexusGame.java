@@ -366,7 +366,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /**
      * キャラクター選択画面の入力処理（Task 117）。矢印/WASD でカーソル移動、ENTER/SPACE/J で確定。
-     * 先に P1 が選び（確定で P1 ロック）、続いて P2 が選ぶ。両者確定で選んだキャラでバトルを開始する。純 UI・乱数なし。
+     * 先に P1 が選び（確定で P1 ロック）、続いて P2 が選ぶ。両者確定で選んだキャラでバトルを開始する。
+     * R キーでカーソルをランダム位置に移動（Task 179）。純 UI。
      */
     private void updateCharacterSelect() {
         int n = ROSTER_IDS.length;
@@ -385,6 +386,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
                 || gamepad.menuUp()) {
             charCursor = Math.max(0, charCursor - ROSTER_COLS);
+        }
+        // R キー：カーソルをランダム位置へ移動（ランダム選択のプレビュー・ENTER で確定・Task 179）
+        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            charCursor = (int) (Math.random() * n);
         }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
