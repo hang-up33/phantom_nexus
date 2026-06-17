@@ -299,7 +299,9 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 172 | SE（サウンドエフェクト）：ヒット/ガード/投げ/必殺技/KO/ラウンド開始を WAV で実装・M キーでミュートトグル（`GameRuntime/Audio/SoundManager`） | ✅ 完了 |
 | 173 | 決着後にスタート画面（タイトル）へ戻る（追加機能・結果画面で ENTER/SPACE/J/ESC・通常プレイのみ・撮影/リプレイは結果凍結のまま後方互換） | ✅ 完了 |
 | 174 | ステージ全画面 1 枚絵背景（`Stage.background`）：外部デザイン（ClaudeDesign 等）のステージアートを PNG 1 枚で背景に敷ける（キャラ `sprite` のステージ版）。`StageBackgroundLibrary`＋仕様書 `docs/StageDesignSpec.md`＋変換 `scripts/make-stage-background.sh`。欠落時は手続き背景にフォールバック（後方互換） | ✅ 完了 |
-| 176 | アーケードモード（追加機能・タイトルに ARCADE を追加・P1 がキャラ選択後に CPU と全ロスターを順番に勝ち抜く・乱数なし・既存バトル機構を流用） | ✅ 完了 |
+| 175 | BGM（バックグラウンドミュージック）：メニュー/バトルで別トラック再生・M キーで SE+BGM 同時ミュート（`GameRuntime/Audio/MusicManager`）。WAV プレースホルダー同梱 | ✅ 完了 |
+| 176 | アーケードモード（追加機能）：タイトルの ARCADE 選択→キャラ選択→全 CPU を順に撃破するシングルプレイモード・勝利/敗北で次戦/リトライ | ✅ 完了 |
+| 177 | セッション戦績（追加機能）：アプリ起動中のマッチ結果を P1W-L / P2W-L 形式で累積・決着結果バナーに表示（撮影/リプレイ非対象・決定性維持） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
 

@@ -135,6 +135,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String[] arcadeEnemyIds;  // 対戦相手 ID 列（P1 のキャラを除外したロスター順）
     private int arcadeEnemyIdx;       // 現在の対戦相手 index（0 始まり）
     private String arcadePlayerChar;  // アーケードで選んだ P1 キャラ ID
+    // セッション戦績（Task 177）：アプリ起動中のマッチ結果を累積。撮影/リプレイでは記録しない（決定性維持）。
+    private int sessionWins1;   // P1 のセッション内マッチ勝利数
+    private int sessionWins2;   // P2 のセッション内マッチ勝利数
+    private int sessionDraws;   // 引き分けマッチ数
+    private boolean matchResultRecorded; // 現マッチの戦績を記録済みか（重複防止）
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -326,6 +331,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void startTraining() {
         trainingMode = true;
         p2AiEnabled = false;
+        matchResultRecorded = false; // 新マッチ開始で戦績記録をリセット（Task 177）
         round = new RoundManager(battleRules, introFramesValue);
         resetFighters();
         controlsHint = buildControlsHint();
@@ -548,6 +554,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         p2Ai.reset();
         p1Inputs.clear();
         lastInputToken = "";
+        matchResultRecorded = false; // 新マッチ開始で戦績記録をリセット（Task 177）
         controlsHint = buildControlsHint();
         screen = Screen.BATTLE;
     }
@@ -690,6 +697,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
         updateLandingDust();
         // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
         if (round.isFinished()) {
+            // セッション戦績（Task 177）：決着の最初のフレームに 1 度だけ記録する。撮影/リプレイは対象外。
+            if (!matchResultRecorded && !screenshot.isEnabled() && !replay.isReplaying()) {
+                matchResultRecorded = true;
+                switch (round.getMatchWinner()) {
+                    case P1: sessionWins1++; break;
+                    case P2: sessionWins2++; break;
+                    default: sessionDraws++; break;
+                }
+                renderer.setSessionRecord(buildSessionRecord());
+            }
             return;
         }
         // ヒットストップ（Task 86）：命中直後の数フレーム、ファイター更新・判定・タイマー・アニメを凍結して
@@ -1305,6 +1322,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** 現在の AI 難易度ラベル（小文字・HUD 表示用・Task 56）。 */
     private String aiDifficultyLabel() {
         return p2Ai.getDifficulty().name().toLowerCase();
+    }
+
+    /** セッション戦績を "SESSION  P1 2W-1L  P2 1W-2L  D0" 形式の文字列にまとめる（Task 177）。 */
+    private String buildSessionRecord() {
+        int p1L = sessionWins2; // P1 の負け数 = P2 の勝利数
+        int p2L = sessionWins1; // P2 の負け数 = P1 の勝利数
+        return "SESSION  P1 " + sessionWins1 + "W-" + p1L + "L  P2 " + sessionWins2 + "W-" + p2L + "L"
+                + (sessionDraws > 0 ? "  D" + sessionDraws : "");
     }
 
     /** 操作ガイド HUD 文字列を組み立てる（難易度ラベルを含むため F3 切替時にも再構築する・Task 78）。 */
