@@ -222,7 +222,7 @@ public class GameRenderer {
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
     private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
     private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
-    private static final float TITLE_BAR_H = 200f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160）
+    private static final float TITLE_BAR_H = 250f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160→185 で 200→250 に拡張）
     private static final float CHARSEL_BAR_H = 200f; // キャラ選択下部の操作バー高さ（不透明・グリッド4行＋状況・Task 161）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
@@ -1860,16 +1860,19 @@ public class GameRenderer {
         font.setColor(selection == 2 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 2 ? "> " : "  ") + "SURVIVAL" + (selection == 2 ? " <" : ""),
                 GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 106f);
+        font.setColor(selection == 3 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 3 ? "> " : "  ") + "TIME ATTACK" + (selection == 3 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 144f);
         if (replayAvailable) {
-            font.setColor(selection == 3 ? Color.YELLOW : Color.LIGHT_GRAY);
-            drawCentered((selection == 3 ? "> " : "  ") + "REPLAY LAST" + (selection == 3 ? " <" : ""),
-                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 144f);
+            font.setColor(selection == 4 ? Color.YELLOW : Color.LIGHT_GRAY);
+            drawCentered((selection == 4 ? "> " : "  ") + "REPLAY LAST" + (selection == 4 ? " <" : ""),
+                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 182f);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(0.9f);
-        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 56f);
-        drawCentered("SURVIVAL = HP carries over  |  TRAINING = infinite HP  |  REPLAY LAST = watch last match",
-                GameConstants.WORLD_WIDTH / 2f, 28f);
+        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 46f);
+        drawCentered("SURVIVAL = HP carry  |  TIME ATTACK = 60s challenge  |  TRAINING = infinite HP  |  REPLAY LAST = watch last match",
+                GameConstants.WORLD_WIDTH / 2f, 22f);
         font.getData().setScale(1.0f);
         batch.end();
     }
