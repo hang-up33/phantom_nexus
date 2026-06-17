@@ -300,6 +300,17 @@ public final class ScreenshotController {
         return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.returntotitle")));
     }
 
+    /**
+     * 決着後の「リマッチ」操作ヒントを撮影モードでも結果バナーに表示するか（{@code -x rematch=true}・Task 178）。
+     * 既定は false＝撮影では非表示（後方互換）。証跡用にヒントの見え方を撮るときのみ指定する。
+     */
+    public boolean rematchHintForced() {
+        if (!isEnabled()) {
+            return false;
+        }
+        return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.rematch")));
+    }
+
     /** コマンド表 HUD（Task 112）を撮影モードで初期表示するか（{@code -x movelist=true}）。通常起動・未指定は {@code fallback}（F5 トグルの初期値）。 */
     public boolean moveListEnabled(boolean fallback) {
         if (!isEnabled()) {

@@ -95,6 +95,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean koSlowTriggered; // このラウンドで KO スローを既に開始したか（1 ラウンド 1 回・Task 115）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
+    // リマッチ用の直前マッチ情報（Task 178）。startBattle/startTraining で記録し、R キーで同設定の再戦に使う。
+    private String rematchP1Id;
+    private String rematchP2Id;
+    private String rematchStageId;
+    private boolean rematchTraining; // 直前がトレーニングモードだったか（リマッチ時に同モードで開始する）
 
     /** 画面状態（Task 116/117/128）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
     enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE }
@@ -314,6 +319,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void startTraining() {
         trainingMode = true;
         p2AiEnabled = false;
+        // リマッチ用にトレーニングモードと現在のキャラ情報を保存する（Task 178）
+        rematchTraining = true;
+        rematchP1Id = fighter1.getDef().getId();
+        rematchP2Id = fighter2.getDef().getId();
+        rematchStageId = null; // トレーニングはステージ固定
         round = new RoundManager(battleRules, introFramesValue);
         resetFighters();
         controlsHint = buildControlsHint();
@@ -460,8 +470,27 @@ public class PhantomNexusGame extends ApplicationAdapter {
         p2Ai.reset();
         p1Inputs.clear();
         lastInputToken = "";
+        // リマッチ用に直前のキャラ/ステージを保存する（Task 178）
+        rematchP1Id = p1Id;
+        rematchP2Id = p2Id;
+        rematchStageId = stageId;
+        rematchTraining = false;
         controlsHint = buildControlsHint();
         screen = Screen.BATTLE;
+    }
+
+    /**
+     * 直前と同じキャラ / ステージ / モードで再戦する（Task 178）。
+     * 撮影/リプレイでは rematch 情報を設定しないため呼ばれない（後方互換）。
+     */
+    private void rematch() {
+        if (rematchTraining) {
+            startTraining();
+        } else if (rematchP1Id != null) {
+            trainingMode = false;
+            p2AiEnabled = true;
+            startBattle(rematchP1Id, rematchP2Id, rematchStageId);
+        }
     }
 
     @Override
@@ -519,14 +548,21 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 結果を凍結したまま（既存スクショレシピ・リプレイの決定性を壊さない後方互換）。メニューと同じ
         // ENTER/SPACE/J、加えて ESC で戻れる。遷移したフレームは return して次フレームからタイトルを処理する。
         if (round.isFinished() && !screenshot.isEnabled()
-                && !replay.isReplaying() && !replay.isRecording()
-                && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                && !replay.isReplaying() && !replay.isRecording()) {
+            // R キー：リマッチ（同じキャラ/ステージ/モードで即再戦・Task 178）
+            if ((Gdx.input.isKeyJustPressed(Input.Keys.R) || gamepad.menuLeft()) && rematchP1Id != null) {
+                rematch();
+                return;
+            }
+            // ENTER/SPACE/J/ESC：タイトルへ戻る（従来動作）
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                     || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                     || Gdx.input.isKeyJustPressed(Input.Keys.J)
                     || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
-                    || gamepad.menuConfirm() || gamepad.menuCancel())) {
-            returnToTitle();
-            return;
+                    || gamepad.menuConfirm() || gamepad.menuCancel()) {
+                returnToTitle();
+                return;
+            }
         }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
@@ -579,6 +615,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
         boolean interactiveFinished = round.isFinished() && !screenshot.isEnabled()
                 && !replay.isReplaying() && !replay.isRecording();
         renderer.setReturnToTitleHint(interactiveFinished || screenshot.returnToTitleHintForced());
+        // リマッチヒント：通常プレイのマッチ確定後かつ直前マッチ情報が保存済みの場合に表示する（Task 178）。
+        // 撮影は既定で非表示だが -x rematch=true で証跡用に重ねられる（後方互換）。
+        renderer.setRematchAvailable((interactiveFinished && rematchP1Id != null) || screenshot.rematchHintForced());
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
