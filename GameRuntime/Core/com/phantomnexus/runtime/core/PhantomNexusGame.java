@@ -130,6 +130,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private int titleBgIndex;       // タイトル裏デモリール背景の現在ステージ index（Task 160）
     private int titleBgTimer;       // 同・次ステージへ切り替えるまでのフレームカウンタ（Task 160）
     private static final int TITLE_BG_CYCLE_FRAMES = 300; // タイトル背景の 1 ステージ表示時間（≒5 秒@60fps・Task 160）
+    // アーケードモード（Task 176）：P1 がロスターの CPU 相手と順番に勝ち抜いていくシングルプレイモード。
+    private boolean arcadeMode;       // アーケードモード進行中か
+    private String[] arcadeEnemyIds;  // 対戦相手 ID 列（P1 のキャラを除外したロスター順）
+    private int arcadeEnemyIdx;       // 現在の対戦相手 index（0 始まり）
+    private String arcadePlayerChar;  // アーケードで選んだ P1 キャラ ID
     private final List<String> p1Inputs = new ArrayList<>(); // 入力表示 HUD 用の P1 直近入力ログ（Task 96）
     private String lastInputToken = ""; // 入力ログへの重複追加を防ぐ直近トークン（Task 96）
     private static final int INPUT_LOG_MAX = 14; // 入力表示に残す最大トークン数（Task 96）
@@ -284,19 +289,26 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
      */
     private void updateTitle() {
+        // 選択：上下キーで 3 択を循環（0=VERSUS / 1=ARCADE / 2=TRAINING）。
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
-                || Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
-                || gamepad.menuUp() || gamepad.menuDown()) {
-            titleSelection = titleSelection == 0 ? 1 : 0; // 2 択トグル
+                || gamepad.menuUp()) {
+            titleSelection = (titleSelection - 1 + 3) % 3;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
+                || gamepad.menuDown()) {
+            titleSelection = (titleSelection + 1) % 3;
         }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                 || Gdx.input.isKeyJustPressed(Input.Keys.J)
                 || gamepad.menuConfirm();
         if (confirm) {
-            if (titleSelection == 1) {
+            if (titleSelection == 2) {
                 // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
                 startTraining();
+            } else if (titleSelection == 1) {
+                // アーケード：P1 がキャラを選んで CPU と順番に戦う（Task 176）。
+                enterArcade();
             } else {
                 // 対戦：P2 AI ON。キャラクター選択（Task 117）へ遷移する。
                 trainingMode = false;
@@ -327,6 +339,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void returnToTitle() {
         titleSelection = 0;
+        arcadeMode = false;
+        renderer.setArcadeHint(null);
         screen = Screen.TITLE;
     }
 
@@ -338,6 +352,66 @@ public class PhantomNexusGame extends ApplicationAdapter {
         charSelP2 = -1;
         charP1Locked = false;
         screen = Screen.CHARACTER_SELECT;
+    }
+
+    /**
+     * アーケードモードを開始する（Task 176）。P1 だけキャラ選択し、CPU 相手とロスター順に勝ち抜く。
+     * ステージはロスター index 順に自動設定する（プレイヤーは選ばない）。
+     */
+    private void enterArcade() {
+        arcadeMode = true;
+        arcadePlayerChar = null;
+        arcadeEnemyIds = null;
+        arcadeEnemyIdx = 0;
+        trainingMode = false;
+        p2AiEnabled = true;
+        ensureRosterLoaded();
+        ensureStagesLoaded();
+        charCursor = 0;
+        charSelP1 = -1;
+        charSelP2 = -1;
+        charP1Locked = false;
+        screen = Screen.CHARACTER_SELECT;
+    }
+
+    /**
+     * アーケードモードで現在の対戦相手とバトルを開始する（Task 176）。
+     * ステージは対戦 index に基づいて自動選択し、CPU が P2 として出現する。
+     */
+    private void startArcadeBattle() {
+        String stageId = STAGE_IDS[arcadeEnemyIdx % STAGE_IDS.length];
+        startBattle(arcadePlayerChar, arcadeEnemyIds[arcadeEnemyIdx], stageId);
+        renderer.setArcadeHint(buildArcadeHint());
+    }
+
+    /**
+     * アーケードバトル終了後の進行処理（Task 176）。P1 勝利なら次の対戦へ、全勝でクリア、敗北でゲームオーバー。
+     */
+    private void advanceArcade() {
+        if (round.getMatchWinner() == RoundManager.Winner.P1) {
+            arcadeEnemyIdx++;
+            if (arcadeEnemyIdx >= arcadeEnemyIds.length) {
+                // 全員に勝利 → クリア。アーケードモードを終了してタイトルへ戻る。
+                arcadeMode = false;
+                renderer.setArcadeHint(null);
+                returnToTitle();
+            } else {
+                // 次の対戦相手へ。
+                startArcadeBattle();
+            }
+        } else {
+            // P2 勝利 or 引き分け → ゲームオーバー。タイトルへ戻る。
+            arcadeMode = false;
+            renderer.setArcadeHint(null);
+            returnToTitle();
+        }
+    }
+
+    /** アーケード進行状況の HUD ヒント文字列を組み立てる（Task 176）。 */
+    private String buildArcadeHint() {
+        int total = arcadeEnemyIds != null ? arcadeEnemyIds.length : 0;
+        int current = Math.min(arcadeEnemyIdx + 1, total);
+        return "ARCADE " + current + "/" + total + "  PRESS ENTER FOR NEXT OPPONENT";
     }
 
     /** ロスターの表示名を（未ロードなら）構築する。各キャラ JSON を読み名前を取り出す（Task 117）。 */
@@ -384,6 +458,20 @@ public class PhantomNexusGame extends ApplicationAdapter {
             if (!charP1Locked) {
                 charSelP1 = charCursor;
                 charP1Locked = true;
+                if (arcadeMode) {
+                    // アーケードモード：P1 確定時点で相手リストを確定し、即バトルへ（P2 選択・ステージ選択なし）。
+                    arcadePlayerChar = ROSTER_IDS[charSelP1];
+                    // 対戦相手リスト：ROSTER_IDS から P1 のキャラを除いた順序で並べる。
+                    java.util.List<String> enemies = new java.util.ArrayList<>();
+                    for (String id : ROSTER_IDS) {
+                        if (!id.equals(arcadePlayerChar)) {
+                            enemies.add(id);
+                        }
+                    }
+                    arcadeEnemyIds = enemies.toArray(new String[0]);
+                    arcadeEnemyIdx = 0;
+                    startArcadeBattle();
+                }
             } else {
                 charSelP2 = charCursor;
                 // 両者確定後はステージ選択（Task 128）へ遷移し、選んだステージでバトルを開始する。
@@ -525,7 +613,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
                     || Gdx.input.isKeyJustPressed(Input.Keys.J)
                     || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
                     || gamepad.menuConfirm() || gamepad.menuCancel())) {
-            returnToTitle();
+            if (arcadeMode) {
+                advanceArcade(); // アーケードモード：勝ち抜きまたはゲームオーバーの処理（Task 176）
+            } else {
+                returnToTitle();
+            }
             return;
         }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
