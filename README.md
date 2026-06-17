@@ -314,6 +314,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 187 | アーケードハイスコアランキング：セッション内の上位 5 スコアを結果バナーに「--- HIGH SCORES ---」として一覧表示・現スコアは金色でハイライト・`-x highscores=N1,N2,...` で撮影用オーバーライドも追加 | ✅ 完了 |
 | 188 | キーコンフィグ画面：タイトルに「KEY CONFIG」を追加・P1/P2 の全 8 アクション（移動/攻撃/投げ）のキー割当を一覧表示し ENTER で再割当・ESC でタイトルへ戻る・`-x startscreen=keyconfig` で撮影可 | ✅ 完了 |
 | 189 | 設定保存：キーコンフィグの変更を `settings.json`（アプリ起動ディレクトリ）に自動保存し次回起動時に自動読込・`SettingsManager`（Core）が LibGDX Json で永続化・ファイル未存在はデフォルト割当を維持 | ✅ 完了 |
+| 190 | ドキュメント総整備：CLAUDE.md フェーズ更新（Task 181〜190 の実装内容を反映）・README 進捗表に Task 183〜190 を追加・kaizen 知見（`TITLE_BAR_H` 成長パターン・`SettingsManager` 配置判断）を反映 | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
 
