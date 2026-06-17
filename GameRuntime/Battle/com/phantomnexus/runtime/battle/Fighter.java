@@ -1200,6 +1200,11 @@ public class Fighter {
         currentHp = Math.max(1, Math.min(def.getHp(), value));
     }
 
+    /** HP を強制的に 0 にして KO 状態にする（タイムアタックのタイムアップ処理等に使用）。 */
+    public void forceKO() {
+        currentHp = 0;
+    }
+
     /** 現在の必殺技ゲージ量（0〜{@link GameConstants#SUPER_METER_MAX}）。HUD ゲージ表示に使用（Task 44）。 */
     public float getSuperMeter() {
         return superMeter;

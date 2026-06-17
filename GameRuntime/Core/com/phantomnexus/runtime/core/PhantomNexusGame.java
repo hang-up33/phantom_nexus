@@ -34,6 +34,9 @@ import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -101,16 +104,67 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String rematchStageId;
     private boolean rematchTraining; // 直前がトレーニングモードだったか（リマッチ時に同モードで開始する）
 
-    /** 画面状態（Task 116/117/128/182）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
-    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE, CHARACTER_VIEWER }
+    /** 画面状態（Task 116/117/128/182/188）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
+    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE, KEY_CONFIG, CHARACTER_VIEWER }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
-    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング / 2=ビューア・Task 116/182）
+    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング / 2=サバイバル / 3=タイムアタック / 4=キーコンフィグ / 5=ビューア / 6=リプレイ）
+
     // キャラクタービューア（Task 182）
     private int viewerCharIndex;  // 現在表示中のキャラ index
     private int viewerStateIndex; // 現在表示中のアニメーション状態 index
     private int viewerFrame;      // 現在表示中のフレーム index
     private int viewerFrameTick;  // フレーム自動送りカウンタ
     private static final int VIEWER_FRAME_DELAY = 10; // 自動送り速度（10f≒6fps@60fps）
+
+    // キーコンフィグ画面（Task 188）
+    /** 設定中のアクション行（0〜7）。 */
+    private int keyConfigRow;
+    /** 設定中のプレイヤー列（0=P1 / 1=P2）。 */
+    private int keyConfigPlayer;
+    /** キー入力待ち中か（true のときは次の任意キー押下を割り当てる）。 */
+    private boolean keyConfigWaiting;
+    /** 入力待ちの対象アクション。 */
+    private InputAction keyConfigAction;
+    /** 定義順のアクション一覧（キーコンフィグの表示順）。 */
+    private static final InputAction[] KEY_CONFIG_ACTIONS = InputAction.values();
+
+    // インゲーム入力リプレイ（Task 183）：バトル中の入力を in-memory バッファに記録し、マッチ終了時に自動保存する。
+    /** 直前バトルの入力フレームバッファ（{p1mask, p2mask, ai}）。 */
+    private final List<int[]> ingameReplayBuffer = new ArrayList<>();
+    /** 直前バトルを replays/last.rep へ保存済みか（1 マッチ 1 回のみ）。 */
+    private boolean ingameSaved;
+    /** replays/last.rep が存在し「REPLAY LAST」が有効か。 */
+    private boolean replayAvailable;
+    /** インゲームリプレイ再生中の ReplayController（null は非再生）。 */
+    private ReplayController ingameReplay;
+
+    // サバイバルモード（Task 184）：HP 引き継ぎで連続対戦。
+    /** サバイバルモード中か。 */
+    private boolean survivalMode;
+    /** 倒した対戦相手の数。 */
+    private int survivalKills;
+    /** ラウンド終了後に P1 へ引き継ぐ HP（勝利確定のフレームで記録）。 */
+    private int survivalP1Hp;
+    /** サバイバルモードで次の対戦相手を自動開始する直前の確認フラグ（1 マッチ 1 回）。 */
+    private boolean survivalNextScheduled;
+
+    // タイムアタックモード（Task 185）：制限時間内に何人倒せるか。
+    /** 制限時間（フレーム数）。60fps × 60 秒 = 3600f。 */
+    private static final int TIME_ATTACK_TOTAL_FRAMES = 60 * 60;
+    /** タイムアタックモード中か。 */
+    private boolean timeAttackMode;
+    /** 残りフレーム数（0 でタイムアップ）。 */
+    private int timeAttackFramesLeft;
+    /** タイムアタックで倒した対戦相手の数。 */
+    private int timeAttackKills;
+
+    // アーケードハイスコアランキング（Task 187）：セッション内のサバイバル/タイムアタックの上位 5 スコアを保持する。
+    /** ランキングに保持する最大件数。 */
+    private static final int HIGH_SCORE_MAX = 5;
+    /** セッション内の上位スコアリスト（スコア降順・最大 HIGH_SCORE_MAX 件）。 */
+    private final java.util.ArrayList<Integer> highScores = new java.util.ArrayList<>();
+    /** 現在のアーケードゲームオーバーでスコアをランキングに登録済みか（二重登録防止）。 */
+    private boolean arcadeScoreRecorded;
 
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
@@ -166,6 +220,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         renderer.setStage(stage);
         p1Input = PlayerInput.player1Defaults();
         p2Input = PlayerInput.player2Defaults();
+        // 保存済みキー割当を読み込む（Task 189）。ファイルがなければデフォルト割当を維持。
+        SettingsManager.load(p1Input, p2Input);
         // 過渡状態の撮影用に、指定があれば起動時から入力を押下状態に固定する（通常は空＝無影響）。
         p1Input.setForcedHold(screenshot.heldActions(1));
         p2Input.setForcedHold(screenshot.heldActions(2));
@@ -231,6 +287,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
             p1Input.attachGamepad(gamepad, 0);
             p2Input.attachGamepad(gamepad, 1);
         }
+        // インゲームリプレイ（Task 183）：起動時に保存ファイルが存在すれば「REPLAY LAST」を有効化する。
+        replayAvailable = new java.io.File(ingameReplayPath()).exists();
         // 画面状態の初期化（Task 116/117）：通常起動はタイトル画面から始める。撮影モード・リプレイは
         // 後方互換のため BATTLE 直行（既存スクショレシピ・リプレイは frame1 から戦闘開始の前提）。
         // 撮影で各画面を撮るときだけ -x startscreen=title/charselect で上書きできる（既定 battle）。
@@ -290,6 +348,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return Screen.STAGE_SELECT;
             case "viewer":
                 return Screen.CHARACTER_VIEWER;
+            case "keyconfig":
+                return Screen.KEY_CONFIG;
             default:
                 return Screen.BATTLE;
         }
@@ -301,7 +361,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
      */
     private void updateTitle() {
-        final int TITLE_ITEMS = 3; // VERSUS / TRAINING / VIEWER
+        // 0=VERSUS / 1=TRAINING / 2=SURVIVAL / 3=TIME ATTACK / 4=KEY CONFIG / 5=VIEWER / 6=REPLAY LAST（ファイルあり時のみ）。
+        final int TITLE_ITEMS = replayAvailable ? 7 : 6;
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
                 || gamepad.menuUp()) {
             titleSelection = (titleSelection - 1 + TITLE_ITEMS) % TITLE_ITEMS;
@@ -310,17 +371,33 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 || gamepad.menuDown()) {
             titleSelection = (titleSelection + 1) % TITLE_ITEMS;
         }
+        // カーソルが無効な項目を指していたらクランプ（リプレイが無効化された後の保護）。
+        if (titleSelection >= TITLE_ITEMS) {
+            titleSelection = TITLE_ITEMS - 1;
+        }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                 || Gdx.input.isKeyJustPressed(Input.Keys.J)
                 || gamepad.menuConfirm();
         if (confirm) {
             if (titleSelection == 1) {
-                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
+                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。
                 startTraining();
             } else if (titleSelection == 2) {
+                // サバイバル：HP を引き継いで連続対戦（Task 184）。
+                startSurvival();
+            } else if (titleSelection == 3) {
+                // タイムアタック：制限時間内に何人倒せるか（Task 185）。
+                startTimeAttack();
+            } else if (titleSelection == 4) {
+                // キーコンフィグ：P1/P2 のキー割当を変更する（Task 188）。
+                enterKeyConfig();
+            } else if (titleSelection == 5) {
                 // キャラクタービューア（Task 182）：アニメーションを閲覧する画面へ遷移。
                 enterCharacterViewer();
+            } else if (titleSelection == 6 && replayAvailable) {
+                // REPLAY LAST：保存済みの直前バトルを再生する（Task 183）。
+                startIngameReplay();
             } else {
                 // 対戦：P2 AI ON。キャラクター選択（Task 117）へ遷移する。
                 trainingMode = false;
@@ -345,6 +422,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         rematchStageId = null; // トレーニングはステージ固定
         round = new RoundManager(battleRules, introFramesValue);
         resetFighters();
+        // インゲームリプレイ（Task 183）：バッファをクリアして新バトルの記録を開始する。
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
         controlsHint = buildControlsHint();
         screen = Screen.BATTLE;
     }
@@ -355,6 +436,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * 改めてラウンド・ファイターを作り直すため、前マッチの確定状態は持ち越さない。通常プレイ専用。
      */
     private void returnToTitle() {
+        survivalMode = false;
+        timeAttackMode = false;
+        renderer.setArcadeScore(-1);
+        renderer.setHighScores(highScores);
         titleSelection = 0;
         screen = Screen.TITLE;
     }
@@ -413,6 +498,203 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 || gamepad.menuCancel()) {
             screen = Screen.TITLE;
         }
+    }
+
+    /** キーコンフィグ画面へ遷移する（Task 188）。 */
+    private void enterKeyConfig() {
+        keyConfigRow = 0;
+        keyConfigPlayer = 0;
+        keyConfigWaiting = false;
+        keyConfigAction = null;
+        screen = Screen.KEY_CONFIG;
+    }
+
+    /**
+     * キーコンフィグ画面の入力処理（Task 188）。
+     * 通常モード: 上下でアクション行選択・左右で P1/P2 切替・ENTER で入力待ち・ESC でタイトルへ戻る。
+     * 入力待ちモード: 次の任意キー押下を割り当て・ESC でキャンセル。
+     */
+    private void updateKeyConfig() {
+        if (keyConfigWaiting) {
+            // 何かキーが押されたらその keycode を割り当てる。ESC でキャンセル。
+            int pressedKey = -1;
+            // Gdx.input.isKeyJustPressed は全キーを順に調べる必要があるため Input.Keys の範囲を走査する。
+            for (int k = 0; k <= Input.Keys.MAX_KEYCODE; k++) {
+                if (Gdx.input.isKeyJustPressed(k)) {
+                    pressedKey = k;
+                    break;
+                }
+            }
+            if (pressedKey == Input.Keys.ESCAPE) {
+                // ESC はキャンセル（元の割当を保持）。
+                keyConfigWaiting = false;
+                keyConfigAction = null;
+            } else if (pressedKey >= 0) {
+                // 割り当て適用して設定ファイルへ保存する（Task 189）。
+                if (keyConfigPlayer == 0) {
+                    p1Input.setBinding(keyConfigAction, pressedKey);
+                } else {
+                    p2Input.setBinding(keyConfigAction, pressedKey);
+                }
+                SettingsManager.save(p1Input, p2Input);
+                keyConfigWaiting = false;
+                keyConfigAction = null;
+            }
+            return;
+        }
+        // 通常モード: ナビゲーション。
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+            keyConfigRow = (keyConfigRow - 1 + KEY_CONFIG_ACTIONS.length) % KEY_CONFIG_ACTIONS.length;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+            keyConfigRow = (keyConfigRow + 1) % KEY_CONFIG_ACTIONS.length;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+            keyConfigPlayer = 0;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            keyConfigPlayer = 1;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.J)) {
+            keyConfigAction = KEY_CONFIG_ACTIONS[keyConfigRow];
+            keyConfigWaiting = true;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+            screen = Screen.TITLE;
+        }
+    }
+
+    /**
+     * スコアをセッションランキングに登録し、降順上位 HIGH_SCORE_MAX 件を保持する（Task 187）。
+     * 挿入後にスコア一覧をレンダラへ渡して結果バナーに反映する。
+     */
+    private void recordHighScore(int score) {
+        highScores.add(score);
+        highScores.sort(java.util.Collections.reverseOrder());
+        while (highScores.size() > HIGH_SCORE_MAX) {
+            highScores.remove(highScores.size() - 1);
+        }
+        renderer.setHighScores(highScores);
+    }
+
+    /**
+     * 保存済みリプレイ（replays/last.rep）を読み込んでバトル再生を開始する（Task 183）。
+     * ファイルが読めなければ何もしない（replayAvailable は false のまま）。
+     */
+    private void startIngameReplay() {
+        ReplayController rc = ReplayController.forPlayback(ingameReplayPath());
+        if (!rc.isReplaying()) {
+            return;
+        }
+        ingameReplay = rc;
+        // 再生中はバトル用の fighter/round を作り直す（create() 時のデフォルトキャラ/ステージをそのまま使う）。
+        round = new RoundManager(battleRules, 0 /* イントロなし */);
+        resetFighters();
+        controlsHint = "[REPLAY] " + rc.frameCount() + "f   [F1] hitboxes";
+        screen = Screen.BATTLE;
+    }
+
+    /** インゲームリプレイの保存パス。 */
+    private static String ingameReplayPath() {
+        return "replays/last.rep";
+    }
+
+    /**
+     * サバイバルモードを開始する（Task 184）。P1 は既定キャラ・フル HP でスタートし、
+     * AI 相手にランダムキャラで連続対戦する。HP は試合間で引き継ぎ、負けた時点で終了。
+     */
+    private void startSurvival() {
+        survivalMode = true;
+        survivalKills = 0;
+        arcadeScoreRecorded = false;
+        survivalP1Hp = fighter1.getMaxHp();
+        survivalNextScheduled = false;
+        trainingMode = false;
+        p2AiEnabled = true;
+        // P2 をランダムキャラで差し替える（P1 は create() ロード済みのデフォルトキャラを流用）。
+        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
+        String stageId = STAGE_IDS[(int)(Math.random() * STAGE_IDS.length)];
+        ensureStagesLoaded();
+        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter2.setMeter(0f);
+        animator2 = new FighterAnimator();
+        round = new RoundManager(new BattleRules(battleRules.getTimeLimitSeconds(), 1), 0);
+        resetFighters();
+        fighter1.setCurrentHp(survivalP1Hp); // フル HP（初戦）
+        controlsHint = buildControlsHint();
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
+        screen = Screen.BATTLE;
+    }
+
+    /**
+     * サバイバルモードで次の対戦相手へ進む（P1 が勝った場合・Task 184）。
+     * P1 の HP を引き継ぎ、新しいランダムキャラ＋ランダムステージで 1 ラウンドバトルを開始する。
+     */
+    private void advanceSurvival() {
+        survivalKills++;
+        survivalP1Hp = fighter1.getCurrentHp();
+        survivalNextScheduled = false;
+        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
+        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter2.setMeter(0f);
+        animator2 = new FighterAnimator();
+        round = new RoundManager(new BattleRules(battleRules.getTimeLimitSeconds(), 1), 0);
+        resetFighters();
+        fighter1.setCurrentHp(survivalP1Hp); // HP 引き継ぎ
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
+        controlsHint = buildControlsHint(); // kills カウントを反映
+    }
+
+    /**
+     * タイムアタックモードを開始する（Task 185）。60 秒の制限時間内にランダム相手を何人倒せるか。
+     * HP は引き継がず毎対戦フル HP でスタートし、P1 勝利で即次の相手（確認なし）。
+     * タイムアップまたは P1 敗北でゲームオーバー。
+     */
+    private void startTimeAttack() {
+        timeAttackMode = true;
+        timeAttackKills = 0;
+        arcadeScoreRecorded = false;
+        timeAttackFramesLeft = TIME_ATTACK_TOTAL_FRAMES;
+        trainingMode = false;
+        p2AiEnabled = true;
+        ensureStagesLoaded();
+        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
+        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter2.setMeter(0f);
+        animator2 = new FighterAnimator();
+        round = new RoundManager(new BattleRules(battleRules.getTimeLimitSeconds(), 1), 0);
+        resetFighters();
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
+        controlsHint = buildControlsHint();
+        screen = Screen.BATTLE;
+    }
+
+    /**
+     * タイムアタックモードで次の対戦相手へ即座に進む（P1 が勝った場合・Task 185）。
+     * HP はリセット（毎戦フル HP）して新しいランダムキャラ＋ステージで 1 ラウンドバトルを続行する。
+     */
+    private void advanceTimeAttack() {
+        timeAttackKills++;
+        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
+        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter2.setMeter(0f);
+        animator2 = new FighterAnimator();
+        round = new RoundManager(new BattleRules(battleRules.getTimeLimitSeconds(), 1), 0);
+        resetFighters();
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
+        controlsHint = buildControlsHint();
     }
 
     /** キャラクター選択画面へ入る（Task 117）。ロスター名を遅延ロードし、選択状態を初期化する。 */
@@ -555,6 +837,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         rematchP2Id = p2Id;
         rematchStageId = stageId;
         rematchTraining = false;
+        // インゲームリプレイ（Task 183）：バッファをクリアして新バトルの記録を開始する。
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
         controlsHint = buildControlsHint();
         screen = Screen.BATTLE;
     }
@@ -593,8 +879,20 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 titleBgTimer = 0;
                 titleBgIndex = (titleBgIndex + 1) % stagePreviews.length;
             }
-            renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex]);
+            renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex], replayAvailable);
             screenshot.maybeCapture();
+            return;
+        }
+        // キーコンフィグ画面（Task 188）：タイトルの KEY CONFIG から遷移。ESC でタイトルへ戻る。
+        if (screen == Screen.KEY_CONFIG) {
+            updateKeyConfig();
+            if (screen == Screen.KEY_CONFIG) {
+                ensureStagesLoaded();
+                renderer.renderKeyConfig(p1Input, p2Input, KEY_CONFIG_ACTIONS,
+                        keyConfigRow, keyConfigPlayer, keyConfigWaiting, keyConfigAction,
+                        stagePreviews != null && stagePreviews.length > 0 ? stagePreviews[0] : null);
+                screenshot.maybeCapture();
+            }
             return;
         }
         // キャラクター選択画面（Task 117）：対戦モードで遷移。P1→P2 の順にロスターから選び、両者確定でステージ選択へ。
@@ -641,17 +939,66 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // ENTER/SPACE/J、加えて ESC で戻れる。遷移したフレームは return して次フレームからタイトルを処理する。
         if (round.isFinished() && !screenshot.isEnabled()
                 && !replay.isReplaying() && !replay.isRecording()) {
+            // タイムアタックモード（Task 185）：P1 勝利なら即次の相手へ（確認不要）。タイムアップ/敗北は GAME OVER。
+            if (timeAttackMode) {
+                com.phantomnexus.runtime.battle.RoundManager.Winner taWinner = round.getMatchWinner();
+                if (taWinner == com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                    // P1 勝利：即次の対戦相手へ進む（ENTER 確認不要で自動進行）。
+                    advanceTimeAttack();
+                    return;
+                } else {
+                    // 敗北 / タイムアップ：ENTER/ESC でタイトルへ。
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
+                            || gamepad.menuConfirm() || gamepad.menuCancel()) {
+                        timeAttackMode = false;
+                        returnToTitle();
+                        return;
+                    }
+                }
+            }
+            // サバイバルモード（Task 184）：P1 勝利なら次の対戦相手へ自動進行（ENTER で続行）。
+            // P2 勝利 or 引き分けなら GAME OVER として通常の「タイトルへ戻る」導線へ落とす。
+            if (survivalMode) {
+                com.phantomnexus.runtime.battle.RoundManager.Winner winner = round.getMatchWinner();
+                if (winner == com.phantomnexus.runtime.battle.RoundManager.Winner.P1
+                        && !survivalNextScheduled) {
+                    // ENTER/SPACE/J で次の対戦相手へ進む。
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                            || gamepad.menuConfirm()) {
+                        survivalNextScheduled = true;
+                        advanceSurvival();
+                        return;
+                    }
+                } else if (winner != com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                    // 敗北 / 引き分け：サバイバル終了。ESC/ENTER でタイトルへ。
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
+                            || gamepad.menuConfirm() || gamepad.menuCancel()) {
+                        survivalMode = false;
+                        returnToTitle();
+                        return;
+                    }
+                }
+            }
             // R キー：リマッチ（同じキャラ/ステージ/モードで即再戦・Task 178）
-            if ((Gdx.input.isKeyJustPressed(Input.Keys.R) || gamepad.menuLeft()) && rematchP1Id != null) {
+            if (!survivalMode && !timeAttackMode && (Gdx.input.isKeyJustPressed(Input.Keys.R) || gamepad.menuLeft())
+                    && rematchP1Id != null) {
                 rematch();
                 return;
             }
             // ENTER/SPACE/J/ESC：タイトルへ戻る（従来動作）
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+            if (!survivalMode && !timeAttackMode && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                     || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                     || Gdx.input.isKeyJustPressed(Input.Keys.J)
                     || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
-                    || gamepad.menuConfirm() || gamepad.menuCancel()) {
+                    || gamepad.menuConfirm() || gamepad.menuCancel())) {
                 returnToTitle();
                 return;
             }
@@ -700,7 +1047,26 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (replay.isRecording()) {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
+        // インゲームリプレイ再生（Task 183）：保存済みリプレイを入力として注入する。
+        if (ingameReplay != null && ingameReplay.isReplaying()) {
+            ingameReplay.applyReplayFrame(p1Input, p2Input);
+        }
+        // タイムアタックの残り時間を HUD に即時反映（毎フレーム再構築して秒表示を常に最新に保つ）。
+        if (timeAttackMode) {
+            controlsHint = buildControlsHint();
+        }
+        // インゲームリプレイ記録（Task 183）：通常バトル中（system-property 系は除く）の入力を蓄積する。
+        if (!replay.isRecording() && !replay.isReplaying() && ingameReplay == null && !round.isFinished()) {
+            int p1Mask = playerInputToMask(p1Input);
+            int p2Mask = p2AiEnabled ? 0 : playerInputToMask(p2Input);
+            ingameReplayBuffer.add(new int[]{p1Mask, p2Mask, p2AiEnabled ? 1 : 0});
+        }
         update();
+        // インゲームリプレイ自動保存（Task 183）：マッチ確定の初フレームに replays/last.rep へ書き出す。
+        if (round.isFinished() && !ingameSaved && !replay.isRecording() && !replay.isReplaying()
+                && ingameReplay == null && !ingameReplayBuffer.isEmpty()) {
+            saveIngameReplay();
+        }
         renderer.setSuperFlash(superFlashFrames); // スーパーフラッシュ演出（Task 169）：残りフレームをレンダラへ
         // 決着後の「タイトルへ戻る」ヒント表示は通常プレイのみ（撮影/リプレイは結果バナーを従来どおり凍結表示）。
         // 撮影は既定で非表示だが、証跡用に -x returntotitle=true で結果バナーに重ねて撮れる（後方互換）。
@@ -710,6 +1076,27 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // リマッチヒント：通常プレイのマッチ確定後かつ直前マッチ情報が保存済みの場合に表示する（Task 178）。
         // 撮影は既定で非表示だが -x rematch=true で証跡用に重ねられる（後方互換）。
         renderer.setRematchAvailable((interactiveFinished && rematchP1Id != null) || screenshot.rematchHintForced());
+        // アーケードスコア（Task 186）：サバイバル/タイムアタックがゲームオーバー（P1 敗北）になったらスコアを表示する。
+        // P1 が勝利して次戦へ進む間は -1（非表示）。撮影用オーバーライド（-x arcadescore=N）でも強制表示できる。
+        int shownScore = screenshot.arcadeScoreOverride();
+        if (shownScore < 0 && interactiveFinished) {
+            if (survivalMode && round.getMatchWinner() != com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                shownScore = survivalKills * 1000;
+            } else if (timeAttackMode && round.getMatchWinner() != com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                shownScore = timeAttackKills * 1000;
+            }
+        }
+        renderer.setArcadeScore(shownScore);
+        // アーケードハイスコア登録（Task 187）：ゲームオーバー確定の最初のフレームに 1 回だけスコアを記録する。
+        if (shownScore >= 0 && !arcadeScoreRecorded && screenshot.arcadeScoreOverride() < 0) {
+            arcadeScoreRecorded = true;
+            recordHighScore(shownScore);
+        }
+        // 撮影用ハイスコアオーバーライド（Task 187）：-x highscores=N1,N2 でランキングを強制表示する。
+        java.util.List<Integer> hsOverride = screenshot.highScoresOverride();
+        if (!hsOverride.isEmpty()) {
+            renderer.setHighScores(hsOverride);
+        }
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
@@ -808,6 +1195,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
             // 飛び道具（必殺技）の更新と命中処理（Task 20）。
             updateProjectiles();
         }
+        // タイムアタックモード（Task 185）：1 フレームごとに残り時間を減らす。タイムアップで P2 を即 KO して確定させる。
+        if (timeAttackMode && timeAttackFramesLeft > 0) {
+            timeAttackFramesLeft--;
+            if (timeAttackFramesLeft <= 0) {
+                // 時間切れ：P2 の HP を 0 にして KO＝P1 の "勝利" として処理するのではなく、
+                // P1 の HP を 0 にしてタイムアップ GAME OVER 扱いにする（タイムアップは P1 の敗北）。
+                fighter1.forceKO();
+            }
+        }
         // トレーニングモード（Task 90）：勝敗判定の前に両者の HP を満タンへ戻す＝無限 HP のダミーで KO せず練習できる。
         // ダメージ数値ポップアップ・コンボカウンターは被弾時に確定済みなので、コンボ練習の情報はそのまま見える。
         if (trainingMode) {
@@ -862,6 +1258,47 @@ public class PhantomNexusGame extends ApplicationAdapter {
         p1Inputs.clear(); // 入力表示ログ（Task 96）もラウンド間でクリア
         lastInputToken = "";
         p2Ai.reset();
+    }
+
+    /**
+     * {@link PlayerInput} の押下状態を {@link com.phantomnexus.runtime.input.InputAction} ordinal ビットのマスクに畳む
+     * （インゲームリプレイ記録用・Task 183。{@code ReplayController.toMask} と同じ計算）。
+     */
+    private static int playerInputToMask(PlayerInput in) {
+        int mask = 0;
+        for (com.phantomnexus.runtime.input.InputAction a : com.phantomnexus.runtime.input.InputAction.values()) {
+            if (in.isDown(a)) {
+                mask |= 1 << a.ordinal();
+            }
+        }
+        return mask;
+    }
+
+    /**
+     * インゲームリプレイバッファを {@code replays/last.rep} へ書き出す（Task 183）。
+     * 書き出し成功/失敗に関わらず {@code ingameSaved=true} と {@code replayAvailable} を更新する。
+     */
+    private void saveIngameReplay() {
+        ingameSaved = true;
+        String path = ingameReplayPath();
+        try {
+            File f = new File(path);
+            File parent = f.getParentFile();
+            if (parent != null) {
+                parent.mkdirs();
+            }
+            try (BufferedWriter w = new BufferedWriter(new FileWriter(f))) {
+                w.write("PHANTOM_REPLAY v1");
+                w.newLine();
+                for (int[] fr : ingameReplayBuffer) {
+                    w.write(fr[0] + "," + fr[1] + "," + fr[2]);
+                    w.newLine();
+                }
+            }
+            replayAvailable = true;
+        } catch (Exception e) {
+            Gdx.app.error("Replay", "インゲームリプレイの保存に失敗: " + path, e);
+        }
     }
 
     /** ダメージ数値ポップアップを 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出）。 */
@@ -1346,10 +1783,15 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** 操作ガイド HUD 文字列を組み立てる（難易度ラベルを含むため F3 切替時にも再構築する・Task 78）。 */
     private String buildControlsHint() {
+        String survival = survivalMode ? "  [SURVIVAL] kills=" + survivalKills : "";
+        String timeAttack = timeAttackMode
+                ? "  [TIME ATTACK] " + (timeAttackFramesLeft / 60) + "s kills=" + timeAttackKills : "";
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
                 + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")"
-                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")";
+                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")"
+                + survival
+                + timeAttack;
     }
 
     private String statusLine() {
