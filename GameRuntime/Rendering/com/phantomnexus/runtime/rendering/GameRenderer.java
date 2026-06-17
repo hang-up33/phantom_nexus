@@ -1804,10 +1804,11 @@ public class GameRenderer {
     }
 
     /**
-     * タイトル画面を描く（Task 116）。モード選択（0=対戦 / 1=トレーニング）。選択中の項目を黄色で強調する。
-     * 独立した clear + テキストパス（バトル描画とは別フレーム）。
+     * タイトル画面を描く（Task 116/183）。モード選択（0=対戦 / 1=トレーニング / 2=リプレイ再生）。
+     * {@code replayAvailable} が false のときは REPLAY LAST 項目を非表示にする。
+     * 選択中の項目を黄色で強調する。独立した clear + テキストパス（バトル描画とは別フレーム）。
      */
-    public void renderTitle(int selection, Stage backdrop) {
+    public void renderTitle(int selection, Stage backdrop, boolean replayAvailable) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
@@ -1852,14 +1853,19 @@ public class GameRenderer {
         font.getData().setScale(1.5f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 45f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 38f);
         font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 100f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 80f);
+        if (replayAvailable) {
+            font.setColor(selection == 2 ? Color.YELLOW : Color.LIGHT_GRAY);
+            drawCentered((selection == 2 ? "> " : "  ") + "REPLAY LAST" + (selection == 2 ? " <" : ""),
+                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 122f);
+        }
         font.setColor(Color.WHITE);
         font.getData().setScale(0.95f);
         drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
-        drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
+        drawCentered("TRAINING = infinite HP practice  |  REPLAY LAST = watch previous match",
                 GameConstants.WORLD_WIDTH / 2f, 28f);
         font.getData().setScale(1.0f);
         batch.end();

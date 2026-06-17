@@ -34,6 +34,9 @@ import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
 import com.phantomnexus.shared.types.Stage;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -104,7 +107,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** 画面状態（Task 116/117/128）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
     enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
-    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング・Task 116）
+    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング / 2=リプレイ・Task 183）
+
+    // インゲーム入力リプレイ（Task 183）：バトル中の入力を in-memory バッファに記録し、マッチ終了時に自動保存する。
+    /** 直前バトルの入力フレームバッファ（{p1mask, p2mask, ai}）。 */
+    private final List<int[]> ingameReplayBuffer = new ArrayList<>();
+    /** 直前バトルを replays/last.rep へ保存済みか（1 マッチ 1 回のみ）。 */
+    private boolean ingameSaved;
+    /** replays/last.rep が存在し「REPLAY LAST」が有効か。 */
+    private boolean replayAvailable;
+    /** インゲームリプレイ再生中の ReplayController（null は非再生）。 */
+    private ReplayController ingameReplay;
 
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
@@ -225,6 +238,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
             p1Input.attachGamepad(gamepad, 0);
             p2Input.attachGamepad(gamepad, 1);
         }
+        // インゲームリプレイ（Task 183）：起動時に保存ファイルが存在すれば「REPLAY LAST」を有効化する。
+        replayAvailable = new java.io.File(ingameReplayPath()).exists();
         // 画面状態の初期化（Task 116/117）：通常起動はタイトル画面から始める。撮影モード・リプレイは
         // 後方互換のため BATTLE 直行（既存スクショレシピ・リプレイは frame1 から戦闘開始の前提）。
         // 撮影で各画面を撮るときだけ -x startscreen=title/charselect で上書きできる（既定 battle）。
@@ -289,10 +304,19 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
      */
     private void updateTitle() {
+        // Task 183: REPLAY LAST は replays/last.rep が存在するときのみ表示（3 択）、それ以外は 2 択。
+        final int TITLE_ITEMS = replayAvailable ? 3 : 2;
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
-                || Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
-                || gamepad.menuUp() || gamepad.menuDown()) {
-            titleSelection = titleSelection == 0 ? 1 : 0; // 2 択トグル
+                || gamepad.menuUp()) {
+            titleSelection = (titleSelection - 1 + TITLE_ITEMS) % TITLE_ITEMS;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
+                || gamepad.menuDown()) {
+            titleSelection = (titleSelection + 1) % TITLE_ITEMS;
+        }
+        // カーソルが無効な項目を指していたらクランプ（リプレイが無効化された後の保護）。
+        if (titleSelection >= TITLE_ITEMS) {
+            titleSelection = TITLE_ITEMS - 1;
         }
         boolean confirm = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                 || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
@@ -302,6 +326,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
             if (titleSelection == 1) {
                 // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
                 startTraining();
+            } else if (titleSelection == 2 && replayAvailable) {
+                // REPLAY LAST：保存済みの直前バトルを再生する（Task 183）。
+                startIngameReplay();
             } else {
                 // 対戦：P2 AI ON。キャラクター選択（Task 117）へ遷移する。
                 trainingMode = false;
@@ -326,6 +353,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         rematchStageId = null; // トレーニングはステージ固定
         round = new RoundManager(battleRules, introFramesValue);
         resetFighters();
+        // インゲームリプレイ（Task 183）：バッファをクリアして新バトルの記録を開始する。
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
         controlsHint = buildControlsHint();
         screen = Screen.BATTLE;
     }
@@ -338,6 +369,28 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void returnToTitle() {
         titleSelection = 0;
         screen = Screen.TITLE;
+    }
+
+    /**
+     * 保存済みリプレイ（replays/last.rep）を読み込んでバトル再生を開始する（Task 183）。
+     * ファイルが読めなければ何もしない（replayAvailable は false のまま）。
+     */
+    private void startIngameReplay() {
+        ReplayController rc = ReplayController.forPlayback(ingameReplayPath());
+        if (!rc.isReplaying()) {
+            return;
+        }
+        ingameReplay = rc;
+        // 再生中はバトル用の fighter/round を作り直す（create() 時のデフォルトキャラ/ステージをそのまま使う）。
+        round = new RoundManager(battleRules, 0 /* イントロなし */);
+        resetFighters();
+        controlsHint = "[REPLAY] " + rc.frameCount() + "f   [F1] hitboxes";
+        screen = Screen.BATTLE;
+    }
+
+    /** インゲームリプレイの保存パス。 */
+    private static String ingameReplayPath() {
+        return "replays/last.rep";
     }
 
     /** キャラクター選択画面へ入る（Task 117）。ロスター名を遅延ロードし、選択状態を初期化する。 */
@@ -480,6 +533,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         rematchP2Id = p2Id;
         rematchStageId = stageId;
         rematchTraining = false;
+        // インゲームリプレイ（Task 183）：バッファをクリアして新バトルの記録を開始する。
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
         controlsHint = buildControlsHint();
         screen = Screen.BATTLE;
     }
@@ -518,7 +575,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 titleBgTimer = 0;
                 titleBgIndex = (titleBgIndex + 1) % stagePreviews.length;
             }
-            renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex]);
+            renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex], replayAvailable);
             screenshot.maybeCapture();
             return;
         }
@@ -613,7 +670,22 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (replay.isRecording()) {
             replay.recordFrame(p1Input, p2Input, p2AiEnabled);
         }
+        // インゲームリプレイ再生（Task 183）：保存済みリプレイを入力として注入する。
+        if (ingameReplay != null && ingameReplay.isReplaying()) {
+            ingameReplay.applyReplayFrame(p1Input, p2Input);
+        }
+        // インゲームリプレイ記録（Task 183）：通常バトル中（system-property 系は除く）の入力を蓄積する。
+        if (!replay.isRecording() && !replay.isReplaying() && ingameReplay == null && !round.isFinished()) {
+            int p1Mask = playerInputToMask(p1Input);
+            int p2Mask = p2AiEnabled ? 0 : playerInputToMask(p2Input);
+            ingameReplayBuffer.add(new int[]{p1Mask, p2Mask, p2AiEnabled ? 1 : 0});
+        }
         update();
+        // インゲームリプレイ自動保存（Task 183）：マッチ確定の初フレームに replays/last.rep へ書き出す。
+        if (round.isFinished() && !ingameSaved && !replay.isRecording() && !replay.isReplaying()
+                && ingameReplay == null && !ingameReplayBuffer.isEmpty()) {
+            saveIngameReplay();
+        }
         renderer.setSuperFlash(superFlashFrames); // スーパーフラッシュ演出（Task 169）：残りフレームをレンダラへ
         // 決着後の「タイトルへ戻る」ヒント表示は通常プレイのみ（撮影/リプレイは結果バナーを従来どおり凍結表示）。
         // 撮影は既定で非表示だが、証跡用に -x returntotitle=true で結果バナーに重ねて撮れる（後方互換）。
@@ -775,6 +847,47 @@ public class PhantomNexusGame extends ApplicationAdapter {
         p1Inputs.clear(); // 入力表示ログ（Task 96）もラウンド間でクリア
         lastInputToken = "";
         p2Ai.reset();
+    }
+
+    /**
+     * {@link PlayerInput} の押下状態を {@link com.phantomnexus.runtime.input.InputAction} ordinal ビットのマスクに畳む
+     * （インゲームリプレイ記録用・Task 183。{@code ReplayController.toMask} と同じ計算）。
+     */
+    private static int playerInputToMask(PlayerInput in) {
+        int mask = 0;
+        for (com.phantomnexus.runtime.input.InputAction a : com.phantomnexus.runtime.input.InputAction.values()) {
+            if (in.isDown(a)) {
+                mask |= 1 << a.ordinal();
+            }
+        }
+        return mask;
+    }
+
+    /**
+     * インゲームリプレイバッファを {@code replays/last.rep} へ書き出す（Task 183）。
+     * 書き出し成功/失敗に関わらず {@code ingameSaved=true} と {@code replayAvailable} を更新する。
+     */
+    private void saveIngameReplay() {
+        ingameSaved = true;
+        String path = ingameReplayPath();
+        try {
+            File f = new File(path);
+            File parent = f.getParentFile();
+            if (parent != null) {
+                parent.mkdirs();
+            }
+            try (BufferedWriter w = new BufferedWriter(new FileWriter(f))) {
+                w.write("PHANTOM_REPLAY v1");
+                w.newLine();
+                for (int[] fr : ingameReplayBuffer) {
+                    w.write(fr[0] + "," + fr[1] + "," + fr[2]);
+                    w.newLine();
+                }
+            }
+            replayAvailable = true;
+        } catch (Exception e) {
+            Gdx.app.error("Replay", "インゲームリプレイの保存に失敗: " + path, e);
+        }
     }
 
     /** ダメージ数値ポップアップを 1 フレーム進め、寿命切れを取り除く（毎フレーム呼ぶ。純粋な演出）。 */
