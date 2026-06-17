@@ -312,6 +312,17 @@ public final class ScreenshotController {
     }
 
     /**
+     * バトルポーズオーバーレイを撮影モードでも描画するか（{@code -x pause=true}・Task 181）。
+     * 既定は false＝撮影ではポーズ無し（後方互換）。証跡用にポーズ画面の見え方を撮るときのみ指定する。
+     */
+    public boolean pauseOverlayForced() {
+        if (!isEnabled()) {
+            return false;
+        }
+        return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.pause")));
+    }
+
+    /**
      * アーケードスコア表示の撮影用オーバーライド（Task 186）：{@code -x arcadescore=<N>} で指定した整数を返す。
      * 撮影モード時のみ有効で、未指定 or 非撮影は {@code -1}（非表示）。結果バナーにスコアを重ねて撮る用。
      */

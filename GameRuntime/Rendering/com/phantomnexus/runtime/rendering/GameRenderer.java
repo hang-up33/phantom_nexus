@@ -1858,6 +1858,49 @@ public class GameRenderer {
     }
 
     /**
+     * バトルポーズオーバーレイを描く（Task 181）。バトルシーン（renderScene）の上に重ねて呼ぶ。
+     * 中央に不透明バーを描き RESUME / RETURN TO TITLE の 2 択メニューを表示する。
+     * 撮影/リプレイでは呼ばれない（後方互換・決定性不変）。
+     */
+    public void renderPauseOverlay(int selection) {
+        final float BAR_W = 420f;
+        final float BAR_H = 200f;
+        final float barX = (GameConstants.WORLD_WIDTH - BAR_W) / 2f;
+        final float barY = (GameConstants.WORLD_HEIGHT - BAR_H) / 2f;
+
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        // 背景バー（ほぼ不透明の濃紺）
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(barX, barY, BAR_W, BAR_H);
+        // 枠線（明るいシアン）
+        shapes.end();
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(TITLE_ACCENT_COLOR);
+        shapes.rect(barX, barY, BAR_W, BAR_H);
+        shapes.end();
+
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(1.8f);
+        font.setColor(Color.YELLOW);
+        drawCentered("PAUSED", GameConstants.WORLD_WIDTH / 2f, barY + BAR_H - 32f);
+        font.getData().setScale(1.3f);
+        font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 0 ? "> " : "  ") + "RESUME" + (selection == 0 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, barY + BAR_H - 90f);
+        font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 1 ? "> " : "  ") + "RETURN TO TITLE" + (selection == 1 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, barY + BAR_H - 140f);
+        font.getData().setScale(0.85f);
+        font.setColor(Color.LIGHT_GRAY);
+        drawCentered("UP/DOWN : select      ENTER : confirm      ESC : resume", GameConstants.WORLD_WIDTH / 2f, barY + 18f);
+        font.getData().setScale(1.0f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
      * タイトル画面を描く（Task 116/183）。モード選択（0=対戦 / 1=トレーニング / 2=リプレイ再生）。
      * {@code replayAvailable} が false のときは REPLAY LAST 項目を非表示にする。
      * 選択中の項目を黄色で強調する。独立した clear + テキストパス（バトル描画とは別フレーム）。
