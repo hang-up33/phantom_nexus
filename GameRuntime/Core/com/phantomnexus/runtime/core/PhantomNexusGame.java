@@ -106,10 +106,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String rematchStageId;
     private boolean rematchTraining; // 直前がトレーニングモードだったか（リマッチ時に同モードで開始する）
 
-    /** 画面状態（Task 116/117/128/188）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
-    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE, KEY_CONFIG }
+    /** 画面状態（Task 116/117/128/182/188）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
+    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE, KEY_CONFIG, CHARACTER_VIEWER }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
-    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング / 2=リプレイ・Task 183）
+    private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング / 2=サバイバル / 3=タイムアタック / 4=キーコンフィグ / 5=ビューア / 6=リプレイ）
+
+    // キャラクタービューア（Task 182）
+    private int viewerCharIndex;  // 現在表示中のキャラ index
+    private int viewerStateIndex; // 現在表示中のアニメーション状態 index
+    private int viewerFrame;      // 現在表示中のフレーム index
+    private int viewerFrameTick;  // フレーム自動送りカウンタ
+    private static final int VIEWER_FRAME_DELAY = 10; // 自動送り速度（10f≒6fps@60fps）
 
     // キーコンフィグ画面（Task 188）
     /** 設定中のアクション行（0〜7）。 */
@@ -313,6 +320,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
             if (screen == Screen.STAGE_SELECT) {
                 seedCharacterSelectionFromCurrentFighters();
             }
+            if (screen == Screen.CHARACTER_VIEWER) {
+                // 撮影で VIEWER 直行するときもロスターを先にロードする（updateCharacterViewer より前）。
+                ensureRosterLoaded();
+            }
         } else {
             screen = Screen.TITLE;
             music.playMenu();
@@ -354,6 +365,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return Screen.CHARACTER_SELECT;
             case "stageselect":
                 return Screen.STAGE_SELECT;
+            case "viewer":
+                return Screen.CHARACTER_VIEWER;
             case "keyconfig":
                 return Screen.KEY_CONFIG;
             default:
@@ -367,8 +380,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
      */
     private void updateTitle() {
-        // 0=VERSUS / 1=TRAINING / 2=ARCADE / 3=SURVIVAL / 4=TIME ATTACK / 5=KEY CONFIG / 6=REPLAY LAST（ファイルあり時のみ）。
-        final int TITLE_ITEMS = replayAvailable ? 7 : 6;
+        // 0=VERSUS / 1=TRAINING / 2=ARCADE / 3=SURVIVAL / 4=TIME ATTACK / 5=KEY CONFIG / 6=VIEWER / 7=REPLAY LAST（ファイルあり時のみ）。
+        final int TITLE_ITEMS = replayAvailable ? 8 : 7;
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
                 || gamepad.menuUp()) {
             titleSelection = (titleSelection - 1 + TITLE_ITEMS) % TITLE_ITEMS;
@@ -401,7 +414,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
             } else if (titleSelection == 5) {
                 // キーコンフィグ：P1/P2 のキー割当を変更する（Task 188）。
                 enterKeyConfig();
-            } else if (titleSelection == 6 && replayAvailable) {
+            } else if (titleSelection == 6) {
+                // キャラクタービューア（Task 182）：アニメーションを閲覧する画面へ遷移。
+                enterCharacterViewer();
+            } else if (titleSelection == 7 && replayAvailable) {
                 // REPLAY LAST：保存済みの直前バトルを再生する（Task 183）。
                 startIngameReplay();
             } else {
@@ -453,6 +469,62 @@ public class PhantomNexusGame extends ApplicationAdapter {
         renderer.setArcadeHint(null);
         music.playMenu();
         screen = Screen.TITLE;
+    }
+
+    /** キャラクタービューア画面へ入る（Task 182）。ロスターを遅延ロードし、先頭キャラ・idle 状態で開始。 */
+    private void enterCharacterViewer() {
+        ensureRosterLoaded();
+        viewerCharIndex = 0;
+        viewerStateIndex = 0;
+        viewerFrame = 0;
+        viewerFrameTick = 0;
+        screen = Screen.CHARACTER_VIEWER;
+    }
+
+    /**
+     * キャラクタービューア画面の入力処理（Task 182）。
+     * LEFT/RIGHT でキャラ切替、UP/DOWN でアニメーション状態切替、ESC でタイトルへ戻る。
+     */
+    private void updateCharacterViewer() {
+        int n = ROSTER_IDS.length;
+        com.phantomnexus.runtime.rendering.AnimationState[] states =
+                com.phantomnexus.runtime.rendering.AnimationState.values();
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)
+                || gamepad.menuRight()) {
+            viewerCharIndex = (viewerCharIndex + 1) % n;
+            viewerFrame = 0;
+            viewerFrameTick = 0;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)
+                || gamepad.menuLeft()) {
+            viewerCharIndex = (viewerCharIndex - 1 + n) % n;
+            viewerFrame = 0;
+            viewerFrameTick = 0;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)
+                || gamepad.menuDown()) {
+            viewerStateIndex = (viewerStateIndex + 1) % states.length;
+            viewerFrame = 0;
+            viewerFrameTick = 0;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
+                || gamepad.menuUp()) {
+            viewerStateIndex = (viewerStateIndex - 1 + states.length) % states.length;
+            viewerFrame = 0;
+            viewerFrameTick = 0;
+        }
+        // アニメーションの自動フレーム送り
+        viewerFrameTick++;
+        if (viewerFrameTick >= VIEWER_FRAME_DELAY) {
+            viewerFrameTick = 0;
+            com.phantomnexus.runtime.rendering.AnimationState state = states[viewerStateIndex];
+            viewerFrame = (viewerFrame + 1) % Math.max(1, state.frameCount());
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)
+                || gamepad.menuCancel()) {
+            screen = Screen.TITLE;
+        }
     }
 
     /** キーコンフィグ画面へ遷移する（Task 188）。 */
@@ -941,6 +1013,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 screenshot.maybeCapture();
             }
             return; // 遷移したフレームはここで終了し、次フレームから新画面を処理（確定入力の再消費を防ぐ）。
+        }
+        // キャラクタービューア画面（Task 182）：タイトル VIEWER 選択で遷移。キャラ/状態を閲覧し ESC でタイトルへ戻る。
+        if (screen == Screen.CHARACTER_VIEWER) {
+            updateCharacterViewer();
+            if (screen == Screen.CHARACTER_VIEWER) { // タイトルへ遷移していなければ描画
+                com.phantomnexus.runtime.rendering.AnimationState[] states =
+                        com.phantomnexus.runtime.rendering.AnimationState.values();
+                renderer.renderCharacterViewer(rosterDefs, rosterNames, viewerCharIndex,
+                        states[viewerStateIndex], viewerFrame);
+                screenshot.maybeCapture();
+            }
+            return;
         }
         // ステージ選択画面（Task 128）：キャラ確定後に遷移。全ステージから選んで確定でバトル開始。
         // 撮影で表示するときは create() で -x startscreen=stageselect 指定（ステージ名を先にロードしておく）。
