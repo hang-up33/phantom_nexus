@@ -330,6 +330,30 @@ public final class ScreenshotController {
         }
     }
 
+    /**
+     * ハイスコアランキングの撮影用オーバーライド（Task 187）：{@code -x highscores=N1,N2,...} でカンマ区切りの
+     * スコアリストを返す。撮影モード時のみ有効で、未指定 or 非撮影は空リスト。結果バナーのランキング表示を撮る用。
+     */
+    public java.util.List<Integer> highScoresOverride() {
+        java.util.List<Integer> result = new java.util.ArrayList<>();
+        if (!isEnabled()) {
+            return result;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.highscores"));
+        if (v == null) {
+            return result;
+        }
+        for (String part : v.split(",")) {
+            try {
+                result.add(Integer.parseInt(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // 不正値はスキップ
+            }
+        }
+        result.sort(java.util.Collections.reverseOrder());
+        return result;
+    }
+
     /** コマンド表 HUD（Task 112）を撮影モードで初期表示するか（{@code -x movelist=true}）。通常起動・未指定は {@code fallback}（F5 トグルの初期値）。 */
     public boolean moveListEnabled(boolean fallback) {
         if (!isEnabled()) {
