@@ -279,6 +279,8 @@ public class GameRenderer {
     // 決着後「タイトルへ戻る」ヒント表示フラグ。通常プレイのマッチ確定時のみ Core が立てる
     // （撮影/リプレイでは false＝結果バナーのスクショ・決定性は従来どおり不変）。
     private boolean returnToTitleHint;
+    // 決着後「リマッチ」ヒント表示フラグ（Task 178）。R キーで同じキャラ/ステージで即再戦。
+    private boolean rematchAvailable;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -313,6 +315,11 @@ public class GameRenderer {
     /** 決着後の結果バナーに「タイトルへ戻る」操作ヒントを表示するか（通常プレイのみ true・撮影/リプレイは false）。 */
     public void setReturnToTitleHint(boolean show) {
         this.returnToTitleHint = show;
+    }
+
+    /** 決着後の結果バナーに「リマッチ」ヒントを表示するか（Task 178）。通常プレイのマッチ確定時のみ true。 */
+    public void setRematchAvailable(boolean available) {
+        this.rematchAvailable = available;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -712,7 +719,12 @@ public class GameRenderer {
         // 通常プレイのマッチ確定時のみ、スタート画面へ戻る操作ヒントを表示する（撮影/リプレイは非表示＝既存レシピ不変）。
         if (returnToTitleHint) {
             drawBannerText("PRESS ENTER TO RETURN TO TITLE",
-                    cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, ROUND_INTRO_COLOR);
+                    cx, GameConstants.WORLD_HEIGHT / 2f - 115f, 0.9f, ROUND_INTRO_COLOR);
+        }
+        // リマッチ可能な場合は R キーのヒントを表示する（Task 178）。
+        if (rematchAvailable) {
+            drawBannerText("PRESS R TO REMATCH",
+                    cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, Color.YELLOW);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);

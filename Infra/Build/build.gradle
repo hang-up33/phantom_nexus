@@ -33,12 +33,18 @@ repositories {
 ext {
     // 設計書承認スタック：LibGDX（デスクトップ=LWJGL3 バックエンド）
     gdxVersion = '1.12.1'
+    // ゲームパッド対応の公式拡張（gdx-controllers）。LibGDX 1.12.x と互換の 2.2.3 を使う。
+    gdxControllersVersion = '2.2.3'
 }
 
 dependencies {
     implementation "com.badlogicgames.gdx:gdx:${gdxVersion}"
     implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:${gdxVersion}"
     runtimeOnly "com.badlogicgames.gdx:gdx-platform:${gdxVersion}:natives-desktop"
+    // ゲームパッド入力（PC に接続されたコントローラーで操作）。core はコンパイル用 API、
+    // desktop は LWJGL3/JamePad(SDL) のネイティブ実装。これらが揃うと Controllers が機能する。
+    implementation "com.badlogicgames.gdx-controllers:gdx-controllers-core:${gdxControllersVersion}"
+    implementation "com.badlogicgames.gdx-controllers:gdx-controllers-desktop:${gdxControllersVersion}"
 }
 
 // 設計書フォルダをソース/リソースのルートに設定（標準の src/main/java は使わない）。
@@ -97,7 +103,7 @@ tasks.named('run', JavaExec) {
      'phantom.screenshot.intro', 'phantom.screenshot.p1meter', 'phantom.screenshot.p2meter',
      'phantom.screenshot.aidiff', 'phantom.screenshot.training', 'phantom.screenshot.movelist',
      'phantom.screenshot.startscreen', 'phantom.screenshot.p1hp', 'phantom.screenshot.p2hp',
-     'phantom.screenshot.returntotitle',
+     'phantom.screenshot.returntotitle', 'phantom.screenshot.rematch',
      'phantom.replay.record', 'phantom.replay.play', 'phantom.replay.ai'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {
