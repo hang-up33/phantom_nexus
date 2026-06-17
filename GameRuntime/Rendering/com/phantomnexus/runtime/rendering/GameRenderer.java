@@ -281,6 +281,8 @@ public class GameRenderer {
     private boolean returnToTitleHint;
     // 決着後「リマッチ」ヒント表示フラグ（Task 178）。R キーで同じキャラ/ステージで即再戦。
     private boolean rematchAvailable;
+    // アーケードスコア（Task 186）：サバイバル/タイムアタックのゲームオーバー時に表示する最終スコア。-1 は非表示。
+    private int arcadeScore = -1;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -320,6 +322,11 @@ public class GameRenderer {
     /** 決着後の結果バナーに「リマッチ」ヒントを表示するか（Task 178）。通常プレイのマッチ確定時のみ true。 */
     public void setRematchAvailable(boolean available) {
         this.rematchAvailable = available;
+    }
+
+    /** サバイバル/タイムアタックのゲームオーバー時に表示するスコアを設定する（Task 186）。-1 で非表示。 */
+    public void setArcadeScore(int score) {
+        this.arcadeScore = score;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -716,15 +723,19 @@ public class GameRenderer {
         Color resultColor = round.getMatchWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
         drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
         drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
+        // アーケードスコア（Task 186）：サバイバル/タイムアタックのゲームオーバー時に SCORE を金色で表示する。
+        if (arcadeScore >= 0) {
+            drawBannerText("SCORE: " + arcadeScore, cx, GameConstants.WORLD_HEIGHT / 2f - 75f, 1.8f, PERFECT_COLOR);
+        }
         // 通常プレイのマッチ確定時のみ、スタート画面へ戻る操作ヒントを表示する（撮影/リプレイは非表示＝既存レシピ不変）。
         if (returnToTitleHint) {
             drawBannerText("PRESS ENTER TO RETURN TO TITLE",
-                    cx, GameConstants.WORLD_HEIGHT / 2f - 115f, 0.9f, ROUND_INTRO_COLOR);
+                    cx, GameConstants.WORLD_HEIGHT / 2f - 125f, 0.9f, ROUND_INTRO_COLOR);
         }
         // リマッチ可能な場合は R キーのヒントを表示する（Task 178）。
         if (rematchAvailable) {
             drawBannerText("PRESS R TO REMATCH",
-                    cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, Color.YELLOW);
+                    cx, GameConstants.WORLD_HEIGHT / 2f - 100f, 0.9f, Color.YELLOW);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);

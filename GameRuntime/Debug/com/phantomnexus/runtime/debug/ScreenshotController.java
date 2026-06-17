@@ -311,6 +311,25 @@ public final class ScreenshotController {
         return "true".equalsIgnoreCase(trimToNull(System.getProperty("phantom.screenshot.rematch")));
     }
 
+    /**
+     * アーケードスコア表示の撮影用オーバーライド（Task 186）：{@code -x arcadescore=<N>} で指定した整数を返す。
+     * 撮影モード時のみ有効で、未指定 or 非撮影は {@code -1}（非表示）。結果バナーにスコアを重ねて撮る用。
+     */
+    public int arcadeScoreOverride() {
+        if (!isEnabled()) {
+            return -1;
+        }
+        String v = trimToNull(System.getProperty("phantom.screenshot.arcadescore"));
+        if (v == null) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     /** コマンド表 HUD（Task 112）を撮影モードで初期表示するか（{@code -x movelist=true}）。通常起動・未指定は {@code fallback}（F5 トグルの初期値）。 */
     public boolean moveListEnabled(boolean fallback) {
         if (!isEnabled()) {
