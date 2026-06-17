@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.rendering;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -27,6 +28,8 @@ import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
+import com.phantomnexus.runtime.input.InputAction;
+import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.shared.types.Stage;
 import com.phantomnexus.shared.types.StageLayer;
 
@@ -222,7 +225,7 @@ public class GameRenderer {
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
     private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
     private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
-    private static final float TITLE_BAR_H = 250f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160→185 で 200→250 に拡張）
+    private static final float TITLE_BAR_H = 290f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160→185→188 で 200→250→290 に拡張）
     private static final float CHARSEL_BAR_H = 200f; // キャラ選択下部の操作バー高さ（不透明・グリッド4行＋状況・Task 161）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
@@ -1893,18 +1896,147 @@ public class GameRenderer {
         font.setColor(selection == 3 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 3 ? "> " : "  ") + "TIME ATTACK" + (selection == 3 ? " <" : ""),
                 GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 144f);
+        font.setColor(selection == 4 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 4 ? "> " : "  ") + "KEY CONFIG" + (selection == 4 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 182f);
         if (replayAvailable) {
-            font.setColor(selection == 4 ? Color.YELLOW : Color.LIGHT_GRAY);
-            drawCentered((selection == 4 ? "> " : "  ") + "REPLAY LAST" + (selection == 4 ? " <" : ""),
-                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 182f);
+            font.setColor(selection == 5 ? Color.YELLOW : Color.LIGHT_GRAY);
+            drawCentered((selection == 5 ? "> " : "  ") + "REPLAY LAST" + (selection == 5 ? " <" : ""),
+                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 220f);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(0.9f);
         drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 46f);
-        drawCentered("SURVIVAL = HP carry  |  TIME ATTACK = 60s challenge  |  TRAINING = infinite HP  |  REPLAY LAST = watch last match",
+        drawCentered("SURVIVAL = HP carry  |  TIME ATTACK = 60s challenge  |  KEY CONFIG = remap keys  |  REPLAY LAST = watch last match",
                 GameConstants.WORLD_WIDTH / 2f, 22f);
         font.getData().setScale(1.0f);
         batch.end();
+    }
+
+    /**
+     * キーコンフィグ画面を描く（Task 188）。全アクションを 2 列（P1/P2）で表示し、
+     * 選択行を黄色・入力待ち時は点滅テキストで案内する。ESC でタイトルへ戻る。
+     */
+    public void renderKeyConfig(PlayerInput p1Input, PlayerInput p2Input, InputAction[] actions,
+                                int row, int player, boolean waiting, InputAction waitingAction,
+                                Stage backdrop) {
+        ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        centerCamera();
+        camera.update();
+        auraTick = (auraTick + 1) % 36000;
+
+        // 背景（ステージ実背景・タイトルと同じ）
+        if (backdrop != null) {
+            setStage(backdrop);
+        }
+        TextureRegion bg = backdrop != null ? stageBackgrounds.get(stageBackgroundPath) : null;
+        if (bg != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            batch.draw(bg, 0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+            batch.end();
+        } else if (backdrop != null) {
+            // 手続き背景（空グラデ）
+            shapes.setProjectionMatrix(camera.combined);
+            shapes.begin(ShapeRenderer.ShapeType.Filled);
+            shapes.setColor(skyTop);
+            shapes.rect(0f, GameConstants.WORLD_HEIGHT * 0.4f, GameConstants.WORLD_WIDTH,
+                    GameConstants.WORLD_HEIGHT * 0.6f);
+            shapes.setColor(skyBottom);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT * 0.4f);
+            shapes.end();
+        }
+
+        // 下部の不透明操作バーと上部ヘッダー
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, 50f);
+        shapes.rect(0f, GameConstants.WORLD_HEIGHT - 60f, GameConstants.WORLD_WIDTH, 60f);
+        shapes.end();
+
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+
+        // ヘッダー
+        font.getData().setScale(1.6f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("KEY CONFIG", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 28f);
+
+        // 列ヘッダー
+        font.getData().setScale(1.1f);
+        float colP1x = GameConstants.WORLD_WIDTH * 0.30f;
+        float colP2x = GameConstants.WORLD_WIDTH * 0.70f;
+        float tableTop = GameConstants.WORLD_HEIGHT - 80f;
+        font.setColor(player == 0 ? CHARSEL_P1_COLOR : Color.LIGHT_GRAY);
+        drawCentered("P1", colP1x, tableTop);
+        font.setColor(player == 1 ? CHARSEL_P2_COLOR : Color.LIGHT_GRAY);
+        drawCentered("P2", colP2x, tableTop);
+
+        // アクション行
+        font.getData().setScale(1.0f);
+        for (int i = 0; i < actions.length; i++) {
+            InputAction act = actions[i];
+            float y = tableTop - 28f - i * 30f;
+            boolean selected = (i == row);
+
+            // アクション名（左寄せ）
+            font.setColor(selected ? Color.YELLOW : Color.WHITE);
+            font.draw(batch, actionLabel(act), GameConstants.WORLD_WIDTH * 0.10f, y);
+
+            // P1 キー名
+            String p1Key = Input.Keys.toString(p1Input.getKey(act));
+            Color p1Col;
+            if (selected && player == 0) {
+                p1Col = waiting && waitingAction == act ? Color.ORANGE : Color.YELLOW;
+            } else {
+                p1Col = CHARSEL_P1_COLOR;
+            }
+            font.setColor(p1Col);
+            drawCentered(p1Key != null ? p1Key : "?", colP1x, y);
+
+            // P2 キー名
+            String p2Key = Input.Keys.toString(p2Input.getKey(act));
+            Color p2Col;
+            if (selected && player == 1) {
+                p2Col = waiting && waitingAction == act ? Color.ORANGE : Color.YELLOW;
+            } else {
+                p2Col = CHARSEL_P2_COLOR;
+            }
+            font.setColor(p2Col);
+            drawCentered(p2Key != null ? p2Key : "?", colP2x, y);
+        }
+
+        // 入力待ちオーバーレイ
+        font.getData().setScale(1.2f);
+        if (waiting) {
+            font.setColor(Color.ORANGE);
+            drawCentered("Press any key to assign  (ESC = cancel)", GameConstants.WORLD_WIDTH / 2f, 32f);
+        } else {
+            font.setColor(Color.WHITE);
+            font.getData().setScale(0.9f);
+            drawCentered("UP/DOWN : row    LEFT/RIGHT : P1 / P2    ENTER : rebind    ESC : back",
+                    GameConstants.WORLD_WIDTH / 2f, 32f);
+        }
+
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+        batch.end();
+    }
+
+    /** アクションを人間可読な短い表示名に変換する（キーコンフィグ用・Task 188）。 */
+    private static String actionLabel(InputAction act) {
+        switch (act) {
+            case LEFT:         return "Left";
+            case RIGHT:        return "Right";
+            case UP:           return "Jump / Up";
+            case DOWN:         return "Crouch / Down";
+            case ATTACK_LIGHT: return "Attack Light";
+            case ATTACK_MEDIUM:return "Attack Medium";
+            case ATTACK_HEAVY: return "Attack Heavy";
+            case THROW:        return "Throw";
+            default:           return act.name();
+        }
     }
 
     /**

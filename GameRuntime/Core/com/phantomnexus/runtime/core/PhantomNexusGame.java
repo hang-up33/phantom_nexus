@@ -104,10 +104,22 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String rematchStageId;
     private boolean rematchTraining; // 直前がトレーニングモードだったか（リマッチ時に同モードで開始する）
 
-    /** 画面状態（Task 116/117/128）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
-    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE }
+    /** 画面状態（Task 116/117/128/188）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
+    enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE, KEY_CONFIG }
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
     private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング / 2=リプレイ・Task 183）
+
+    // キーコンフィグ画面（Task 188）
+    /** 設定中のアクション行（0〜7）。 */
+    private int keyConfigRow;
+    /** 設定中のプレイヤー列（0=P1 / 1=P2）。 */
+    private int keyConfigPlayer;
+    /** キー入力待ち中か（true のときは次の任意キー押下を割り当てる）。 */
+    private boolean keyConfigWaiting;
+    /** 入力待ちの対象アクション。 */
+    private InputAction keyConfigAction;
+    /** 定義順のアクション一覧（キーコンフィグの表示順）。 */
+    private static final InputAction[] KEY_CONFIG_ACTIONS = InputAction.values();
 
     // インゲーム入力リプレイ（Task 183）：バトル中の入力を in-memory バッファに記録し、マッチ終了時に自動保存する。
     /** 直前バトルの入力フレームバッファ（{p1mask, p2mask, ai}）。 */
@@ -321,6 +333,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return Screen.CHARACTER_SELECT;
             case "stageselect":
                 return Screen.STAGE_SELECT;
+            case "keyconfig":
+                return Screen.KEY_CONFIG;
             default:
                 return Screen.BATTLE;
         }
@@ -332,8 +346,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
      */
     private void updateTitle() {
-        // 0=VERSUS / 1=TRAINING / 2=SURVIVAL / 3=TIME ATTACK / 4=REPLAY LAST（ファイルあり時のみ）。
-        final int TITLE_ITEMS = replayAvailable ? 5 : 4;
+        // 0=VERSUS / 1=TRAINING / 2=SURVIVAL / 3=TIME ATTACK / 4=KEY CONFIG / 5=REPLAY LAST（ファイルあり時のみ）。
+        final int TITLE_ITEMS = replayAvailable ? 6 : 5;
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
                 || gamepad.menuUp()) {
             titleSelection = (titleSelection - 1 + TITLE_ITEMS) % TITLE_ITEMS;
@@ -360,7 +374,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
             } else if (titleSelection == 3) {
                 // タイムアタック：制限時間内に何人倒せるか（Task 185）。
                 startTimeAttack();
-            } else if (titleSelection == 4 && replayAvailable) {
+            } else if (titleSelection == 4) {
+                // キーコンフィグ：P1/P2 のキー割当を変更する（Task 188）。
+                enterKeyConfig();
+            } else if (titleSelection == 5 && replayAvailable) {
                 // REPLAY LAST：保存済みの直前バトルを再生する（Task 183）。
                 startIngameReplay();
             } else {
@@ -407,6 +424,69 @@ public class PhantomNexusGame extends ApplicationAdapter {
         renderer.setHighScores(highScores);
         titleSelection = 0;
         screen = Screen.TITLE;
+    }
+
+    /** キーコンフィグ画面へ遷移する（Task 188）。 */
+    private void enterKeyConfig() {
+        keyConfigRow = 0;
+        keyConfigPlayer = 0;
+        keyConfigWaiting = false;
+        keyConfigAction = null;
+        screen = Screen.KEY_CONFIG;
+    }
+
+    /**
+     * キーコンフィグ画面の入力処理（Task 188）。
+     * 通常モード: 上下でアクション行選択・左右で P1/P2 切替・ENTER で入力待ち・ESC でタイトルへ戻る。
+     * 入力待ちモード: 次の任意キー押下を割り当て・ESC でキャンセル。
+     */
+    private void updateKeyConfig() {
+        if (keyConfigWaiting) {
+            // 何かキーが押されたらその keycode を割り当てる。ESC でキャンセル。
+            int pressedKey = -1;
+            // Gdx.input.isKeyJustPressed は全キーを順に調べる必要があるため Input.Keys の範囲を走査する。
+            for (int k = 0; k <= Input.Keys.MAX_KEYCODE; k++) {
+                if (Gdx.input.isKeyJustPressed(k)) {
+                    pressedKey = k;
+                    break;
+                }
+            }
+            if (pressedKey == Input.Keys.ESCAPE) {
+                // ESC はキャンセル（元の割当を保持）。
+                keyConfigWaiting = false;
+                keyConfigAction = null;
+            } else if (pressedKey >= 0) {
+                // 割り当て適用。
+                if (keyConfigPlayer == 0) {
+                    p1Input.setBinding(keyConfigAction, pressedKey);
+                } else {
+                    p2Input.setBinding(keyConfigAction, pressedKey);
+                }
+                keyConfigWaiting = false;
+                keyConfigAction = null;
+            }
+            return;
+        }
+        // 通常モード: ナビゲーション。
+        if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+            keyConfigRow = (keyConfigRow - 1 + KEY_CONFIG_ACTIONS.length) % KEY_CONFIG_ACTIONS.length;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+            keyConfigRow = (keyConfigRow + 1) % KEY_CONFIG_ACTIONS.length;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) || Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+            keyConfigPlayer = 0;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) || Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+            keyConfigPlayer = 1;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.J)) {
+            keyConfigAction = KEY_CONFIG_ACTIONS[keyConfigRow];
+            keyConfigWaiting = true;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+            screen = Screen.TITLE;
+        }
     }
 
     /**
@@ -726,6 +806,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
             renderer.renderTitle(titleSelection, stagePreviews[titleBgIndex], replayAvailable);
             screenshot.maybeCapture();
+            return;
+        }
+        // キーコンフィグ画面（Task 188）：タイトルの KEY CONFIG から遷移。ESC でタイトルへ戻る。
+        if (screen == Screen.KEY_CONFIG) {
+            updateKeyConfig();
+            if (screen == Screen.KEY_CONFIG) {
+                ensureStagesLoaded();
+                renderer.renderKeyConfig(p1Input, p2Input, KEY_CONFIG_ACTIONS,
+                        keyConfigRow, keyConfigPlayer, keyConfigWaiting, keyConfigAction,
+                        stagePreviews != null && stagePreviews.length > 0 ? stagePreviews[0] : null);
+                screenshot.maybeCapture();
+            }
             return;
         }
         // キャラクター選択画面（Task 117）：対戦モードで遷移。P1→P2 の順にロスターから選び、両者確定でステージ選択へ。
