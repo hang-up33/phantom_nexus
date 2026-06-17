@@ -281,6 +281,8 @@ public class GameRenderer {
     private boolean returnToTitleHint;
     /** アーケードモードの進行ヒント文（Task 176）。null 以外のとき結果バナーに表示。 */
     private String arcadeHint;
+    // セッション戦績（Task 177）。通常プレイのマッチ決着時に Core がセットする。null は非表示。
+    private String sessionRecord;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -320,6 +322,11 @@ public class GameRenderer {
     /** アーケードモードの進行ヒント文を設定する（Task 176）。null でクリア（アーケード外）。 */
     public void setArcadeHint(String hint) {
         this.arcadeHint = hint;
+    }
+
+    /** セッション戦績文字列を設定する（Task 177）。通常プレイのマッチ決着時に Core がセットする。null で非表示。 */
+    public void setSessionRecord(String record) {
+        this.sessionRecord = record;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -723,6 +730,10 @@ public class GameRenderer {
         } else if (returnToTitleHint) {
             drawBannerText("PRESS ENTER TO RETURN TO TITLE",
                     cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, ROUND_INTRO_COLOR);
+        }
+        // セッション戦績（Task 177）：Core が通常プレイ時のみ設定する（撮影/リプレイでは null）。
+        if (sessionRecord != null) {
+            drawBannerText(sessionRecord, cx, GameConstants.WORLD_HEIGHT / 2f - 120f, 0.8f, Color.CYAN);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
