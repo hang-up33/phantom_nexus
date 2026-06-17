@@ -106,6 +106,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private Screen screen = Screen.BATTLE; // 既定 BATTLE（撮影/リプレイ・後方互換）。通常起動は create() で TITLE に。
     private int titleSelection; // タイトルのモード選択（0=対戦 / 1=トレーニング・Task 116）
 
+    /** バトル中のポーズ状態（Task 181）。通常プレイのみ有効（撮影/リプレイでは無効）。 */
+    private boolean paused = false;
+    /** ポーズメニューのカーソル（0=RESUME / 1=RETURN TO TITLE・Task 181）。 */
+    private int pauseSelection = 0;
+
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
         "fighter001", "fighter002", "fighter003", "fighter004", "fighter005",
@@ -336,6 +341,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * 改めてラウンド・ファイターを作り直すため、前マッチの確定状態は持ち越さない。通常プレイ専用。
      */
     private void returnToTitle() {
+        paused = false; // ポーズ中にタイトルへ戻ることができるのでクリア（Task 181）
         titleSelection = 0;
         screen = Screen.TITLE;
     }
@@ -464,6 +470,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * ファイター・アニメ・ラウンド・AI を作り直して BATTLE へ遷移する。
      */
     private void startBattle(String p1Id, String p2Id, String stageId) {
+        paused = false; // バトル開始時にポーズ状態をリセット（Task 181）
         renderer.setStage(StageLoader.load(stageId)); // 選んだステージを背景に設定（Task 128）
         fighter1 = new Fighter(CharacterLoader.load(p1Id), spawnX1, true);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
@@ -569,6 +576,39 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return;
             }
         }
+        // ポーズ（Task 181）：通常プレイ中（非撮影・非リプレイ・ラウンド進行中）に ESC でトグル。
+        // 撮影/リプレイでは無効（後方互換・決定性不変）。
+        if (!screenshot.isEnabled() && !replay.isReplaying() && !replay.isRecording()
+                && !round.isFinished()
+                && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            paused = !paused;
+            pauseSelection = 0; // 開くたびに RESUME を選択
+        }
+        // ポーズ中はメニュー操作のみ受け付け、バトル更新・描画後に return する。
+        if (paused) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || gamepad.menuUp()) {
+                pauseSelection = (pauseSelection + 1) % 2;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) || gamepad.menuDown()) {
+                pauseSelection = (pauseSelection + 1) % 2;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                    || gamepad.menuConfirm()) {
+                if (pauseSelection == 0) {
+                    paused = false; // RESUME
+                } else {
+                    paused = false;
+                    returnToTitle();
+                    return;
+                }
+            }
+            // バトルシーンを下地に描いてからポーズオーバーレイを重ねる。
+            renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
+                    landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
+            renderer.renderPauseOverlay(pauseSelection);
+            screenshot.maybeCapture();
+            return;
+        }
         // 撮影用タイムド入力スクリプト（コマンド技の再現）。毎フレーム先頭で押下を更新する。
         screenshot.applyTimedHolds(p1Input, p2Input);
         // 再生モード：記録済み入力をこのフレームの押下として注入し、P2 AI 状態も復元する。
@@ -625,6 +665,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         renderer.setRematchAvailable((interactiveFinished && rematchP1Id != null) || screenshot.rematchHintForced());
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
+        // ポーズオーバーレイ証跡撮影（-x pause=true で撮影モードでも描画・Task 181）。
+        if (screenshot.pauseOverlayForced()) {
+            renderer.renderPauseOverlay(0);
+        }
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
         screenshot.maybeCapture();
     }
@@ -1262,7 +1306,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
                 + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")"
-                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")";
+                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")  [ESC] pause";
     }
 
     private String statusLine() {
