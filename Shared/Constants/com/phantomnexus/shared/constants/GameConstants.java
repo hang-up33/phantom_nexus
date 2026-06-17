@@ -341,6 +341,21 @@ public final class GameConstants {
     /** 壁バウンド成立の表示フレーム数（Task 101）。状態ラベルに wall_bounce を出す表示専用カウンタの寿命。 */
     public static final int WALL_BOUNCE_LABEL_FRAMES = 20;
 
+    /** 壁張り付き（wall splat・Task 192）：画面端からこの距離以内で wallSplat 技を食らうと張り付く（px・中心 X 基準）。 */
+    public static final float WALL_SPLAT_NEAR_MARGIN = 170f;
+
+    /** 壁張り付き成立時に上乗せするのけぞりフレーム数（Task 192）。フルコンボ確定の長い硬直。 */
+    public static final int WALL_SPLAT_BONUS_HITSTUN = 26;
+
+    /** 壁張り付きの表示フレーム数（Task 192）。状態ラベルに wall_splat を出す表示専用カウンタの寿命。 */
+    public static final int WALL_SPLAT_LABEL_FRAMES = 26;
+
+    /** 確定スタン技（Task 198）のスタン蓄積倍率。{@code Move.causesDizzy=true} の技は通常の addStun をこの倍率で増幅する。 */
+    public static final float DIZZY_MOVE_STUN_SCALE = 2.5f;
+
+    /** レイジ（Task 195）中の与ダメージ倍率。攻撃側が {@link com.phantomnexus.runtime.battle.Fighter#isRaging()} のとき適用。 */
+    public static final float RAGE_DAMAGE_SCALE = 1.3f;
+
     /**
      * 床バウンド（ground bounce・Task 102）の初期打ち上げ初速（px/frame・上向き）。{@code Move.groundBounce=true} の技を
      * 非ガードヒットさせると相手をこの初速で打ち上げ、落下して着地した瞬間に {@link #GROUND_BOUNCE_POP} で一度だけ跳ね返る。

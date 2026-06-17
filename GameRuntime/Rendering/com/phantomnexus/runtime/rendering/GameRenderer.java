@@ -292,6 +292,8 @@ public class GameRenderer {
     private int arcadeScore = -1;
     // アーケードハイスコアランキング（Task 187）：セッション内上位 5 件。空ならランキング非表示。
     private java.util.List<Integer> highScores = java.util.Collections.emptyList();
+    // 最大コンボ記録（Task 194）：セッション中に観測した最大ヒット数。2 以上で HUD に表示。
+    private int maxCombo;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -351,6 +353,11 @@ public class GameRenderer {
     /** セッション内ハイスコアランキングを設定する（Task 187）。空なら非表示。 */
     public void setHighScores(java.util.List<Integer> scores) {
         this.highScores = scores != null ? scores : java.util.Collections.emptyList();
+    }
+
+    /** セッション最大コンボ数を設定する（Task 194）。2 以上で HUD 上部に「MAX COMBO n」を表示する。 */
+    public void setMaxCombo(int combo) {
+        this.maxCombo = combo;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -599,6 +606,15 @@ public class GameRenderer {
             font.setColor(Color.WHITE);
         }
         font.getData().setScale(1.0f);
+        // 最大コンボ記録 HUD（Task 194）：セッション中の最大ヒット数（2 以上で表示・タイマー直下中央）。
+        if (maxCombo >= 2) {
+            font.getData().setScale(0.85f);
+            font.setColor(MOVE_LIST_COLOR);
+            drawCentered("MAX COMBO " + maxCombo,
+                    GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - HP_BAR_TOP - 22f);
+            font.setColor(Color.WHITE);
+            font.getData().setScale(1.0f);
+        }
         drawHpLabels(p1, true);
         drawHpLabels(p2, false);
         drawNameLabel(p1, anim1, debug.isEnabled());
@@ -1739,6 +1755,9 @@ public class GameRenderer {
         } else if (f.isWallBounced()) {
             // 壁バウンド成立（Task 101）。HITSTUN を流用しつつ wall_bounce ラベルで跳ね返りを識別する。
             stateLabel = "wall_bounce";
+        } else if (f.isWallSplatted()) {
+            // 壁張り付き成立（Task 192）。HITSTUN を流用しつつ wall_splat ラベルで識別する。
+            stateLabel = "wall_splat";
         } else if (f.isGroundBounced()) {
             // 床バウンド成立（Task 102）。HITSTUN を流用しつつ ground_bounce ラベルで跳ね返りを識別する。
             stateLabel = "ground_bounce";

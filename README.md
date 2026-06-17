@@ -315,6 +315,17 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 188 | キーコンフィグ画面：タイトルに「KEY CONFIG」を追加・P1/P2 の全 8 アクション（移動/攻撃/投げ）のキー割当を一覧表示し ENTER で再割当・ESC でタイトルへ戻る・`-x startscreen=keyconfig` で撮影可 | ✅ 完了 |
 | 189 | 設定保存：キーコンフィグの変更を `settings.json`（アプリ起動ディレクトリ）に自動保存し次回起動時に自動読込・`SettingsManager`（Core）が LibGDX Json で永続化・ファイル未存在はデフォルト割当を維持 | ✅ 完了 |
 | 190 | ドキュメント総整備：CLAUDE.md フェーズ更新（Task 181〜190 の実装内容を反映）・README 進捗表に Task 183〜190 を追加・kaizen 知見（`TITLE_BAR_H` 成長パターン・`SettingsManager` 配置判断）を反映 | ✅ 完了 |
+| — | **統合：main 系統（〜177）と funny-hawking 系統（〜190）＋ PR #192/#193 を 1 ブランチに統合（タイトルメニューを VERSUS/TRAINING/ARCADE/SURVIVAL/TIME ATTACK/KEY CONFIG/VIEWER に一本化）** | ✅ 完了 |
+| 191 | 第12ステージ追加（stage012 Stormwatch Spire・多層ビル＋たなびく雲＋前景額縁・JSON `layers` のみで追加・ステージ選択に掲載） | ✅ 完了 |
+| 192 | 壁張り付き（`Move.wallSplat`＝画面端付近でヒットすると長いのけぞりで壁に張り付く・ジャグル始動・JSON フラグでデータ化） | ✅ 完了 |
+| 193 | 第13ステージ追加（stage013 Sunken Bazaar・JSON `layers` のみで追加） | ✅ 完了 |
+| 194 | 最大コンボ記録 HUD（セッション中の最大ヒット数を画面上部に表示・トレーニングの指標） | ✅ 完了 |
+| 195 | レイジ（comeback・`Character.rageThreshold`＝HP がしきい値割合を下回ると与ダメージが上昇する逆転要素・データ化・既定 0 で無効＝後方互換） | ✅ 完了 |
+| 196 | AI の起き攻め（HARD の AI が相手ダウン中に間合いを詰めて起き上がりに攻撃を重ねる） | ✅ 完了 |
+| 197 | 第14ステージ追加（stage014 Verdant Ruins・JSON `layers` のみで追加） | ✅ 完了 |
+| 198 | 確定スタン技（`Move.causesDizzy`＝ヒットでスタンゲージを一気に蓄積させる技・データ化） | ✅ 完了 |
+| 199 | 第15ステージ追加（stage015 Celestial Gate・JSON `layers` のみで追加） | ✅ 完了 |
+| 200 | ドキュメント総整備（統合フェーズと Task 191〜199 を反映・kaizen 反映） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
 

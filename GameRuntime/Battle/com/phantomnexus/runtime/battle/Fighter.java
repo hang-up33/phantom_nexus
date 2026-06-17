@@ -56,6 +56,7 @@ public class Fighter {
     private int wallBounceFrames;       // 壁バウンド成立（跳ね返り）直後の表示フレーム（ラベル wall_bounce・Task 101）
     private boolean groundBounceArmed;  // 床バウンド技を食らい、まだ着地して跳ね返っていない状態（Task 102）
     private int groundBounceFrames;     // 床バウンド成立（跳ね返り）直後の表示フレーム（ラベル ground_bounce・Task 102）
+    private int wallSplatFrames;        // 壁張り付き成立直後の表示フレーム（ラベル wall_splat・Task 192）
     private int forwardHeldFrames;      // 前方（相手方向）を押し続けているフレーム数（パリィ判定用・Task 105）
     private int parryFrames;            // パリィ成立直後の表示フレーム（ラベル "parry"・行動はロックしない・Task 105）
     private int recoverableHp;          // 回復可能ダメージ（レッドライフ・ガード chip 分・無被弾で白 HP へ戻る・Task 104）
@@ -122,6 +123,7 @@ public class Fighter {
         if (counterHitFrames > 0)   counterHitFrames--;
         if (wallBounceFrames > 0)   wallBounceFrames--;
         if (groundBounceFrames > 0) groundBounceFrames--;
+        if (wallSplatFrames > 0)    wallSplatFrames--;
         if (parryFrames > 0)        parryFrames--;
         if (justGuardFrames > 0)    justGuardFrames--;
         if (dizzyFrames > 0)        dizzyFrames--;
@@ -457,6 +459,7 @@ public class Fighter {
         wallBounceFrames = 0;
         groundBounceArmed = false;
         groundBounceFrames = 0;
+        wallSplatFrames = 0;
         recoverableHp = 0;
         recoverDelay = 0;
         recoverTick = 0;
@@ -580,6 +583,28 @@ public class Fighter {
         applyHit(damage, hitstun, knockbackDir);
         velocityX = knockbackDir * GameConstants.WALL_BOUNCE_SPEED; // 強い水平吹き飛ばし（壁へ向かう）
         wallBounceArmed = true; // applyHit の後に立てる（applyHit がクリアするため）
+    }
+
+    /**
+     * 壁張り付き（wall splat・Task 192）を適用する。{@link #applyHit} に通常より長いのけぞりを与えて
+     * 壁際の相手を硬直させる（フルコンボ確定の始動）。{@code applyHit} 後に追加硬直を上乗せする。
+     */
+    public void applyWallSplat(int damage, int hitstun, int knockbackDir) {
+        applyHit(damage, hitstun, knockbackDir);
+        hitstunFrames += GameConstants.WALL_SPLAT_BONUS_HITSTUN; // 壁張り付きの長い硬直を上乗せ
+        wallSplatFrames = GameConstants.WALL_SPLAT_LABEL_FRAMES;
+    }
+
+    /** 画面端（壁）付近にいるか（Task 192・壁張り付き判定用）。{@link #atStageEdge} より広い猶予で判定する。 */
+    public boolean isNearWall() {
+        float half = def.getWidth() / 2f;
+        return x <= half + GameConstants.WALL_SPLAT_NEAR_MARGIN
+                || x >= GameConstants.WORLD_WIDTH - half - GameConstants.WALL_SPLAT_NEAR_MARGIN;
+    }
+
+    /** 壁張り付き成立直後の表示中か（Task 192・状態ラベル wall_splat 用）。 */
+    public boolean isWallSplatted() {
+        return wallSplatFrames > 0;
     }
 
     /**
@@ -1084,6 +1109,22 @@ public class Fighter {
 
     public int getMaxHp() {
         return def.getHp();
+    }
+
+    /** ダウン（knockdown）の残り行動不能フレーム数（Task 196・AI 起き攻めの重ねタイミング用）。0 なら非ダウン。 */
+    public int getKnockdownFrames() {
+        return knockdownFrames;
+    }
+
+    /**
+     * レイジ中か（comeback・Task 195）。{@code Character.rageThreshold>0} かつ現在 HP がしきい値割合以下のとき true。
+     * レイジ中は与ダメージが上昇する（逆転要素）。既定（しきい値 0）のキャラは常に false＝後方互換。
+     */
+    public boolean isRaging() {
+        float th = def.getRageThreshold();
+        if (th <= 0f) return false;
+        int max = getMaxHp();
+        return max > 0 && currentHp <= max * th;
     }
 
     public float getHpRatio() {

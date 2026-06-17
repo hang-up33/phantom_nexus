@@ -1,0 +1,14 @@
+{
+  "id": "stage015",
+  "name": "Celestial Gate",
+  "skyTop": [0.06, 0.05, 0.16],
+  "skyBottom": [0.30, 0.20, 0.44],
+  "groundColor": [0.14, 0.12, 0.22],
+  "layers": [
+    { "shape": "band", "color": [0.50, 0.40, 0.72], "baseY": 360, "height": 120, "count": 1, "alpha": 0.4 },
+    { "shape": "peaks", "color": [0.30, 0.24, 0.46], "baseY": 120, "height": 250, "count": 5, "alpha": 0.8 },
+    { "shape": "pillars", "color": [0.18, 0.14, 0.30], "baseY": 120, "height": 320, "count": 4, "alpha": 1.0 },
+    { "shape": "embers", "color": [0.78, 0.70, 1.0], "baseY": 120, "height": 500, "count": 22, "alpha": 0.6, "drift": 0.4 },
+    { "shape": "hills", "color": [0.10, 0.08, 0.17], "baseY": 120, "height": 50, "count": 1, "alpha": 1.0 }
+  ]
+}

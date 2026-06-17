@@ -100,6 +100,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private boolean koSlowTriggered; // このラウンドで KO スローを既に開始したか（1 ラウンド 1 回・Task 115）
     private boolean trainingMode; // トレーニングモード（HP 無限のダミーでコンボ練習・F4 トグル・Task 90）
     private boolean moveListVisible; // コマンド表 HUD（技/コマンド一覧・F5 トグル・Task 112）
+    private int sessionMaxCombo; // セッション中に観測した最大ヒット数（Task 194・HUD 表示）
     // リマッチ用の直前マッチ情報（Task 178）。startBattle/startTraining で記録し、R キーで同設定の再戦に使う。
     private String rematchP1Id;
     private String rematchP2Id;
@@ -192,7 +193,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** ステージ選択（Task 128）の全ステージ ID。新ステージを足したらここにも追記する。 */
     private static final String[] STAGE_IDS = {
         "stage001", "stage002", "stage003", "stage004", "stage005",
-        "stage006", "stage007", "stage008", "stage009", "stage010"
+        "stage006", "stage007", "stage008", "stage009", "stage010",
+        "stage012", "stage013", "stage014", "stage015"
     };
     /** ステージ選択グリッドの列数（Task 128）。 */
     private static final int STAGE_COLS = 5;
@@ -1260,6 +1262,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (!hsOverride.isEmpty()) {
             renderer.setHighScores(hsOverride);
         }
+        renderer.setMaxCombo(sessionMaxCombo);
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // ポーズオーバーレイ証跡撮影（-x pause=true で撮影モードでも描画・Task 181）。
@@ -1355,6 +1358,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
             detectDashStart(fighter2, p2WasDashing);
             p1WasDashing = fighter1.isDashing();
             p2WasDashing = fighter2.isDashing();
+            // 最大コンボ記録（Task 194）：セッション中に観測した最大ヒット数を更新し HUD に表示する。
+            sessionMaxCombo = Math.max(sessionMaxCombo,
+                    Math.max(fighter1.getComboCount(), fighter2.getComboCount()));
             // 押し合い解消（pushbox の重なりを左右へ分離）。
             CollisionSystem.resolvePush(fighter1, fighter2);
             // ヒット判定（active hitbox × 相手 hurtbox）。多段ヒット防止のため攻撃ごと 1 回だけ確定する。
@@ -1838,6 +1844,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         int dealtDamage = counter
                 ? Math.max(1, Math.round(hb.getDamage() * GameConstants.COUNTER_HIT_DAMAGE_SCALE))
                 : hb.getDamage();
+        // レイジ（Task 195）：攻撃側が低 HP でレイジ中なら与ダメージを上昇させる（逆転要素）。
+        if (attacker.isRaging()) {
+            dealtDamage = Math.max(1, Math.round(dealtDamage * GameConstants.RAGE_DAMAGE_SCALE));
+        }
         applyHitDamage(attacker, defender, hb, knockbackDir, blocked, armored, counter, dealtDamage, before);
     }
 
@@ -1863,11 +1873,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
             int hitstun = GameConstants.HITSTUN_FRAMES + (counter ? GameConstants.COUNTER_HIT_BONUS_HITSTUN : 0);
             boolean wallBounce = attacker.getCurrentMove() != null && attacker.getCurrentMove().isWallBounce();
             boolean groundBounce = attacker.getCurrentMove() != null && attacker.getCurrentMove().isGroundBounce();
+            boolean wallSplat = attacker.getCurrentMove() != null && attacker.getCurrentMove().isWallSplat()
+                    && defender.isNearWall();
             float launch = attacker.getCurrentMove() != null ? attacker.getCurrentMove().getLaunch() : 0f;
             if (wallBounce) {
                 defender.applyWallBounce(dealtDamage, hitstun, knockbackDir);
             } else if (groundBounce) {
                 defender.applyGroundBounce(dealtDamage, hitstun, knockbackDir);
+            } else if (wallSplat) {
+                // 壁張り付き（Task 192）：画面端付近なら通常より長い硬直で張り付かせる（フルコンボ始動）。
+                defender.applyWallSplat(dealtDamage, hitstun, knockbackDir);
             } else if (launch > 0f) {
                 defender.applyLaunch(dealtDamage, hitstun, knockbackDir, launch);
             } else {
@@ -1875,7 +1890,11 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
         }
         if (!blocked && !armored) {
-            defender.addStun(dealtDamage);
+            // 確定スタン技（Task 198）：スタン蓄積を増幅（一撃でめまいを誘発しやすい）。
+            boolean causesDizzy = attacker.getCurrentMove() != null && attacker.getCurrentMove().isCausesDizzy();
+            defender.addStun(causesDizzy
+                    ? Math.round(dealtDamage * GameConstants.DIZZY_MOVE_STUN_SCALE)
+                    : dealtDamage);
         }
         if (counter) {
             defender.markCounterHit();
