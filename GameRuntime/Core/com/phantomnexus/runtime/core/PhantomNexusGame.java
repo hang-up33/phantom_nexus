@@ -395,6 +395,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void returnToTitle() {
         survivalMode = false;
         timeAttackMode = false;
+        renderer.setArcadeScore(-1);
         titleSelection = 0;
         screen = Screen.TITLE;
     }
@@ -872,6 +873,17 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // リマッチヒント：通常プレイのマッチ確定後かつ直前マッチ情報が保存済みの場合に表示する（Task 178）。
         // 撮影は既定で非表示だが -x rematch=true で証跡用に重ねられる（後方互換）。
         renderer.setRematchAvailable((interactiveFinished && rematchP1Id != null) || screenshot.rematchHintForced());
+        // アーケードスコア（Task 186）：サバイバル/タイムアタックがゲームオーバー（P1 敗北）になったらスコアを表示する。
+        // P1 が勝利して次戦へ進む間は -1（非表示）。撮影用オーバーライド（-x arcadescore=N）でも強制表示できる。
+        int shownScore = screenshot.arcadeScoreOverride();
+        if (shownScore < 0 && interactiveFinished) {
+            if (survivalMode && round.getMatchWinner() != com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                shownScore = survivalKills * 1000;
+            } else if (timeAttackMode && round.getMatchWinner() != com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                shownScore = timeAttackKills * 1000;
+            }
+        }
+        renderer.setArcadeScore(shownScore);
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。
