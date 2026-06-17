@@ -610,6 +610,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
             return; // 遷移したフレームはここで終了し、次フレームからバトルを処理。
         }
+        // セッション戦績（Task 177）：決着の最初のフレームに 1 度だけ記録する。撮影/リプレイは対象外。
+        // update() より先に記録することで、同フレームに決着＋ENTER が重なっても記録漏れが起きない。
+        if (round.isFinished() && !matchResultRecorded
+                && !screenshot.isEnabled() && !replay.isReplaying()) {
+            matchResultRecorded = true;
+            switch (round.getMatchWinner()) {
+                case P1: sessionWins1++; break;
+                case P2: sessionWins2++; break;
+                default: sessionDraws++; break;
+            }
+            renderer.setSessionRecord(buildSessionRecord());
+        }
         // 決着後（マッチ確定）にスタート画面（タイトル）へ戻る。通常プレイのみ有効で、撮影/リプレイは
         // 結果を凍結したまま（既存スクショレシピ・リプレイの決定性を壊さない後方互換）。メニューと同じ
         // ENTER/SPACE/J、加えて ESC で戻れる（ただしアーケードは ENTER/SPACE/J のみ＝誤 ESC 進行防止）。
@@ -696,17 +708,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 着地の砂煙も凍結ガードより前で aging（凍結中も土埃は広がり続ける。Task 131）。
         updateLandingDust();
         // マッチ決着後は全更新を凍結して結果表示の静止画を保つ。
+        // セッション戦績の記録は render() 冒頭（early return より前）で行う（Task 177）。
         if (round.isFinished()) {
-            // セッション戦績（Task 177）：決着の最初のフレームに 1 度だけ記録する。撮影/リプレイは対象外。
-            if (!matchResultRecorded && !screenshot.isEnabled() && !replay.isReplaying()) {
-                matchResultRecorded = true;
-                switch (round.getMatchWinner()) {
-                    case P1: sessionWins1++; break;
-                    case P2: sessionWins2++; break;
-                    default: sessionDraws++; break;
-                }
-                renderer.setSessionRecord(buildSessionRecord());
-            }
             return;
         }
         // ヒットストップ（Task 86）：命中直後の数フレーム、ファイター更新・判定・タイマー・アニメを凍結して
