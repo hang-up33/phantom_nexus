@@ -139,6 +139,14 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** タイムアタックで倒した対戦相手の数。 */
     private int timeAttackKills;
 
+    // アーケードハイスコアランキング（Task 187）：セッション内のサバイバル/タイムアタックの上位 5 スコアを保持する。
+    /** ランキングに保持する最大件数。 */
+    private static final int HIGH_SCORE_MAX = 5;
+    /** セッション内の上位スコアリスト（スコア降順・最大 HIGH_SCORE_MAX 件）。 */
+    private final java.util.ArrayList<Integer> highScores = new java.util.ArrayList<>();
+    /** 現在のアーケードゲームオーバーでスコアをランキングに登録済みか（二重登録防止）。 */
+    private boolean arcadeScoreRecorded;
+
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
         "fighter001", "fighter002", "fighter003", "fighter004", "fighter005",
@@ -396,8 +404,22 @@ public class PhantomNexusGame extends ApplicationAdapter {
         survivalMode = false;
         timeAttackMode = false;
         renderer.setArcadeScore(-1);
+        renderer.setHighScores(highScores);
         titleSelection = 0;
         screen = Screen.TITLE;
+    }
+
+    /**
+     * スコアをセッションランキングに登録し、降順上位 HIGH_SCORE_MAX 件を保持する（Task 187）。
+     * 挿入後にスコア一覧をレンダラへ渡して結果バナーに反映する。
+     */
+    private void recordHighScore(int score) {
+        highScores.add(score);
+        highScores.sort(java.util.Collections.reverseOrder());
+        while (highScores.size() > HIGH_SCORE_MAX) {
+            highScores.remove(highScores.size() - 1);
+        }
+        renderer.setHighScores(highScores);
     }
 
     /**
@@ -429,6 +451,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void startSurvival() {
         survivalMode = true;
         survivalKills = 0;
+        arcadeScoreRecorded = false;
         survivalP1Hp = fighter1.getMaxHp();
         survivalNextScheduled = false;
         trainingMode = false;
@@ -481,6 +504,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private void startTimeAttack() {
         timeAttackMode = true;
         timeAttackKills = 0;
+        arcadeScoreRecorded = false;
         timeAttackFramesLeft = TIME_ATTACK_TOTAL_FRAMES;
         trainingMode = false;
         p2AiEnabled = true;
@@ -884,6 +908,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
         }
         renderer.setArcadeScore(shownScore);
+        // アーケードハイスコア登録（Task 187）：ゲームオーバー確定の最初のフレームに 1 回だけスコアを記録する。
+        if (shownScore >= 0 && !arcadeScoreRecorded && screenshot.arcadeScoreOverride() < 0) {
+            arcadeScoreRecorded = true;
+            recordHighScore(shownScore);
+        }
+        // 撮影用ハイスコアオーバーライド（Task 187）：-x highscores=N1,N2 でランキングを強制表示する。
+        java.util.List<Integer> hsOverride = screenshot.highScoresOverride();
+        if (!hsOverride.isEmpty()) {
+            renderer.setHighScores(hsOverride);
+        }
         renderer.renderScene(fighter1, fighter2, animator1, animator2, projectiles, damagePopups, hitSparks,
                 landingDusts, round, debugOverlay, controlsHint, statusLine(), p1Inputs, moveListVisible);
         // 描画後にフレームバッファを撮影（撮影モード時のみ。完了したら自動終了）。

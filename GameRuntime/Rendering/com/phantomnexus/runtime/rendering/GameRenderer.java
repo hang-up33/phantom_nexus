@@ -283,6 +283,8 @@ public class GameRenderer {
     private boolean rematchAvailable;
     // アーケードスコア（Task 186）：サバイバル/タイムアタックのゲームオーバー時に表示する最終スコア。-1 は非表示。
     private int arcadeScore = -1;
+    // アーケードハイスコアランキング（Task 187）：セッション内上位 5 件。空ならランキング非表示。
+    private java.util.List<Integer> highScores = java.util.Collections.emptyList();
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -327,6 +329,11 @@ public class GameRenderer {
     /** サバイバル/タイムアタックのゲームオーバー時に表示するスコアを設定する（Task 186）。-1 で非表示。 */
     public void setArcadeScore(int score) {
         this.arcadeScore = score;
+    }
+
+    /** セッション内ハイスコアランキングを設定する（Task 187）。空なら非表示。 */
+    public void setHighScores(java.util.List<Integer> scores) {
+        this.highScores = scores != null ? scores : java.util.Collections.emptyList();
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -724,18 +731,30 @@ public class GameRenderer {
         drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
         drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
         // アーケードスコア（Task 186）：サバイバル/タイムアタックのゲームオーバー時に SCORE を金色で表示する。
+        float hintBaseY = GameConstants.WORLD_HEIGHT / 2f - 125f;
         if (arcadeScore >= 0) {
             drawBannerText("SCORE: " + arcadeScore, cx, GameConstants.WORLD_HEIGHT / 2f - 75f, 1.8f, PERFECT_COLOR);
+            // ハイスコアランキング（Task 187）：セッション内上位 5 件を小さく表示する。
+            if (!highScores.isEmpty()) {
+                drawBannerText("--- HIGH SCORES ---", cx, GameConstants.WORLD_HEIGHT / 2f - 105f, 0.85f, Color.LIGHT_GRAY);
+                for (int i = 0; i < highScores.size(); i++) {
+                    boolean isCurrent = highScores.get(i) == arcadeScore && i == highScores.indexOf(arcadeScore);
+                    Color rankColor = isCurrent ? PERFECT_COLOR : Color.WHITE;
+                    drawBannerText((i + 1) + ". " + highScores.get(i),
+                            cx, GameConstants.WORLD_HEIGHT / 2f - 120f - i * 16f, 0.85f, rankColor);
+                }
+                hintBaseY = GameConstants.WORLD_HEIGHT / 2f - 120f - highScores.size() * 16f - 10f;
+            }
         }
         // 通常プレイのマッチ確定時のみ、スタート画面へ戻る操作ヒントを表示する（撮影/リプレイは非表示＝既存レシピ不変）。
         if (returnToTitleHint) {
             drawBannerText("PRESS ENTER TO RETURN TO TITLE",
-                    cx, GameConstants.WORLD_HEIGHT / 2f - 125f, 0.9f, ROUND_INTRO_COLOR);
+                    cx, hintBaseY, 0.9f, ROUND_INTRO_COLOR);
         }
         // リマッチ可能な場合は R キーのヒントを表示する（Task 178）。
         if (rematchAvailable) {
             drawBannerText("PRESS R TO REMATCH",
-                    cx, GameConstants.WORLD_HEIGHT / 2f - 100f, 0.9f, Color.YELLOW);
+                    cx, hintBaseY + 20f, 0.9f, Color.YELLOW);
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
