@@ -279,6 +279,8 @@ public class GameRenderer {
     // 決着後「タイトルへ戻る」ヒント表示フラグ。通常プレイのマッチ確定時のみ Core が立てる
     // （撮影/リプレイでは false＝結果バナーのスクショ・決定性は従来どおり不変）。
     private boolean returnToTitleHint;
+    /** アーケードモードの進行ヒント文（Task 176）。null 以外のとき結果バナーに表示。 */
+    private String arcadeHint;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -313,6 +315,11 @@ public class GameRenderer {
     /** 決着後の結果バナーに「タイトルへ戻る」操作ヒントを表示するか（通常プレイのみ true・撮影/リプレイは false）。 */
     public void setReturnToTitleHint(boolean show) {
         this.returnToTitleHint = show;
+    }
+
+    /** アーケードモードの進行ヒント文を設定する（Task 176）。null でクリア（アーケード外）。 */
+    public void setArcadeHint(String hint) {
+        this.arcadeHint = hint;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -710,7 +717,10 @@ public class GameRenderer {
         drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
         drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
         // 通常プレイのマッチ確定時のみ、スタート画面へ戻る操作ヒントを表示する（撮影/リプレイは非表示＝既存レシピ不変）。
-        if (returnToTitleHint) {
+        if (arcadeHint != null) {
+            // アーケードモード：次の対戦相手・クリア・ゲームオーバーを示すヒント（Task 176）。
+            drawBannerText(arcadeHint, cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.85f, Color.CYAN);
+        } else if (returnToTitleHint) {
             drawBannerText("PRESS ENTER TO RETURN TO TITLE",
                     cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, ROUND_INTRO_COLOR);
         }
@@ -1836,18 +1846,21 @@ public class GameRenderer {
         font.getData().setScale(2.6f);
         font.setColor(TITLE_ACCENT_COLOR);
         drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 110f);
-        // メニュー（不透明バー内）。
+        // メニュー（不透明バー内）：VERSUS / ARCADE / TRAINING の 3 択（Task 176）。
         font.getData().setScale(1.5f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 45f);
-        font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
-        drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 100f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 35f);
+        font.setColor(selection == 1 ? Color.CYAN : Color.WHITE);
+        drawCentered((selection == 1 ? "> " : "  ") + "ARCADE" + (selection == 1 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 80f);
+        font.setColor(selection == 2 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 2 ? "> " : "  ") + "TRAINING" + (selection == 2 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 125f);
         font.setColor(Color.WHITE);
         font.getData().setScale(0.95f);
         drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
-        drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
+        drawCentered("ARCADE = Beat all CPU opponents in a row!",
                 GameConstants.WORLD_WIDTH / 2f, 28f);
         font.getData().setScale(1.0f);
         batch.end();
