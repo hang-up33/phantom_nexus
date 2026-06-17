@@ -119,6 +119,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** インゲームリプレイ再生中の ReplayController（null は非再生）。 */
     private ReplayController ingameReplay;
 
+    // サバイバルモード（Task 184）：HP 引き継ぎで連続対戦。
+    /** サバイバルモード中か。 */
+    private boolean survivalMode;
+    /** 倒した対戦相手の数。 */
+    private int survivalKills;
+    /** ラウンド終了後に P1 へ引き継ぐ HP（勝利確定のフレームで記録）。 */
+    private int survivalP1Hp;
+    /** サバイバルモードで次の対戦相手を自動開始する直前の確認フラグ（1 マッチ 1 回）。 */
+    private boolean survivalNextScheduled;
+
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
         "fighter001", "fighter002", "fighter003", "fighter004", "fighter005",
@@ -304,8 +314,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * （Task 117 で対戦は CHARACTER_SELECT を経由するよう拡張予定）。メニューは Gdx キーを直接見る（純 UI・乱数なし）。
      */
     private void updateTitle() {
-        // Task 183: REPLAY LAST は replays/last.rep が存在するときのみ表示（3 択）、それ以外は 2 択。
-        final int TITLE_ITEMS = replayAvailable ? 3 : 2;
+        // 0=VERSUS / 1=TRAINING / 2=SURVIVAL / 3=REPLAY LAST（ファイルあり時のみ）。
+        final int TITLE_ITEMS = replayAvailable ? 4 : 3;
         if (Gdx.input.isKeyJustPressed(Input.Keys.UP) || Gdx.input.isKeyJustPressed(Input.Keys.W)
                 || gamepad.menuUp()) {
             titleSelection = (titleSelection - 1 + TITLE_ITEMS) % TITLE_ITEMS;
@@ -324,9 +334,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 || gamepad.menuConfirm();
         if (confirm) {
             if (titleSelection == 1) {
-                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。既定キャラで即バトルへ（キャラ選択なし）。
+                // トレーニング：P2 は何もしない（AI OFF）＋ HP 無限でコンボ練習。
                 startTraining();
-            } else if (titleSelection == 2 && replayAvailable) {
+            } else if (titleSelection == 2) {
+                // サバイバル：HP を引き継いで連続対戦（Task 184）。
+                startSurvival();
+            } else if (titleSelection == 3 && replayAvailable) {
                 // REPLAY LAST：保存済みの直前バトルを再生する（Task 183）。
                 startIngameReplay();
             } else {
@@ -367,6 +380,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
      * 改めてラウンド・ファイターを作り直すため、前マッチの確定状態は持ち越さない。通常プレイ専用。
      */
     private void returnToTitle() {
+        survivalMode = false;
         titleSelection = 0;
         screen = Screen.TITLE;
     }
@@ -391,6 +405,57 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** インゲームリプレイの保存パス。 */
     private static String ingameReplayPath() {
         return "replays/last.rep";
+    }
+
+    /**
+     * サバイバルモードを開始する（Task 184）。P1 は既定キャラ・フル HP でスタートし、
+     * AI 相手にランダムキャラで連続対戦する。HP は試合間で引き継ぎ、負けた時点で終了。
+     */
+    private void startSurvival() {
+        survivalMode = true;
+        survivalKills = 0;
+        survivalP1Hp = fighter1.getMaxHp();
+        survivalNextScheduled = false;
+        trainingMode = false;
+        p2AiEnabled = true;
+        // P2 をランダムキャラで差し替える（P1 は create() ロード済みのデフォルトキャラを流用）。
+        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
+        String stageId = STAGE_IDS[(int)(Math.random() * STAGE_IDS.length)];
+        ensureStagesLoaded();
+        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter2.setMeter(0f);
+        animator2 = new FighterAnimator();
+        round = new RoundManager(new BattleRules(battleRules.getTimeLimitSeconds(), 1), 0);
+        resetFighters();
+        fighter1.setCurrentHp(survivalP1Hp); // フル HP（初戦）
+        controlsHint = buildControlsHint();
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
+        screen = Screen.BATTLE;
+    }
+
+    /**
+     * サバイバルモードで次の対戦相手へ進む（P1 が勝った場合・Task 184）。
+     * P1 の HP を引き継ぎ、新しいランダムキャラ＋ランダムステージで 1 ラウンドバトルを開始する。
+     */
+    private void advanceSurvival() {
+        survivalKills++;
+        survivalP1Hp = fighter1.getCurrentHp();
+        survivalNextScheduled = false;
+        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
+        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
+        fighter2.setMeter(0f);
+        animator2 = new FighterAnimator();
+        round = new RoundManager(new BattleRules(battleRules.getTimeLimitSeconds(), 1), 0);
+        resetFighters();
+        fighter1.setCurrentHp(survivalP1Hp); // HP 引き継ぎ
+        ingameReplayBuffer.clear();
+        ingameSaved = false;
+        ingameReplay = null;
+        controlsHint = buildControlsHint(); // kills カウントを反映
     }
 
     /** キャラクター選択画面へ入る（Task 117）。ロスター名を遅延ロードし、選択状態を初期化する。 */
@@ -611,17 +676,46 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // ENTER/SPACE/J、加えて ESC で戻れる。遷移したフレームは return して次フレームからタイトルを処理する。
         if (round.isFinished() && !screenshot.isEnabled()
                 && !replay.isReplaying() && !replay.isRecording()) {
+            // サバイバルモード（Task 184）：P1 勝利なら次の対戦相手へ自動進行（ENTER で続行）。
+            // P2 勝利 or 引き分けなら GAME OVER として通常の「タイトルへ戻る」導線へ落とす。
+            if (survivalMode) {
+                com.phantomnexus.runtime.battle.RoundManager.Winner winner = round.getMatchWinner();
+                if (winner == com.phantomnexus.runtime.battle.RoundManager.Winner.P1
+                        && !survivalNextScheduled) {
+                    // ENTER/SPACE/J で次の対戦相手へ進む。
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                            || gamepad.menuConfirm()) {
+                        survivalNextScheduled = true;
+                        advanceSurvival();
+                        return;
+                    }
+                } else if (winner != com.phantomnexus.runtime.battle.RoundManager.Winner.P1) {
+                    // 敗北 / 引き分け：サバイバル終了。ESC/ENTER でタイトルへ。
+                    if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                            || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
+                            || gamepad.menuConfirm() || gamepad.menuCancel()) {
+                        survivalMode = false;
+                        returnToTitle();
+                        return;
+                    }
+                }
+            }
             // R キー：リマッチ（同じキャラ/ステージ/モードで即再戦・Task 178）
-            if ((Gdx.input.isKeyJustPressed(Input.Keys.R) || gamepad.menuLeft()) && rematchP1Id != null) {
+            if (!survivalMode && (Gdx.input.isKeyJustPressed(Input.Keys.R) || gamepad.menuLeft())
+                    && rematchP1Id != null) {
                 rematch();
                 return;
             }
             // ENTER/SPACE/J/ESC：タイトルへ戻る（従来動作）
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+            if (!survivalMode && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
                     || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
                     || Gdx.input.isKeyJustPressed(Input.Keys.J)
                     || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
-                    || gamepad.menuConfirm() || gamepad.menuCancel()) {
+                    || gamepad.menuConfirm() || gamepad.menuCancel())) {
                 returnToTitle();
                 return;
             }
@@ -1372,10 +1466,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     /** 操作ガイド HUD 文字列を組み立てる（難易度ラベルを含むため F3 切替時にも再構築する・Task 78）。 */
     private String buildControlsHint() {
+        String survival = survivalMode ? "  [SURVIVAL] kills=" + survivalKills : "";
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
                 + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")"
-                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")";
+                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")"
+                + survival;
     }
 
     private String statusLine() {

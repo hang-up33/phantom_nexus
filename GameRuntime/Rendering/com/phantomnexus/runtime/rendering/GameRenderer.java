@@ -1850,22 +1850,25 @@ public class GameRenderer {
         font.setColor(TITLE_ACCENT_COLOR);
         drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 110f);
         // メニュー（不透明バー内）。
-        font.getData().setScale(1.5f);
+        font.getData().setScale(1.4f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 38f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 30f);
         font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 80f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 68f);
+        font.setColor(selection == 2 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 2 ? "> " : "  ") + "SURVIVAL" + (selection == 2 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 106f);
         if (replayAvailable) {
-            font.setColor(selection == 2 ? Color.YELLOW : Color.LIGHT_GRAY);
-            drawCentered((selection == 2 ? "> " : "  ") + "REPLAY LAST" + (selection == 2 ? " <" : ""),
-                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 122f);
+            font.setColor(selection == 3 ? Color.YELLOW : Color.LIGHT_GRAY);
+            drawCentered((selection == 3 ? "> " : "  ") + "REPLAY LAST" + (selection == 3 ? " <" : ""),
+                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 144f);
         }
         font.setColor(Color.WHITE);
-        font.getData().setScale(0.95f);
-        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
-        drawCentered("TRAINING = infinite HP practice  |  REPLAY LAST = watch previous match",
+        font.getData().setScale(0.9f);
+        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 56f);
+        drawCentered("SURVIVAL = HP carries over  |  TRAINING = infinite HP  |  REPLAY LAST = watch last match",
                 GameConstants.WORLD_WIDTH / 2f, 28f);
         font.getData().setScale(1.0f);
         batch.end();
