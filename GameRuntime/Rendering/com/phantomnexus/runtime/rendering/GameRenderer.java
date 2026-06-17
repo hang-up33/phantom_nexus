@@ -1849,17 +1849,20 @@ public class GameRenderer {
         font.setColor(TITLE_ACCENT_COLOR);
         drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 110f);
         // メニュー（不透明バー内）。
-        font.getData().setScale(1.5f);
+        font.getData().setScale(1.4f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 45f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 38f);
         font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 100f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 80f);
+        font.setColor(selection == 2 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 2 ? "> " : "  ") + "VIEWER" + (selection == 2 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 122f);
         font.setColor(Color.WHITE);
         font.getData().setScale(0.95f);
         drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
-        drawCentered("TRAINING = Player 2 does nothing (infinite HP practice)",
+        drawCentered("TRAINING = infinite HP practice  |  VIEWER = sprite animation viewer",
                 GameConstants.WORLD_WIDTH / 2f, 28f);
         font.getData().setScale(1.0f);
         batch.end();
@@ -2001,6 +2004,82 @@ public class GameRenderer {
         if (tint != null) {
             batch.setColor(Color.WHITE);
         }
+    }
+
+    /**
+     * キャラクタービューア画面を描く（Task 182）。選択中キャラの指定アニメーション状態・フレームを
+     * 画面中央に大きく表示し、下部バーにキャラ名・状態名・操作説明を表示する。
+     * LEFT/RIGHT でキャラ切替、UP/DOWN でアニメーション状態切替（Core 側 updateCharacterViewer が制御）。
+     */
+    public void renderCharacterViewer(Character[] defs, String[] names, int charIndex,
+                                      AnimationState state, int frameIndex) {
+        ScreenUtils.clear(0.08f, 0.08f, 0.14f, 1f);
+        centerCamera();
+        camera.update();
+        auraTick = (auraTick + 1) % 36000;
+
+        Character def = (defs != null && charIndex < defs.length) ? defs[charIndex] : null;
+        if (def != null) {
+            sprites.ensureLoaded(def);
+        }
+
+        // 下部の操作バー（不透明）
+        final float BAR_H = 160f;
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, BAR_H);
+        shapes.end();
+
+        // スプライトパス：キャラを中央に大きく描く
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+
+        if (def != null) {
+            TextureRegion region = sprites.region(def, state, frameIndex);
+            if (region != null) {
+                // 右向きのまま表示（ビューアは常に右向き）
+                if (region.isFlipX()) {
+                    region.flip(true, false);
+                }
+                // 画面高さの 60% のスケールで中央に表示（大きく見やすく）
+                float targetH = (GameConstants.WORLD_HEIGHT - BAR_H) * 0.70f;
+                float scale = targetH / def.getHeight();
+                float drawW = def.getWidth() * scale;
+                float cx = GameConstants.WORLD_WIDTH / 2f;
+                float footY = BAR_H + 20f;
+                batch.draw(region, cx - drawW / 2f, footY, drawW, targetH);
+            }
+
+            // キャラ名と状態名
+            font.getData().setScale(2.0f);
+            font.setColor(TITLE_ACCENT_COLOR);
+            drawCentered(names != null ? names[charIndex] : def.getName(),
+                    GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 40f);
+
+            font.getData().setScale(1.3f);
+            font.setColor(Color.YELLOW);
+            drawCentered(state.label().toUpperCase() + "  [" + (frameIndex + 1) + "/" + state.frameCount() + "]",
+                    GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 90f);
+        }
+
+        // 下部バー：操作説明
+        font.getData().setScale(0.9f);
+        font.setColor(Color.WHITE);
+        drawCentered("LEFT / RIGHT : character      UP / DOWN : animation state      ESC : back to title",
+                GameConstants.WORLD_WIDTH / 2f, BAR_H - 40f);
+
+        // キャラ番号インジケーター（← 1/10 →）
+        if (names != null) {
+            font.getData().setScale(1.0f);
+            font.setColor(Color.LIGHT_GRAY);
+            drawCentered("<  " + (charIndex + 1) + " / " + names.length + "  >",
+                    GameConstants.WORLD_WIDTH / 2f, BAR_H - 80f);
+        }
+
+        font.getData().setScale(1.0f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     /**
