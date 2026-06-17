@@ -48,6 +48,30 @@ public final class ReplayController {
     private int frameIndex;
     private boolean currentAi = true;
 
+    /** 指定パスからリプレイを読み込み、即座に再生可能な状態で返す（Task 183 のインゲーム再生用）。 */
+    public static ReplayController forPlayback(String path) {
+        List<int[]> loaded = new ArrayList<>();
+        try (BufferedReader r = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = r.readLine()) != null) {
+                int[] parsed = parseLine(line);
+                if (parsed != null) {
+                    loaded.add(parsed);
+                }
+            }
+        } catch (Exception e) {
+            Gdx.app.error("Replay", "再生ファイルを読めません: " + path, e);
+        }
+        return new ReplayController(loaded);
+    }
+
+    /** ロード済みフレームリストから再生専用インスタンスを作る（{@link #forPlayback} からのみ使用）。 */
+    private ReplayController(List<int[]> preloadedFrames) {
+        this.frames = preloadedFrames;
+        this.recording = false;
+        this.replaying = !preloadedFrames.isEmpty();
+    }
+
     /** システムプロパティを読み取り、記録 / 再生の準備を行う。記録・再生いずれも未指定なら何もしない。 */
     public ReplayController() {
         String recordPath = trimToNull(System.getProperty("phantom.replay.record"));
