@@ -11,6 +11,7 @@ import com.phantomnexus.runtime.battle.LandingDust;
 import com.phantomnexus.runtime.battle.Fighter;
 import com.phantomnexus.runtime.battle.Projectile;
 import com.phantomnexus.runtime.battle.RoundManager;
+import com.phantomnexus.runtime.audio.MusicManager;
 import com.phantomnexus.runtime.audio.SoundManager;
 import com.phantomnexus.runtime.debug.DebugOverlay;
 import com.phantomnexus.runtime.debug.ReplayController;
@@ -50,6 +51,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
 
     private GameRenderer renderer;
     private SoundManager sounds;
+    private MusicManager music;
     private boolean fightSoundPlayed; // "FIGHT!" バナー表示時の音を 1 回だけ再生するフラグ
     private PlayerInput p1Input;
     private PlayerInput p2Input;
@@ -156,6 +158,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
     public void create() {
         renderer = new GameRenderer();
         sounds = new SoundManager();
+        music = new MusicManager();
         // ヘッドレス自動スクショ（phantom.screenshot.* 指定時のみ有効。通常起動には無影響）。
         // ステージ/キャラ等のオーバーライドを参照するため、他のロードより先に初期化する。
         screenshot = new ScreenshotController();
@@ -245,6 +248,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
         } else {
             screen = Screen.TITLE;
+            music.playMenu();
         }
     }
 
@@ -335,6 +339,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         round = new RoundManager(battleRules, introFramesValue);
         resetFighters();
         controlsHint = buildControlsHint();
+        music.playBattle();
         screen = Screen.BATTLE;
     }
 
@@ -347,6 +352,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         titleSelection = 0;
         arcadeMode = false;
         renderer.setArcadeHint(null);
+        music.playMenu();
         screen = Screen.TITLE;
     }
 
@@ -556,6 +562,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         lastInputToken = "";
         matchResultRecorded = false; // 新マッチ開始で戦績記録をリセット（Task 177）
         controlsHint = buildControlsHint();
+        music.playBattle();
         screen = Screen.BATTLE;
     }
 
@@ -676,9 +683,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
             moveListVisible = !moveListVisible;
             controlsHint = buildControlsHint();
         }
-        // M キー：SE のミュート/アンミュートを切り替える（純演出なので記録/再生中も操作可）。
+        // M キー：SE と BGM のミュート/アンミュートを切り替える（純演出なので記録/再生中も操作可）。
         if (Gdx.input.isKeyJustPressed(Input.Keys.M)) {
             sounds.toggle();
+            music.setEnabled(!music.isEnabled());
             controlsHint = buildControlsHint();
         }
         // 記録モード：update が消費する前にこのフレームの入力スナップショットを残す。
@@ -1340,7 +1348,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
                 + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")"
-                + "  [M] SE(" + (sounds.isEnabled() ? "on" : "off") + ")";
+                + "  [M] SND(" + (sounds.isEnabled() ? "on" : "off") + ")";
     }
 
     private String statusLine() {
@@ -1380,5 +1388,6 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
         renderer.dispose();
         sounds.dispose();
+        music.dispose();
     }
 }
