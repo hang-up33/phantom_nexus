@@ -234,6 +234,8 @@ public class GameRenderer {
     private final ShapeRenderer shapes;
     // キャラのスプライトシート（あれば矩形の代わりにテクスチャ描画。Task 34）。
     private final SpriteLibrary sprites = new SpriteLibrary();
+    // ステージの全画面背景 PNG（あれば手続き背景の代わりに 1 枚絵を敷く。外部デザイン取り込み用）。
+    private final StageBackgroundLibrary stageBackgrounds = new StageBackgroundLibrary();
     private final OrthographicCamera camera;
     private final Viewport viewport;
     private final BitmapFont font;
@@ -287,6 +289,8 @@ public class GameRenderer {
     private String stageName = "";
     // 背景の多層シルエット（Task 151）。setStage で受け取り、パス 1 で空と地面の間に奥から描く。
     private StageLayer[] stageLayers;
+    // 全画面 1 枚絵の背景 PNG パス（任意）。setStage で受け取り、あれば手続き背景の代わりに敷く。
+    private String stageBackgroundPath;
     private final Color layerColor = new Color(); // レイヤー描画用の作業色（毎フレーム再確保を避ける）
     private final Color layerHighlight = new Color(); // 前景 frame の内側ハイライト用の作業色（Task 158）
 
@@ -318,6 +322,7 @@ public class GameRenderer {
         setColor(groundColor, stage.getGroundColor());
         stageName = stage.getName();
         stageLayers = stage.getLayers(); // 背景の多層シルエット（任意・null なら従来どおり。Task 151）
+        stageBackgroundPath = stage.getBackground(); // 全画面 1 枚絵の背景（任意・null なら手続き背景）
     }
 
     /**
@@ -421,19 +426,36 @@ public class GameRenderer {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // --- パス 1: ステージ背景（空グラデ + 地面）---
+        // 全画面 1 枚絵の背景（外部デザイン取り込み・任意）。あれば手続き背景（空グラデ＋多層シルエット＋
+        // 地面塗り＋空の演出）の代わりにこの画像を敷く。欠落・未指定なら null ＝従来どおり手続き背景。
+        TextureRegion stageBg = stageBackgrounds.get(stageBackgroundPath);
+
+        // --- パス 0: ステージ背景画像（テクスチャ）---
+        // 画像があれば最初に全画面へ描く（以降の手続き背景はスキップ）。バッチ描画なのでパス 1（shapes）と分ける。
+        if (stageBg != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            batch.draw(stageBg, 0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+            batch.end();
+        }
+
+        // --- パス 1: ステージ背景（空グラデ + 地面）+ 足元の演出 ---
         shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
-        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
-                skyBottom, skyBottom, skyTop, skyTop);
-        // 背景の多層シルエット（Task 151）：空グラデーションの上、地面の前に奥（遠景）→手前（近景）の順で描く。
-        // front=false＝背景レイヤーのみ（前景レイヤー＝Task 158 はパス 2.5 でキャラの手前に描く）。
-        drawStageLayers(false);
-        // 地面（床）。
-        shapes.setColor(groundColor);
-        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+        // 手続き背景は背景画像が無いときのみ描く（画像が空グラデ・多層シルエット・地面塗りを兼ねる）。
+        if (stageBg == null) {
+            // 空：下端（地平線）→上端のグラデーション。rect(x,y,w,h, c00,c10,c11,c01) は左下→右下→右上→左上。
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
+                    skyBottom, skyBottom, skyTop, skyTop);
+            // 背景の多層シルエット（Task 151）：空グラデーションの上、地面の前に奥（遠景）→手前（近景）の順で描く。
+            // front=false＝背景レイヤーのみ（前景レイヤー＝Task 158 はパス 2.5 でキャラの手前に描く）。
+            drawStageLayers(false);
+            // 地面（床）。
+            shapes.setColor(groundColor);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
+        }
         // 足元の影：キャラスプライト（パス 2）の前に床へ落とし、その上に立つ見栄えにする（Task 130）。
+        // 背景画像の有無に依らず描く（キャラが地に足を着けて見える＝ゲームプレイの手がかり）。
         drawGroundShadow(p1);
         drawGroundShadow(p2);
         // 必殺技ゲージ満タンのオーラ（Task 137）：影と同じくスプライトの前（足元）に金色のパルス光輪を描く。
@@ -442,10 +464,14 @@ public class GameRenderer {
         auraTick = (auraTick + 1) % 36000;
         drawMeterAura(p1);
         drawMeterAura(p2);
-        // 空の光の帯（Task 147）：背景をゆっくり横切る淡い光の縦帯。浮遊粒の前（同じ背景レイヤ）。
-        drawSkySweep();
-        // 背景の浮遊パーティクル（Task 139）：空気感を出す微かな光の粒。スプライト（パス 2）より後ろ＝背景。
-        drawAmbientMotes();
+        // 空の演出（光の帯・浮遊粒）は手続き背景にだけ重ねる。1 枚絵アートの上に重ねると意図しない見た目になるため、
+        // 背景画像があるときはスキップしてアートをそのまま見せる。
+        if (stageBg == null) {
+            // 空の光の帯（Task 147）：背景をゆっくり横切る淡い光の縦帯。浮遊粒の前（同じ背景レイヤ）。
+            drawSkySweep();
+            // 背景の浮遊パーティクル（Task 139）：空気感を出す微かな光の粒。スプライト（パス 2）より後ろ＝背景。
+            drawAmbientMotes();
+        }
         shapes.end();
 
         // ミラーマッチ（同キャラ対戦）なら P2 にパレットスワップを適用して識別する（Task 62）。
@@ -465,9 +491,12 @@ public class GameRenderer {
         // --- パス 2.5: 前景レイヤー（Task 158）---
         // front=true のステージレイヤーをキャラの手前に描いて奥行き（被写界深度）を出す。
         // HP バー等の HUD（パス 3）・デバッグ枠（パス 4）・テキスト（パス 5）はこの後なので前景の上に乗る。
-        shapes.begin(ShapeRenderer.ShapeType.Filled);
-        drawStageLayers(true);
-        shapes.end();
+        // 背景画像があるときは手続き前景レイヤーをスキップ（1 枚絵アートが前景込みで完結する想定）。
+        if (stageBg == null) {
+            shapes.begin(ShapeRenderer.ShapeType.Filled);
+            drawStageLayers(true);
+            shapes.end();
+        }
 
         // --- パス 3: オーバーレイ（矩形フォールバック / ガード / 攻撃 strike / 接触 / 飛び道具 / HP）---
         shapes.begin(ShapeRenderer.ShapeType.Filled);
@@ -1775,10 +1804,20 @@ public class GameRenderer {
         // 全ステージの実背景をゆっくり巡回（Core が切り替え）。可読性のため、ステージ選択（Task 159）と同じく
         // 下部に不透明の操作バーを重ねる（半透明全画面の暗転はソフトウェア GL で化けるため不使用＝不透明 rect）。
         auraTick = (auraTick + 1) % 36000;
+        if (backdrop != null) {
+            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全（background も設定される）
+        }
+        // 背景画像（任意）。あればデモリール背景も 1 枚絵で表示（ステージ選択/バトルと同じ見た目）。
+        TextureRegion titleBg = backdrop != null ? stageBackgrounds.get(stageBackgroundPath) : null;
+        if (titleBg != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            batch.draw(titleBg, 0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+            batch.end();
+        }
         shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        if (backdrop != null) {
-            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全
+        if (backdrop != null && titleBg == null) {
             shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
                     skyBottom, skyBottom, skyTop, skyTop);
             drawStageLayers(false);
@@ -1826,10 +1865,20 @@ public class GameRenderer {
         auraTick = (auraTick + 1) % 36000;
 
         // --- 背景（実ステージ）＋下部の不透明操作バー（Task 161・タイトル/ステージ選択と同じ作法）---
+        if (backdrop != null) {
+            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全（background も設定される）
+        }
+        // 背景画像（任意）。あればキャラ選択背景も 1 枚絵で表示（タイトル/ステージ選択/バトルと同じ見た目）。
+        TextureRegion charselBg = backdrop != null ? stageBackgrounds.get(stageBackgroundPath) : null;
+        if (charselBg != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            batch.draw(charselBg, 0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+            batch.end();
+        }
         shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        if (backdrop != null) {
-            setStage(backdrop); // バトル開始時の setStage で再設定されるので一時上書きで安全
+        if (backdrop != null && charselBg == null) {
             shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
                     skyBottom, skyBottom, skyTop, skyTop);
             drawStageLayers(false);
@@ -1954,19 +2003,29 @@ public class GameRenderer {
         // --- 選択中ステージのライブプレビュー（Task 159）---
         // 実際のバトル背景（空グラデ + 多層シルエット + 地面 + 前景）を全画面に描く。カーソル移動で背景が切り替わる。
         if (preview != null) {
-            setStage(preview); // skyTop/skyBottom/groundColor/stageLayers をプレビュー対象へ（バトル開始時に再設定されるので一時上書きで安全）
+            setStage(preview); // skyTop/skyBottom/groundColor/stageLayers/background をプレビュー対象へ（バトル開始時に再設定されるので一時上書きで安全）
         }
         auraTick = (auraTick + 1) % 36000; // ドリフト/情景アニメ用の描画カウンタ（renderScene 同様）
+
+        // 背景画像（外部デザイン取り込み・任意）。あればプレビューも 1 枚絵で表示する（バトルと同じ見た目）。
+        TextureRegion previewBg = preview != null ? stageBackgrounds.get(stageBackgroundPath) : null;
+        if (previewBg != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            batch.draw(previewBg, 0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+            batch.end();
+        }
+
         shapes.setProjectionMatrix(camera.combined);
         shapes.begin(ShapeRenderer.ShapeType.Filled);
-        if (preview != null) {
+        if (preview != null && previewBg == null) {
             shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT,
                     skyBottom, skyBottom, skyTop, skyTop);
             drawStageLayers(false); // 背景レイヤー
             shapes.setColor(groundColor);
             shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.GROUND_Y);
             drawStageLayers(true);  // 前景レイヤー（Task 158）
-        } else {
+        } else if (preview == null) {
             shapes.setColor(0.05f, 0.05f, 0.10f, 1f);
             shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
         }
@@ -2102,6 +2161,7 @@ public class GameRenderer {
         batch.dispose();
         shapes.dispose();
         sprites.dispose();
+        stageBackgrounds.dispose();
         font.dispose();
     }
 
