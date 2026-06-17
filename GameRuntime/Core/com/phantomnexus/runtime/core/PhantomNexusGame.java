@@ -605,14 +605,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
         }
         // 決着後（マッチ確定）にスタート画面（タイトル）へ戻る。通常プレイのみ有効で、撮影/リプレイは
         // 結果を凍結したまま（既存スクショレシピ・リプレイの決定性を壊さない後方互換）。メニューと同じ
-        // ENTER/SPACE/J、加えて ESC で戻れる。遷移したフレームは return して次フレームからタイトルを処理する。
+        // ENTER/SPACE/J、加えて ESC で戻れる（ただしアーケードは ENTER/SPACE/J のみ＝誤 ESC 進行防止）。
+        // 遷移したフレームは return して次フレームからタイトルを処理する。
+        boolean confirmKey = Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                || Gdx.input.isKeyJustPressed(Input.Keys.J)
+                || gamepad.menuConfirm();
+        boolean cancelKey = Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || gamepad.menuCancel();
         if (round.isFinished() && !screenshot.isEnabled()
                 && !replay.isReplaying() && !replay.isRecording()
-                && (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
-                    || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
-                    || Gdx.input.isKeyJustPressed(Input.Keys.J)
-                    || Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)
-                    || gamepad.menuConfirm() || gamepad.menuCancel())) {
+                && (confirmKey || (!arcadeMode && cancelKey))) {
             if (arcadeMode) {
                 advanceArcade(); // アーケードモード：勝ち抜きまたはゲームオーバーの処理（Task 176）
             } else {
