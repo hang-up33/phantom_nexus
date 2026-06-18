@@ -1,0 +1,126 @@
+{
+  "id": "fighter021",
+  "name": "Tama",
+  "hp": 900,
+  "walkSpeed": 4.2,
+  "jumpPower": 12.5,
+  "airJumps": 1,
+  "width": 84,
+  "height": 210,
+  "color": [0.36, 0.74, 0.94],
+  "sprite": {
+    "path": "Characters/fighter021.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "wrench_jab",
+      "button": "light",
+      "damage": 46,
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 122,
+      "hitboxWidth": 86,
+      "hitboxHeight": 30
+    },
+    {
+      "id": "disc_swipe",
+      "button": "medium",
+      "damage": 70,
+      "startup": 8,
+      "active": 5,
+      "recovery": 16,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 100,
+      "hitboxWidth": 110,
+      "hitboxHeight": 40
+    },
+    {
+      "id": "piston_mallet",
+      "button": "heavy",
+      "guardHeight": "overhead",
+      "knockdown": true,
+      "damage": 95,
+      "startup": 16,
+      "active": 4,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 64,
+      "hitboxWidth": 88,
+      "hitboxHeight": 92
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "gear_shot",
+      "command": "HADOUKEN",
+      "damage": 70,
+      "startup": 11,
+      "active": 4,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 112,
+      "hitboxWidth": 48,
+      "hitboxHeight": 48,
+      "projectile": true,
+      "projectileSpeed": 11.0
+    },
+    {
+      "id": "anvil_lob",
+      "command": "CHARGE_SHOT",
+      "damage": 92,
+      "startup": 14,
+      "active": 5,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 120,
+      "hitboxWidth": 64,
+      "hitboxHeight": 64,
+      "projectile": true,
+      "projectileSpeed": 6.5
+    },
+    {
+      "id": "orbital_strike",
+      "command": "SUPER",
+      "superMove": true,
+      "damage": 230,
+      "startup": 8,
+      "active": 4,
+      "recovery": 34,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 104,
+      "hitboxWidth": 72,
+      "hitboxHeight": 72,
+      "projectile": true,
+      "projectileSpeed": 12.5
+    }
+  ],
+  "throwMove": {
+    "id": "scrap_haul",
+    "damage": 120,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 140
+  }
+}
