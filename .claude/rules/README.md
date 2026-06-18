@@ -11,4 +11,5 @@ CLAUDE.md の肥大化を避けるため、**プロジェクト固有の知見�
 
 ## 現在のファイル
 
-- [github-actions-billing.md](github-actions-billing.md) — public→private 化時の GitHub Actions 課金注意
+- [github-actions-billing.md](github-actions-billing.md) — public→private 化時の GitHub Actions 課金注意（CLAUDE.md から import）
+- [macos-screenshot-capture.md](macos-screenshot-capture.md) — macOS でのゲーム起動・スクショ撮影（Xvfb 不要のネイティブ撮影。参照系なので import はしない）
