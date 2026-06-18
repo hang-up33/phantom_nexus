@@ -49,7 +49,7 @@ public class Character {
      * 与ダメージが上昇する逆転要素。任意・既定 0＝<b>レイジ無効</b>（後方互換＝この値を設定したキャラだけがレイジする）。
      * 例：0.3 なら HP 30% 以下でレイジ。範囲外は getter で [0,1] にクランプ。
      */
-    private float rageThreshold;
+    private float rageThreshold = 0f;
     /** 表示色 RGB（0..1, 任意）。スプライト未指定時のプレースホルダ矩形色。未設定なら描画側の既定色。 */
     private float[] color;
     /** スプライト（描画用画像）定義（任意）。未設定なら従来どおりプレースホルダ矩形で描画する（Task 34）。 */

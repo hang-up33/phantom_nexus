@@ -48,12 +48,22 @@ public final class ReplayController {
     private int frameIndex;
     private boolean currentAi = true;
 
+    // バトル初期条件のメタ（Task 183・META 行がある場合のみ非 null）。再生開始時に同じ条件を復元するために使う。
+    private String metaP1Id;
+    private String metaP2Id;
+    private String metaStageId;
+    private int metaTimeLimit = -1;
+    private int metaRounds = -1;
+
     /** 指定パスからリプレイを読み込み、即座に再生可能な状態で返す（Task 183 のインゲーム再生用）。 */
     public static ReplayController forPlayback(String path) {
         List<int[]> loaded = new ArrayList<>();
+        String[] meta = new String[3]; // {p1Id, p2Id, stageId}
+        int[] metaInts = {-1, -1};     // {timeLimit, rounds}
         try (BufferedReader r = new BufferedReader(new FileReader(path))) {
             String line;
             while ((line = r.readLine()) != null) {
+                parseMeta(line, meta, metaInts); // META 行ならローカルへ取り込む（数字行は下で処理）。
                 int[] parsed = parseLine(line);
                 if (parsed != null) {
                     loaded.add(parsed);
@@ -62,8 +72,64 @@ public final class ReplayController {
         } catch (Exception e) {
             Gdx.app.error("Replay", "再生ファイルを読めません: " + path, e);
         }
-        return new ReplayController(loaded);
+        ReplayController rc = new ReplayController(loaded);
+        rc.metaP1Id = meta[0];
+        rc.metaP2Id = meta[1];
+        rc.metaStageId = meta[2];
+        rc.metaTimeLimit = metaInts[0];
+        rc.metaRounds = metaInts[1];
+        return rc;
     }
+
+    /**
+     * {@code META p1=<id> p2=<id> stage=<id> time=<sec> rounds=<n>} 形式の行を解釈し、見つかった値を
+     * {@code meta}（{p1,p2,stage}）と {@code ints}（{time,rounds}）へ書き込む。META 行以外は何もしない。
+     */
+    private static void parseMeta(String raw, String[] meta, int[] ints) {
+        if (raw == null) {
+            return;
+        }
+        String line = raw.trim();
+        if (!line.startsWith("META ")) {
+            return;
+        }
+        for (String tok : line.substring(5).trim().split("\\s+")) {
+            int eq = tok.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String key = tok.substring(0, eq);
+            String val = tok.substring(eq + 1);
+            switch (key) {
+                case "p1": meta[0] = val; break;
+                case "p2": meta[1] = val; break;
+                case "stage": meta[2] = val; break;
+                case "time": ints[0] = parseIntSafe(val, -1); break;
+                case "rounds": ints[1] = parseIntSafe(val, -1); break;
+                default: break;
+            }
+        }
+    }
+
+    /** 文字列を int へ（失敗時は {@code fallback}）。 */
+    private static int parseIntSafe(String s, int fallback) {
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    /** リプレイに記録された P1 キャラ ID（META 行が無い旧形式は null）。 */
+    public String metaP1Id() { return metaP1Id; }
+    /** リプレイに記録された P2 キャラ ID（旧形式は null）。 */
+    public String metaP2Id() { return metaP2Id; }
+    /** リプレイに記録されたステージ ID（旧形式は null）。 */
+    public String metaStageId() { return metaStageId; }
+    /** リプレイに記録された制限時間（秒）。旧形式は -1。 */
+    public int metaTimeLimit() { return metaTimeLimit; }
+    /** リプレイに記録されたラウンド数。旧形式は -1。 */
+    public int metaRounds() { return metaRounds; }
 
     /** ロード済みフレームリストから再生専用インスタンスを作る（{@link #forPlayback} からのみ使用）。 */
     private ReplayController(List<int[]> preloadedFrames) {

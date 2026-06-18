@@ -106,6 +106,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private String rematchP2Id;
     private String rematchStageId;
     private boolean rematchTraining; // 直前がトレーニングモードだったか（リマッチ時に同モードで開始する）
+    // 現在のバトルのステージ ID（Task 183 リプレイのメタ保存に使う）。バトル開始時に設定する。既定 stage001。
+    private String currentStageId = "stage001";
 
     /** 画面状態（Task 116/117/128/182/188）。通常起動はタイトルから。撮影/リプレイは後方互換のため BATTLE 直行。 */
     enum Screen { TITLE, CHARACTER_SELECT, STAGE_SELECT, BATTLE, KEY_CONFIG, CHARACTER_VIEWER }
@@ -237,6 +239,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // ステージを外部 JSON から読み込み、背景描画に設定する（Task 17）。
         // 既定 stage001。撮影時は stage=<id> でオーバーライド可能（背景の撮り分け用。Task 40）。
         Stage stage = StageLoader.load(screenshot.stageId("stage001"));
+        currentStageId = stage.getId();
         renderer.setStage(stage);
         p1Input = PlayerInput.player1Defaults();
         p2Input = PlayerInput.player2Defaults();
@@ -616,8 +619,25 @@ public class PhantomNexusGame extends ApplicationAdapter {
             return;
         }
         ingameReplay = rc;
-        // 再生中はバトル用の fighter/round を作り直す（create() 時のデフォルトキャラ/ステージをそのまま使う）。
-        round = new RoundManager(battleRules, 0 /* イントロなし */);
+        // 再生中はバトル用の fighter/stage/round を、リプレイのメタ（Task 183）に保存された初期条件で復元する。
+        // META 行が無い旧形式（getter が null/-1）は従来どおり現在の fighter/ステージ/ルールを流用する（後方互換）。
+        BattleRules replayRules = battleRules;
+        if (rc.metaTimeLimit() > 0 && rc.metaRounds() > 0) {
+            replayRules = new BattleRules(rc.metaTimeLimit(), rc.metaRounds());
+        }
+        if (rc.metaP1Id() != null && rc.metaP2Id() != null) {
+            fighter1 = new Fighter(CharacterLoader.load(rc.metaP1Id()), spawnX1, true);
+            fighter2 = new Fighter(CharacterLoader.load(rc.metaP2Id()), spawnX2, false);
+            fighter1.setMeter(0f);
+            fighter2.setMeter(0f);
+            animator1 = new FighterAnimator();
+            animator2 = new FighterAnimator();
+        }
+        if (rc.metaStageId() != null) {
+            currentStageId = rc.metaStageId();
+            renderer.setStage(StageLoader.load(rc.metaStageId()));
+        }
+        round = new RoundManager(replayRules, 0 /* イントロなし */);
         resetFighters();
         controlsHint = "[REPLAY] " + rc.frameCount() + "f   [F1] hitboxes";
         screen = Screen.BATTLE;
@@ -626,6 +646,20 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** インゲームリプレイの保存パス。 */
     private static String ingameReplayPath() {
         return "replays/last.rep";
+    }
+
+    /**
+     * 決定的な抽選 index（Task 184/185・乱数を使わない）。固定 salt と観測状態（連勝数等）の step から
+     * ハッシュで index を作る。同じセッション・同じ進行なら毎回同じ相手/ステージになり、入力リプレイの
+     * 決定性（CLAUDE.md「乱数を一切増やさない」）を保つ。{@code modulo} は 1 以上を前提。
+     */
+    private static int deterministicIndex(String salt, int step, int modulo) {
+        if (modulo <= 0) {
+            return 0;
+        }
+        int h = salt.hashCode();
+        h = 31 * h + step;
+        return Math.floorMod(h, modulo);
     }
 
     /**
@@ -640,11 +674,12 @@ public class PhantomNexusGame extends ApplicationAdapter {
         survivalNextScheduled = false;
         trainingMode = false;
         p2AiEnabled = true;
-        // P2 をランダムキャラで差し替える（P1 は create() ロード済みのデフォルトキャラを流用）。
-        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
-        String stageId = STAGE_IDS[(int)(Math.random() * STAGE_IDS.length)];
+        // P2 を決定的に差し替える（P1 は create() ロード済みのデフォルトキャラを流用）。乱数は使わない（連勝数で決定）。
         ensureStagesLoaded();
-        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        String p2Id = ROSTER_IDS[deterministicIndex("survival-p2", survivalKills, ROSTER_IDS.length)];
+        Stage survivalStage = stagePreviews[deterministicIndex("survival-stage", survivalKills, stagePreviews.length)];
+        currentStageId = survivalStage.getId();
+        renderer.setStage(survivalStage);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
         fighter2.setMeter(0f);
         animator2 = new FighterAnimator();
@@ -666,8 +701,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         survivalKills++;
         survivalP1Hp = fighter1.getCurrentHp();
         survivalNextScheduled = false;
-        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
-        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        String p2Id = ROSTER_IDS[deterministicIndex("survival-p2", survivalKills, ROSTER_IDS.length)];
+        Stage survivalStage = stagePreviews[deterministicIndex("survival-stage", survivalKills, stagePreviews.length)];
+        currentStageId = survivalStage.getId();
+        renderer.setStage(survivalStage);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
         fighter2.setMeter(0f);
         animator2 = new FighterAnimator();
@@ -693,8 +730,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
         trainingMode = false;
         p2AiEnabled = true;
         ensureStagesLoaded();
-        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
-        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        String p2Id = ROSTER_IDS[deterministicIndex("timeattack-p2", timeAttackKills, ROSTER_IDS.length)];
+        Stage timeAttackStage = stagePreviews[deterministicIndex("timeattack-stage", timeAttackKills, stagePreviews.length)];
+        currentStageId = timeAttackStage.getId();
+        renderer.setStage(timeAttackStage);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
         fighter2.setMeter(0f);
         animator2 = new FighterAnimator();
@@ -713,8 +752,10 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void advanceTimeAttack() {
         timeAttackKills++;
-        String p2Id = ROSTER_IDS[(int)(Math.random() * ROSTER_IDS.length)];
-        renderer.setStage(stagePreviews[(int)(Math.random() * stagePreviews.length)]);
+        String p2Id = ROSTER_IDS[deterministicIndex("timeattack-p2", timeAttackKills, ROSTER_IDS.length)];
+        Stage timeAttackStage = stagePreviews[deterministicIndex("timeattack-stage", timeAttackKills, stagePreviews.length)];
+        currentStageId = timeAttackStage.getId();
+        renderer.setStage(timeAttackStage);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
         fighter2.setMeter(0f);
         animator2 = new FighterAnimator();
@@ -925,6 +966,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
      */
     private void startBattle(String p1Id, String p2Id, String stageId) {
         paused = false; // バトル開始時にポーズ状態をリセット（Task 181）
+        currentStageId = stageId; // リプレイのメタ保存用（Task 183）
         renderer.setStage(StageLoader.load(stageId)); // 選んだステージを背景に設定（Task 128）
         fighter1 = new Fighter(CharacterLoader.load(p1Id), spawnX1, true);
         fighter2 = new Fighter(CharacterLoader.load(p2Id), spawnX2, false);
@@ -1220,15 +1262,18 @@ public class PhantomNexusGame extends ApplicationAdapter {
         if (timeAttackMode) {
             controlsHint = buildControlsHint();
         }
-        // インゲームリプレイ記録（Task 183）：通常バトル中（system-property 系は除く）の入力を蓄積する。
-        if (!replay.isRecording() && !replay.isReplaying() && ingameReplay == null && !round.isFinished()) {
+        // インゲームリプレイ記録（Task 183）：通常バトル中（撮影/system-property 系は除く）の入力を蓄積する。
+        if (!screenshot.isEnabled() && !replay.isRecording() && !replay.isReplaying()
+                && ingameReplay == null && !round.isFinished()) {
             int p1Mask = playerInputToMask(p1Input);
             int p2Mask = p2AiEnabled ? 0 : playerInputToMask(p2Input);
             ingameReplayBuffer.add(new int[]{p1Mask, p2Mask, p2AiEnabled ? 1 : 0});
         }
         update();
         // インゲームリプレイ自動保存（Task 183）：マッチ確定の初フレームに replays/last.rep へ書き出す。
-        if (round.isFinished() && !ingameSaved && !replay.isRecording() && !replay.isReplaying()
+        // 撮影フローは通常の last.rep を上書きしない（決着まで進む撮影レシピが既存リプレイを壊さないため）。
+        if (!screenshot.isEnabled() && round.isFinished() && !ingameSaved
+                && !replay.isRecording() && !replay.isReplaying()
                 && ingameReplay == null && !ingameReplayBuffer.isEmpty()) {
             saveIngameReplay();
         }
@@ -1237,10 +1282,16 @@ public class PhantomNexusGame extends ApplicationAdapter {
         // 撮影は既定で非表示だが、証跡用に -x returntotitle=true で結果バナーに重ねて撮れる（後方互換）。
         boolean interactiveFinished = round.isFinished() && !screenshot.isEnabled()
                 && !replay.isReplaying() && !replay.isRecording();
-        renderer.setReturnToTitleHint(interactiveFinished || screenshot.returnToTitleHintForced());
+        // モード専用の決着画面（アーケード/サバイバル/タイムアタック）では通常の return/rematch ヒントを出さない。
+        // それらは ENTER=次戦進行や独自のゲームオーバー導線を持つため、通常ヒントと競合する。
+        boolean normalFinished = interactiveFinished && !arcadeMode && !survivalMode && !timeAttackMode;
+        // サバイバル/タイムアタックのゲームオーバー（P1 敗北）だけは「タイトルへ戻る」を許可する（次戦が無いため）。
+        boolean modeGameOver = interactiveFinished && (survivalMode || timeAttackMode)
+                && round.getMatchWinner() != com.phantomnexus.runtime.battle.RoundManager.Winner.P1;
+        renderer.setReturnToTitleHint(normalFinished || modeGameOver || screenshot.returnToTitleHintForced());
         // リマッチヒント：通常プレイのマッチ確定後かつ直前マッチ情報が保存済みの場合に表示する（Task 178）。
-        // 撮影は既定で非表示だが -x rematch=true で証跡用に重ねられる（後方互換）。
-        renderer.setRematchAvailable((interactiveFinished && rematchP1Id != null) || screenshot.rematchHintForced());
+        // 撮影は既定で非表示だが -x rematch=true で証跡用に重ねられる（後方互換）。モード専用画面では出さない。
+        renderer.setRematchAvailable((normalFinished && rematchP1Id != null) || screenshot.rematchHintForced());
         // アーケードスコア（Task 186）：サバイバル/タイムアタックがゲームオーバー（P1 敗北）になったらスコアを表示する。
         // P1 が勝利して次戦へ進む間は -1（非表示）。撮影用オーバーライド（-x arcadescore=N）でも強制表示できる。
         int shownScore = screenshot.arcadeScoreOverride();
@@ -1463,6 +1514,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
             }
             try (BufferedWriter w = new BufferedWriter(new FileWriter(f))) {
                 w.write("PHANTOM_REPLAY v1");
+                w.newLine();
+                // バトル初期条件のメタ行（Task 183・再生時に同じキャラ/ステージ/ルールを復元する）。
+                // 数字始まりでないため既存のフレーム行パーサとは衝突しない（後方互換）。
+                w.write("META p1=" + fighter1.getDef().getId() + " p2=" + fighter2.getDef().getId()
+                        + " stage=" + currentStageId
+                        + " time=" + battleRules.getTimeLimitSeconds()
+                        + " rounds=" + battleRules.getRounds());
                 w.newLine();
                 for (int[] fr : ingameReplayBuffer) {
                     w.write(fr[0] + "," + fr[1] + "," + fr[2]);
