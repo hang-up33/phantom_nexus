@@ -103,7 +103,8 @@ tasks.named('run', JavaExec) {
      'phantom.screenshot.intro', 'phantom.screenshot.p1meter', 'phantom.screenshot.p2meter',
      'phantom.screenshot.aidiff', 'phantom.screenshot.training', 'phantom.screenshot.movelist',
      'phantom.screenshot.startscreen', 'phantom.screenshot.p1hp', 'phantom.screenshot.p2hp',
-     'phantom.screenshot.returntotitle',
+     'phantom.screenshot.returntotitle', 'phantom.screenshot.rematch', 'phantom.screenshot.pause',
+     'phantom.screenshot.arcadescore', 'phantom.screenshot.highscores',
      'phantom.replay.record', 'phantom.replay.play', 'phantom.replay.ai'].each { key ->
         String value = System.getProperty(key)
         if (value != null) {

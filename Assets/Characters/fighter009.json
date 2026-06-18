@@ -6,25 +6,65 @@
   "jumpPower": 12.0,
   "width": 90,
   "height": 226,
-  "color": [0.90, 0.66, 0.16],
+  "color": [
+    0.9,
+    0.66,
+    0.16
+  ],
   "stunThreshold": 340,
   "sprite": {
     "path": "Characters/fighter009.png",
     "frameWidth": 64,
     "frameHeight": 128,
     "stateRows": [
-      { "state": "idle", "row": 0 },
-      { "state": "walk", "row": 1 },
-      { "state": "jump", "row": 2 },
-      { "state": "attack", "row": 3 },
-      { "state": "jump_attack", "row": 3 },
-      { "state": "throw", "row": 3 },
-      { "state": "hitstun", "row": 4 },
-      { "state": "guard", "row": 5 },
-      { "state": "crouch", "row": 6 },
-      { "state": "crouch_walk", "row": 6 },
-      { "state": "crouch_attack", "row": 6 },
-      { "state": "crouch_guard", "row": 6 }
+      {
+        "state": "idle",
+        "row": 0
+      },
+      {
+        "state": "walk",
+        "row": 1
+      },
+      {
+        "state": "jump",
+        "row": 2
+      },
+      {
+        "state": "attack",
+        "row": 3
+      },
+      {
+        "state": "jump_attack",
+        "row": 3
+      },
+      {
+        "state": "throw",
+        "row": 3
+      },
+      {
+        "state": "hitstun",
+        "row": 4
+      },
+      {
+        "state": "guard",
+        "row": 5
+      },
+      {
+        "state": "crouch",
+        "row": 6
+      },
+      {
+        "state": "crouch_walk",
+        "row": 6
+      },
+      {
+        "state": "crouch_attack",
+        "row": 6
+      },
+      {
+        "state": "crouch_guard",
+        "row": 6
+      }
     ]
   },
   "normalMoves": [
@@ -67,7 +107,8 @@
       "hitboxOffsetX": 0,
       "hitboxOffsetY": 90,
       "hitboxWidth": 140,
-      "hitboxHeight": 56
+      "hitboxHeight": 56,
+      "causesDizzy": true
     }
   ],
   "specialMoves": [

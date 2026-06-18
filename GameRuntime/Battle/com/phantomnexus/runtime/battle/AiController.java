@@ -54,6 +54,10 @@ public final class AiController {
 
     /** この距離（中心間, px）以下で通常攻撃を試みる。通常攻撃の届く間合いより少し内側。 */
     private static final float ATTACK_RANGE = 150f;
+    /** 起き攻め（Task 196）：相手ダウン中にこの距離（中心間, px）まで密着して起き上がりに攻撃を重ねる。 */
+    private static final float OKIZEME_RANGE = 120f;
+    /** 起き攻め（Task 196）：相手ダウンの残りがこのフレーム以下になったら攻撃を重ねる（無敵が切れる起き上がり際）。 */
+    private static final int OKIZEME_WAKEUP_LEAD = 8;
     /** この距離（中心間, px）以下で相手の打撃に反応してガードする。攻撃間合いより少し広く取り、被弾前に盾を構える。 */
     private static final float GUARD_RANGE = 200f;
     /** この距離（中心間, px）以下でガード中の相手を投げで崩す。掴みの届く近接に限定する。 */
@@ -420,13 +424,25 @@ public final class AiController {
             jumpingIn = true;
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;
+        } else if (advanced && opponent.isKnockedDown() && self.isGrounded() && self.canStartAction()) {
+            // 起き攻め（okizeme・Task 196・HARD のみ）：相手ダウン中は密着するまで間合いを詰め、
+            // 起き上がり直前（ダウン中無敵・Task 60 が切れる頃）にだけ攻撃を重ねる（meaty）。ダウン中に振ると
+            // 無敵で空振りしてクールダウンを浪費するため、残りフレームが起き上がり間際になるまで攻撃しない。
+            if (distance > OKIZEME_RANGE) {
+                moveDir = towardDir; // 密着まで接近
+            } else if (opponent.getKnockdownFrames() <= OKIZEME_WAKEUP_LEAD && cooldown == 0) {
+                attack = true;       // 起き上がり際に重ねる（無敵が切れる頃に当たる）
+                cooldown = ATTACK_COOLDOWN;
+            }
+            dashTapStep = 0;
         } else if (distance > ATTACK_RANGE) {
             // 間合いの外（ただしダッシュ距離より内）：歩いて接近する。
             moveDir = towardDir;
             dashTapStep = 0;
-        } else if (opponent.isGrounded() && cooldown == 0 && self.canStartAction()) {
+        } else if (opponent.isGrounded() && !opponent.isKnockedDown() && cooldown == 0 && self.canStartAction()) {
             // 間合いの内：通常攻撃を出す（クールダウン明け・行動可能時のみ）。空中の相手には出さない
             // ——地上の通常技は空振りするうえ、クールダウンを浪費して無敵対空（Task 55）の機会を潰すため。
+            // ダウン中の相手にも振らない（無敵＝空振り。起き攻めは上の専用分岐が重ねる・Task 196）。
             attack = true;
             cooldown = ATTACK_COOLDOWN;
             dashTapStep = 0;

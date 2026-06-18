@@ -1,0 +1,13 @@
+{
+  "id": "stage013",
+  "name": "Sunken Bazaar",
+  "skyTop": [0.16, 0.22, 0.30],
+  "skyBottom": [0.48, 0.58, 0.56],
+  "groundColor": [0.22, 0.24, 0.22],
+  "layers": [
+    { "shape": "buildings", "color": [0.46, 0.52, 0.52], "baseY": 120, "height": 230, "count": 8, "alpha": 0.55 },
+    { "shape": "pillars", "color": [0.30, 0.36, 0.38], "baseY": 120, "height": 300, "count": 6, "alpha": 0.8 },
+    { "shape": "buildings", "color": [0.18, 0.22, 0.24], "baseY": 120, "height": 200, "count": 10, "alpha": 1.0 },
+    { "shape": "hills", "color": [0.13, 0.16, 0.17], "baseY": 120, "height": 50, "count": 1, "alpha": 1.0 }
+  ]
+}

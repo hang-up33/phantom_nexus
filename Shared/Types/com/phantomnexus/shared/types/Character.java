@@ -44,6 +44,12 @@ public class Character {
      * 任意・既定 0＝<b>めまい無効</b>（後方互換＝この値を設定したキャラだけがめまいする）。値が小さいほどめまいしやすい。
      */
     private int stunThreshold;
+    /**
+     * レイジ発動の残 HP 割合しきい値（comeback・Task 195）。現在 HP が {@code 最大HP × rageThreshold} 以下になると
+     * 与ダメージが上昇する逆転要素。任意・既定 0＝<b>レイジ無効</b>（後方互換＝この値を設定したキャラだけがレイジする）。
+     * 例：0.3 なら HP 30% 以下でレイジ。範囲外は getter で [0,1] にクランプ。
+     */
+    private float rageThreshold = 0f;
     /** 表示色 RGB（0..1, 任意）。スプライト未指定時のプレースホルダ矩形色。未設定なら描画側の既定色。 */
     private float[] color;
     /** スプライト（描画用画像）定義（任意）。未設定なら従来どおりプレースホルダ矩形で描画する（Task 34）。 */
@@ -131,6 +137,12 @@ public class Character {
     /** めまい発生しきい値（Task 79・既定 0＝めまい無効＝後方互換）。負値は 0 に丸める。 */
     public int getStunThreshold() {
         return Math.max(0, stunThreshold);
+    }
+
+    /** レイジ発動の残 HP 割合しきい値（Task 195・既定 0＝レイジ無効＝後方互換）。[0,1] にクランプ。 */
+    public float getRageThreshold() {
+        if (rageThreshold < 0f) return 0f;
+        return Math.min(1f, rageThreshold);
     }
 
     /** 描画 / 当たり判定に用いる横幅（px）。 */

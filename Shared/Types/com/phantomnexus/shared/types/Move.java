@@ -110,6 +110,18 @@ public class Move {
      */
     private boolean groundBounce = false;
     /**
+     * 壁張り付き（wall splat・Task 192）。{@code true} の技を画面端付近の相手に非ガードでヒットさせると、
+     * 通常より<b>長いのけぞり</b>を与えて壁に張り付かせる＝フルコンボ確定の始動になる（壁際限定の崩し）。
+     * 画面端から十分離れていれば通常ヒット。既定 {@code false}（後方互換）。ダウン技（{@code knockdown}）/
+     * 壁バウンド（{@code wallBounce}）/床バウンド（{@code groundBounce}）/浮かせ（{@code launch}）が無いときに解決する。
+     */
+    private boolean wallSplat = false;
+    /**
+     * 確定スタン（cause dizzy・Task 198）。{@code true} の技は非ガードヒット時にスタンゲージを通常より大きく
+     * 蓄積させる（一撃でめまいを誘発しやすい）。{@code stunThreshold>0} のキャラにのみ意味がある。既定 {@code false}（後方互換）。
+     */
+    private boolean causesDizzy = false;
+    /**
      * スーパー必殺技（super art・Task 108）。{@code true} の必殺技は専用コマンド（236236＝波動拳 2 回）＋攻撃で、
      * 必殺技ゲージ満タンを消費して発動する強力な技。発動時に「スーパーフラッシュ」（両者を数フレーム凍結する演出）が入る。
      * 既定 {@code false}（後方互換）。{@code command} は {@code "SUPER"} を指定する。飛び道具 / 打撃いずれにも付けられる。
@@ -279,6 +291,16 @@ public class Move {
     /** 床バウンド（Task 102）か。{@code true} なら相手を打ち上げ着地時に一度だけ跳ね返らせる（ジャグル延長）。既定 {@code false}（後方互換）。 */
     public boolean isGroundBounce() {
         return groundBounce;
+    }
+
+    /** 壁張り付き（Task 192）か。{@code true} なら画面端付近の相手に当てると長いのけぞりで壁に張り付かせる（フルコンボ始動）。既定 {@code false}（後方互換）。 */
+    public boolean isWallSplat() {
+        return wallSplat;
+    }
+
+    /** 確定スタン（Task 198）か。{@code true} なら非ガードヒット時にスタンゲージを大きく蓄積させる。既定 {@code false}（後方互換）。 */
+    public boolean isCausesDizzy() {
+        return causesDizzy;
     }
 
     /** スーパー必殺技（Task 108）か。{@code true} なら専用コマンド（236236）＋満タンメーター消費で発動する強力技。既定 {@code false}。 */

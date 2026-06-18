@@ -143,6 +143,11 @@ public class PlayerInput {
         return key != null ? key : -1;
     }
 
+    /** アクションのキー割当を上書きする（キーコンフィグ画面用）。 */
+    public void setBinding(InputAction action, int keycode) {
+        bindings.put(action, keycode);
+    }
+
     /** 現在のキー割当を人間可読な 1 行で返す（操作ガイド表示用）。 */
     public String describe() {
         return "Move " + keyName(InputAction.LEFT) + "/" + keyName(InputAction.RIGHT)

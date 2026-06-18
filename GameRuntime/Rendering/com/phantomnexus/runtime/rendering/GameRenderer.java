@@ -1,6 +1,7 @@
 package com.phantomnexus.runtime.rendering;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -27,6 +28,8 @@ import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
+import com.phantomnexus.runtime.input.InputAction;
+import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.shared.types.Stage;
 import com.phantomnexus.shared.types.StageLayer;
 
@@ -222,7 +225,7 @@ public class GameRenderer {
     private static final Color TITLE_ACCENT_COLOR = new Color(0.55f, 0.75f, 1f, 1f); // タイトルロゴの色（Task 116）
     private static final Color STAGE_SELECT_BAR = new Color(0.04f, 0.05f, 0.10f, 1f); // ステージ選択の下部操作バー（不透明・Task 159）
     private static final float STAGE_SELECT_BAR_H = 170f; // 同バーの高さ（リスト2行＋操作説明が収まる・Task 159）
-    private static final float TITLE_BAR_H = 200f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160）
+    private static final float TITLE_BAR_H = 370f; // タイトル下部のメニュー操作バー高さ（不透明・Task 160→185→188→統合/182 で 200→250→290→330→370 に拡張）
     private static final float CHARSEL_BAR_H = 200f; // キャラ選択下部の操作バー高さ（不透明・グリッド4行＋状況・Task 161）
     private static final Color CHARSEL_P1_COLOR = new Color(0.40f, 0.80f, 1f, 1f); // キャラ選択 P1（シアン・Task 117）
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
@@ -283,6 +286,14 @@ public class GameRenderer {
     private String arcadeHint;
     // セッション戦績（Task 177）。通常プレイのマッチ決着時に Core がセットする。null は非表示。
     private String sessionRecord;
+    // 決着後「リマッチ」ヒント表示フラグ（Task 178）。R キーで同じキャラ/ステージで即再戦。
+    private boolean rematchAvailable;
+    // アーケードスコア（Task 186）：サバイバル/タイムアタックのゲームオーバー時に表示する最終スコア。-1 は非表示。
+    private int arcadeScore = -1;
+    // アーケードハイスコアランキング（Task 187）：セッション内上位 5 件。空ならランキング非表示。
+    private java.util.List<Integer> highScores = java.util.Collections.emptyList();
+    // 最大コンボ記録（Task 194）：セッション中に観測した最大ヒット数。2 以上で HUD に表示。
+    private int maxCombo;
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
@@ -327,6 +338,26 @@ public class GameRenderer {
     /** セッション戦績文字列を設定する（Task 177）。通常プレイのマッチ決着時に Core がセットする。null で非表示。 */
     public void setSessionRecord(String record) {
         this.sessionRecord = record;
+    }
+
+    /** 決着後の結果バナーに「リマッチ」ヒントを表示するか（Task 178）。通常プレイのマッチ確定時のみ true。 */
+    public void setRematchAvailable(boolean available) {
+        this.rematchAvailable = available;
+    }
+
+    /** サバイバル/タイムアタックのゲームオーバー時に表示するスコアを設定する（Task 186）。-1 で非表示。 */
+    public void setArcadeScore(int score) {
+        this.arcadeScore = score;
+    }
+
+    /** セッション内ハイスコアランキングを設定する（Task 187）。空なら非表示。 */
+    public void setHighScores(java.util.List<Integer> scores) {
+        this.highScores = scores != null ? scores : java.util.Collections.emptyList();
+    }
+
+    /** セッション最大コンボ数を設定する（Task 194）。2 以上で HUD 上部に「MAX COMBO n」を表示する。 */
+    public void setMaxCombo(int combo) {
+        this.maxCombo = combo;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -575,6 +606,15 @@ public class GameRenderer {
             font.setColor(Color.WHITE);
         }
         font.getData().setScale(1.0f);
+        // 最大コンボ記録 HUD（Task 194）：セッション中の最大ヒット数（2 以上で表示・タイマー直下中央）。
+        if (maxCombo >= 2) {
+            font.getData().setScale(0.85f);
+            font.setColor(MOVE_LIST_COLOR);
+            drawCentered("MAX COMBO " + maxCombo,
+                    GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - HP_BAR_TOP - 22f);
+            font.setColor(Color.WHITE);
+            font.getData().setScale(1.0f);
+        }
         drawHpLabels(p1, true);
         drawHpLabels(p2, false);
         drawNameLabel(p1, anim1, debug.isEnabled());
@@ -723,13 +763,34 @@ public class GameRenderer {
         Color resultColor = round.getMatchWinner() == RoundManager.Winner.DRAW ? ROUND_INTRO_COLOR : TITLE_ACCENT_COLOR;
         drawBannerText(result, cx, GameConstants.WORLD_HEIGHT / 2f, 2.0f, resultColor);
         drawBannerText(score, cx, GameConstants.WORLD_HEIGHT / 2f - 45f, 1.5f, Color.WHITE);
+        // アーケードスコア（Task 186）：サバイバル/タイムアタックのゲームオーバー時に SCORE を金色で表示する。
+        float hintBaseY = GameConstants.WORLD_HEIGHT / 2f - 125f;
+        if (arcadeScore >= 0) {
+            drawBannerText("SCORE: " + arcadeScore, cx, GameConstants.WORLD_HEIGHT / 2f - 75f, 1.8f, PERFECT_COLOR);
+            // ハイスコアランキング（Task 187）：セッション内上位 5 件を小さく表示する。
+            if (!highScores.isEmpty()) {
+                drawBannerText("--- HIGH SCORES ---", cx, GameConstants.WORLD_HEIGHT / 2f - 105f, 0.85f, Color.LIGHT_GRAY);
+                for (int i = 0; i < highScores.size(); i++) {
+                    boolean isCurrent = highScores.get(i) == arcadeScore && i == highScores.indexOf(arcadeScore);
+                    Color rankColor = isCurrent ? PERFECT_COLOR : Color.WHITE;
+                    drawBannerText((i + 1) + ". " + highScores.get(i),
+                            cx, GameConstants.WORLD_HEIGHT / 2f - 120f - i * 16f, 0.85f, rankColor);
+                }
+                hintBaseY = GameConstants.WORLD_HEIGHT / 2f - 120f - highScores.size() * 16f - 10f;
+            }
+        }
         // 通常プレイのマッチ確定時のみ、スタート画面へ戻る操作ヒントを表示する（撮影/リプレイは非表示＝既存レシピ不変）。
         if (arcadeHint != null) {
             // アーケードモード：次の対戦相手・クリア・ゲームオーバーを示すヒント（Task 176）。
             drawBannerText(arcadeHint, cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.85f, Color.CYAN);
         } else if (returnToTitleHint) {
             drawBannerText("PRESS ENTER TO RETURN TO TITLE",
-                    cx, GameConstants.WORLD_HEIGHT / 2f - 90f, 0.9f, ROUND_INTRO_COLOR);
+                    cx, hintBaseY, 0.9f, ROUND_INTRO_COLOR);
+        }
+        // リマッチ可能な場合は R キーのヒントを表示する（Task 178）。
+        if (rematchAvailable) {
+            drawBannerText("PRESS R TO REMATCH",
+                    cx, hintBaseY + 20f, 0.9f, Color.YELLOW);
         }
         // セッション戦績（Task 177）：Core が通常プレイ時のみ設定する（撮影/リプレイでは null）。
         if (sessionRecord != null) {
@@ -1694,6 +1755,9 @@ public class GameRenderer {
         } else if (f.isWallBounced()) {
             // 壁バウンド成立（Task 101）。HITSTUN を流用しつつ wall_bounce ラベルで跳ね返りを識別する。
             stateLabel = "wall_bounce";
+        } else if (f.isWallSplatted()) {
+            // 壁張り付き成立（Task 192）。HITSTUN を流用しつつ wall_splat ラベルで識別する。
+            stateLabel = "wall_splat";
         } else if (f.isGroundBounced()) {
             // 床バウンド成立（Task 102）。HITSTUN を流用しつつ ground_bounce ラベルで跳ね返りを識別する。
             stateLabel = "ground_bounce";
@@ -1813,10 +1877,54 @@ public class GameRenderer {
     }
 
     /**
-     * タイトル画面を描く（Task 116）。モード選択（0=対戦 / 1=トレーニング）。選択中の項目を黄色で強調する。
-     * 独立した clear + テキストパス（バトル描画とは別フレーム）。
+     * バトルポーズオーバーレイを描く（Task 181）。バトルシーン（renderScene）の上に重ねて呼ぶ。
+     * 中央に不透明バーを描き RESUME / RETURN TO TITLE の 2 択メニューを表示する。
+     * 撮影/リプレイでは呼ばれない（後方互換・決定性不変）。
      */
-    public void renderTitle(int selection, Stage backdrop) {
+    public void renderPauseOverlay(int selection) {
+        final float BAR_W = 420f;
+        final float BAR_H = 200f;
+        final float barX = (GameConstants.WORLD_WIDTH - BAR_W) / 2f;
+        final float barY = (GameConstants.WORLD_HEIGHT - BAR_H) / 2f;
+
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        // 背景バー（ほぼ不透明の濃紺）
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(barX, barY, BAR_W, BAR_H);
+        // 枠線（明るいシアン）
+        shapes.end();
+        shapes.begin(ShapeRenderer.ShapeType.Line);
+        shapes.setColor(TITLE_ACCENT_COLOR);
+        shapes.rect(barX, barY, BAR_W, BAR_H);
+        shapes.end();
+
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(1.8f);
+        font.setColor(Color.YELLOW);
+        drawCentered("PAUSED", GameConstants.WORLD_WIDTH / 2f, barY + BAR_H - 32f);
+        font.getData().setScale(1.3f);
+        font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 0 ? "> " : "  ") + "RESUME" + (selection == 0 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, barY + BAR_H - 90f);
+        font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 1 ? "> " : "  ") + "RETURN TO TITLE" + (selection == 1 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, barY + BAR_H - 140f);
+        font.getData().setScale(0.85f);
+        font.setColor(Color.LIGHT_GRAY);
+        drawCentered("UP/DOWN : select      ENTER : confirm      ESC : resume", GameConstants.WORLD_WIDTH / 2f, barY + 18f);
+        font.getData().setScale(1.0f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
+     * タイトル画面を描く（Task 116/183）。モード選択（0=対戦 / 1=トレーニング / 2=リプレイ再生）。
+     * {@code replayAvailable} が false のときは REPLAY LAST 項目を非表示にする。
+     * 選択中の項目を黄色で強調する。独立した clear + テキストパス（バトル描画とは別フレーム）。
+     */
+    public void renderTitle(int selection, Stage backdrop, boolean replayAvailable) {
         ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
         centerCamera(); // hit shake のオフセットがメニューへ漏れないよう中心へ戻す（Task 132）
         camera.update();
@@ -1857,24 +1965,167 @@ public class GameRenderer {
         font.getData().setScale(2.6f);
         font.setColor(TITLE_ACCENT_COLOR);
         drawCentered("PHANTOM NEXUS", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 110f);
-        // メニュー（不透明バー内）：VERSUS / ARCADE / TRAINING の 3 択（Task 176）。
-        font.getData().setScale(1.5f);
+        // メニュー（不透明バー内）：0 VERSUS / 1 TRAINING / 2 ARCADE / 3 SURVIVAL / 4 TIME ATTACK / 5 KEY CONFIG / 6 REPLAY LAST。
+        font.getData().setScale(1.4f);
         font.setColor(selection == 0 ? Color.YELLOW : Color.WHITE);
         drawCentered((selection == 0 ? "> " : "  ") + "VERSUS" + (selection == 0 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 35f);
-        font.setColor(selection == 1 ? Color.CYAN : Color.WHITE);
-        drawCentered((selection == 1 ? "> " : "  ") + "ARCADE" + (selection == 1 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 80f);
-        font.setColor(selection == 2 ? Color.YELLOW : Color.WHITE);
-        drawCentered((selection == 2 ? "> " : "  ") + "TRAINING" + (selection == 2 ? " <" : ""),
-                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 125f);
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 30f);
+        font.setColor(selection == 1 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 1 ? "> " : "  ") + "TRAINING" + (selection == 1 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 68f);
+        font.setColor(selection == 2 ? Color.CYAN : Color.WHITE);
+        drawCentered((selection == 2 ? "> " : "  ") + "ARCADE" + (selection == 2 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 106f);
+        font.setColor(selection == 3 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 3 ? "> " : "  ") + "SURVIVAL" + (selection == 3 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 144f);
+        font.setColor(selection == 4 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 4 ? "> " : "  ") + "TIME ATTACK" + (selection == 4 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 182f);
+        font.setColor(selection == 5 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 5 ? "> " : "  ") + "KEY CONFIG" + (selection == 5 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 220f);
+        font.setColor(selection == 6 ? Color.YELLOW : Color.WHITE);
+        drawCentered((selection == 6 ? "> " : "  ") + "VIEWER" + (selection == 6 ? " <" : ""),
+                GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 258f);
+        if (replayAvailable) {
+            font.setColor(selection == 7 ? Color.YELLOW : Color.LIGHT_GRAY);
+            drawCentered((selection == 7 ? "> " : "  ") + "REPLAY LAST" + (selection == 7 ? " <" : ""),
+                    GameConstants.WORLD_WIDTH / 2f, TITLE_BAR_H - 296f);
+        }
         font.setColor(Color.WHITE);
-        font.getData().setScale(0.95f);
-        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 58f);
-        drawCentered("ARCADE = Beat all CPU opponents in a row!",
-                GameConstants.WORLD_WIDTH / 2f, 28f);
+        font.getData().setScale(0.9f);
+        drawCentered("UP / DOWN : select      ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 46f);
+        drawCentered("ARCADE = beat all CPU  |  SURVIVAL = HP carry  |  TIME ATTACK = 60s  |  KEY CONFIG = remap  |  VIEWER = sprite anim  |  REPLAY = watch last",
+                GameConstants.WORLD_WIDTH / 2f, 22f);
         font.getData().setScale(1.0f);
         batch.end();
+    }
+
+    /**
+     * キーコンフィグ画面を描く（Task 188）。全アクションを 2 列（P1/P2）で表示し、
+     * 選択行を黄色・入力待ち時は点滅テキストで案内する。ESC でタイトルへ戻る。
+     */
+    public void renderKeyConfig(PlayerInput p1Input, PlayerInput p2Input, InputAction[] actions,
+                                int row, int player, boolean waiting, InputAction waitingAction,
+                                Stage backdrop) {
+        ScreenUtils.clear(0.05f, 0.05f, 0.10f, 1f);
+        centerCamera();
+        camera.update();
+        auraTick = (auraTick + 1) % 36000;
+
+        // 背景（ステージ実背景・タイトルと同じ）
+        if (backdrop != null) {
+            setStage(backdrop);
+        }
+        TextureRegion bg = backdrop != null ? stageBackgrounds.get(stageBackgroundPath) : null;
+        if (bg != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            batch.draw(bg, 0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT);
+            batch.end();
+        } else if (backdrop != null) {
+            // 手続き背景（空グラデ）
+            shapes.setProjectionMatrix(camera.combined);
+            shapes.begin(ShapeRenderer.ShapeType.Filled);
+            shapes.setColor(skyTop);
+            shapes.rect(0f, GameConstants.WORLD_HEIGHT * 0.4f, GameConstants.WORLD_WIDTH,
+                    GameConstants.WORLD_HEIGHT * 0.6f);
+            shapes.setColor(skyBottom);
+            shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, GameConstants.WORLD_HEIGHT * 0.4f);
+            shapes.end();
+        }
+
+        // 下部の不透明操作バーと上部ヘッダー
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, 50f);
+        shapes.rect(0f, GameConstants.WORLD_HEIGHT - 60f, GameConstants.WORLD_WIDTH, 60f);
+        shapes.end();
+
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+
+        // ヘッダー
+        font.getData().setScale(1.6f);
+        font.setColor(TITLE_ACCENT_COLOR);
+        drawCentered("KEY CONFIG", GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 28f);
+
+        // 列ヘッダー
+        font.getData().setScale(1.1f);
+        float colP1x = GameConstants.WORLD_WIDTH * 0.30f;
+        float colP2x = GameConstants.WORLD_WIDTH * 0.70f;
+        float tableTop = GameConstants.WORLD_HEIGHT - 80f;
+        font.setColor(player == 0 ? CHARSEL_P1_COLOR : Color.LIGHT_GRAY);
+        drawCentered("P1", colP1x, tableTop);
+        font.setColor(player == 1 ? CHARSEL_P2_COLOR : Color.LIGHT_GRAY);
+        drawCentered("P2", colP2x, tableTop);
+
+        // アクション行
+        font.getData().setScale(1.0f);
+        for (int i = 0; i < actions.length; i++) {
+            InputAction act = actions[i];
+            float y = tableTop - 28f - i * 30f;
+            boolean selected = (i == row);
+
+            // アクション名（左寄せ）
+            font.setColor(selected ? Color.YELLOW : Color.WHITE);
+            font.draw(batch, actionLabel(act), GameConstants.WORLD_WIDTH * 0.10f, y);
+
+            // P1 キー名
+            String p1Key = Input.Keys.toString(p1Input.getKey(act));
+            Color p1Col;
+            if (selected && player == 0) {
+                p1Col = waiting && waitingAction == act ? Color.ORANGE : Color.YELLOW;
+            } else {
+                p1Col = CHARSEL_P1_COLOR;
+            }
+            font.setColor(p1Col);
+            drawCentered(p1Key != null ? p1Key : "?", colP1x, y);
+
+            // P2 キー名
+            String p2Key = Input.Keys.toString(p2Input.getKey(act));
+            Color p2Col;
+            if (selected && player == 1) {
+                p2Col = waiting && waitingAction == act ? Color.ORANGE : Color.YELLOW;
+            } else {
+                p2Col = CHARSEL_P2_COLOR;
+            }
+            font.setColor(p2Col);
+            drawCentered(p2Key != null ? p2Key : "?", colP2x, y);
+        }
+
+        // 入力待ちオーバーレイ
+        font.getData().setScale(1.2f);
+        if (waiting) {
+            font.setColor(Color.ORANGE);
+            drawCentered("Press any key to assign  (ESC = cancel)", GameConstants.WORLD_WIDTH / 2f, 32f);
+        } else {
+            font.setColor(Color.WHITE);
+            font.getData().setScale(0.9f);
+            drawCentered("UP/DOWN : row    LEFT/RIGHT : P1 / P2    ENTER : rebind    ESC : back",
+                    GameConstants.WORLD_WIDTH / 2f, 32f);
+        }
+
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+        batch.end();
+    }
+
+    /** アクションを人間可読な短い表示名に変換する（キーコンフィグ用・Task 188）。 */
+    private static String actionLabel(InputAction act) {
+        switch (act) {
+            case LEFT:         return "Left";
+            case RIGHT:        return "Right";
+            case UP:           return "Jump / Up";
+            case DOWN:         return "Crouch / Down";
+            case ATTACK_LIGHT: return "Attack Light";
+            case ATTACK_MEDIUM:return "Attack Medium";
+            case ATTACK_HEAVY: return "Attack Heavy";
+            case THROW:        return "Throw";
+            default:           return act.name();
+        }
     }
 
     /**
@@ -1980,7 +2231,7 @@ public class GameRenderer {
         font.setColor(CHARSEL_P2_COLOR);
         drawCentered("P2: " + (p2 >= 0 ? names[p2] : "..."), GameConstants.WORLD_WIDTH / 2f + 220f, 30f);
         font.setColor(Color.WHITE);
-        drawCentered("ARROWS / WASD : move    ENTER : confirm", GameConstants.WORLD_WIDTH / 2f, 30f);
+        drawCentered("ARROWS / WASD : move    ENTER : confirm    R : random", GameConstants.WORLD_WIDTH / 2f, 30f);
         font.getData().setScale(1.0f);
         batch.end();
     }
@@ -2013,6 +2264,82 @@ public class GameRenderer {
         if (tint != null) {
             batch.setColor(Color.WHITE);
         }
+    }
+
+    /**
+     * キャラクタービューア画面を描く（Task 182）。選択中キャラの指定アニメーション状態・フレームを
+     * 画面中央に大きく表示し、下部バーにキャラ名・状態名・操作説明を表示する。
+     * LEFT/RIGHT でキャラ切替、UP/DOWN でアニメーション状態切替（Core 側 updateCharacterViewer が制御）。
+     */
+    public void renderCharacterViewer(Character[] defs, String[] names, int charIndex,
+                                      AnimationState state, int frameIndex) {
+        ScreenUtils.clear(0.08f, 0.08f, 0.14f, 1f);
+        centerCamera();
+        camera.update();
+        auraTick = (auraTick + 1) % 36000;
+
+        Character def = (defs != null && charIndex < defs.length) ? defs[charIndex] : null;
+        if (def != null) {
+            sprites.ensureLoaded(def);
+        }
+
+        // 下部の操作バー（不透明）
+        final float BAR_H = 160f;
+        shapes.setProjectionMatrix(camera.combined);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.setColor(STAGE_SELECT_BAR);
+        shapes.rect(0f, 0f, GameConstants.WORLD_WIDTH, BAR_H);
+        shapes.end();
+
+        // スプライトパス：キャラを中央に大きく描く
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+
+        if (def != null) {
+            TextureRegion region = sprites.region(def, state, frameIndex);
+            if (region != null) {
+                // 右向きのまま表示（ビューアは常に右向き）
+                if (region.isFlipX()) {
+                    region.flip(true, false);
+                }
+                // 画面高さの 60% のスケールで中央に表示（大きく見やすく）
+                float targetH = (GameConstants.WORLD_HEIGHT - BAR_H) * 0.70f;
+                float scale = targetH / def.getHeight();
+                float drawW = def.getWidth() * scale;
+                float cx = GameConstants.WORLD_WIDTH / 2f;
+                float footY = BAR_H + 20f;
+                batch.draw(region, cx - drawW / 2f, footY, drawW, targetH);
+            }
+
+            // キャラ名と状態名
+            font.getData().setScale(2.0f);
+            font.setColor(TITLE_ACCENT_COLOR);
+            drawCentered(names != null ? names[charIndex] : def.getName(),
+                    GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 40f);
+
+            font.getData().setScale(1.3f);
+            font.setColor(Color.YELLOW);
+            drawCentered(state.label().toUpperCase() + "  [" + (frameIndex + 1) + "/" + state.frameCount() + "]",
+                    GameConstants.WORLD_WIDTH / 2f, GameConstants.WORLD_HEIGHT - 90f);
+        }
+
+        // 下部バー：操作説明
+        font.getData().setScale(0.9f);
+        font.setColor(Color.WHITE);
+        drawCentered("LEFT / RIGHT : character      UP / DOWN : animation state      ESC : back to title",
+                GameConstants.WORLD_WIDTH / 2f, BAR_H - 40f);
+
+        // キャラ番号インジケーター（← 1/10 →）
+        if (names != null) {
+            font.getData().setScale(1.0f);
+            font.setColor(Color.LIGHT_GRAY);
+            drawCentered("<  " + (charIndex + 1) + " / " + names.length + "  >",
+                    GameConstants.WORLD_WIDTH / 2f, BAR_H - 80f);
+        }
+
+        font.getData().setScale(1.0f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     /**
