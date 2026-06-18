@@ -1,0 +1,130 @@
+{
+  "id": "fighter022",
+  "name": "勇義",
+  "hp": 950,
+  "walkSpeed": 4.6,
+  "jumpPower": 12.8,
+  "airJumps": 0,
+  "stunThreshold": 320,
+  "rageThreshold": 0.35,
+  "width": 80,
+  "height": 210,
+  "color": [0.49, 0.30, 0.84],
+  "sprite": {
+    "path": "Characters/fighter022.png",
+    "frameWidth": 64,
+    "frameHeight": 128,
+    "stateRows": [
+      { "state": "idle", "row": 0 },
+      { "state": "walk", "row": 1 },
+      { "state": "jump", "row": 2 },
+      { "state": "attack", "row": 3 },
+      { "state": "jump_attack", "row": 3 },
+      { "state": "throw", "row": 3 },
+      { "state": "hitstun", "row": 4 },
+      { "state": "guard", "row": 5 },
+      { "state": "crouch", "row": 6 },
+      { "state": "crouch_walk", "row": 6 },
+      { "state": "crouch_attack", "row": 6 },
+      { "state": "crouch_guard", "row": 6 }
+    ]
+  },
+  "normalMoves": [
+    {
+      "id": "card_flick",
+      "button": "light",
+      "damage": 42,
+      "startup": 5,
+      "active": 3,
+      "recovery": 9,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 124,
+      "hitboxWidth": 84,
+      "hitboxHeight": 28
+    },
+    {
+      "id": "mirage_kick",
+      "button": "medium",
+      "damage": 66,
+      "startup": 8,
+      "active": 4,
+      "recovery": 15,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 104,
+      "hitboxWidth": 96,
+      "hitboxHeight": 42
+    },
+    {
+      "id": "sealed_smite",
+      "button": "heavy",
+      "guardHeight": "overhead",
+      "knockdown": true,
+      "damage": 92,
+      "startup": 16,
+      "active": 4,
+      "recovery": 24,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 66,
+      "hitboxWidth": 84,
+      "hitboxHeight": 92
+    }
+  ],
+  "specialMoves": [
+    {
+      "id": "spell_bolt",
+      "command": "HADOUKEN",
+      "damage": 72,
+      "startup": 11,
+      "active": 4,
+      "recovery": 26,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 112,
+      "hitboxWidth": 48,
+      "hitboxHeight": 48,
+      "projectile": true,
+      "projectileSpeed": 11.0
+    },
+    {
+      "id": "beast_call",
+      "command": "CHARGE_SHOT",
+      "damage": 95,
+      "startup": 14,
+      "active": 5,
+      "recovery": 30,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 118,
+      "hitboxWidth": 70,
+      "hitboxHeight": 70,
+      "projectile": true,
+      "projectileSpeed": 7.0
+    },
+    {
+      "id": "kings_decree",
+      "command": "SUPER",
+      "superMove": true,
+      "hardKnockdown": true,
+      "causesDizzy": true,
+      "damage": 240,
+      "startup": 8,
+      "active": 4,
+      "recovery": 34,
+      "hitboxOffsetX": 0,
+      "hitboxOffsetY": 104,
+      "hitboxWidth": 74,
+      "hitboxHeight": 74,
+      "projectile": true,
+      "projectileSpeed": 12.0
+    }
+  ],
+  "throwMove": {
+    "id": "soul_bind",
+    "damage": 118,
+    "startup": 4,
+    "active": 2,
+    "recovery": 20,
+    "hitboxOffsetX": 0,
+    "hitboxOffsetY": 40,
+    "hitboxWidth": 50,
+    "hitboxHeight": 140
+  }
+}

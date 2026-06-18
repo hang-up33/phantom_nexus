@@ -179,7 +179,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
     /** キャラクター選択（Task 117）のロスター（全キャラ ID）。新キャラを足したらここにも追記する。 */
     private static final String[] ROSTER_IDS = {
         "fighter001", "fighter002", "fighter003", "fighter004", "fighter005",
-        "fighter006", "fighter007", "fighter008", "fighter009", "fighter021"
+        "fighter006", "fighter007", "fighter008", "fighter009", "fighter021",
+        "fighter022"
     };
     /** キャラクター選択グリッドの列数（Task 117）。10体＝5列×2行。 */
     private static final int ROSTER_COLS = 5;
