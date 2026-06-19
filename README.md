@@ -1,5 +1,7 @@
 # Phantom Nexus
 
+![Phantom Nexus デモ：波動拳の撃ち合いから接近してコンボを叩き込む](docs/screenshots/hero-demo.gif)
+
 **MUGEN ライクな 2D 格闘ゲーム基盤**。キャラクター・ステージ・技・当たり判定・AI を **外部データ（JSON）** として追加・編集できる、拡張性の高い 2D 格闘ゲームエンジンを目指す。
 
 - 技術スタック：**Java / LibGDX / Gradle**、データ形式 **JSON**（LibGDX 組込み）
