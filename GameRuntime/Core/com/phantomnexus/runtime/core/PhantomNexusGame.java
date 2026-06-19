@@ -310,6 +310,8 @@ public class PhantomNexusGame extends ApplicationAdapter {
             p1Input.attachGamepad(gamepad, 0);
             p2Input.attachGamepad(gamepad, 1);
         }
+        // 押下ボタンのライブ表示 HUD 用にレンダラへ接続（未接続/未 poll 時は isConnected=false で何も描かない）。
+        renderer.setGamepad(gamepad);
         // インゲームリプレイ（Task 183）：起動時に保存ファイルが存在すれば「REPLAY LAST」を有効化する。
         replayAvailable = new java.io.File(ingameReplayPath()).exists();
         // 画面状態の初期化（Task 116/117）：通常起動はタイトル画面から始める。撮影モード・リプレイは
@@ -1176,11 +1178,13 @@ public class PhantomNexusGame extends ApplicationAdapter {
                 return;
             }
         }
-        // ポーズ（Task 181）：通常プレイ中（非撮影・非リプレイ・ラウンド進行中）に ESC でトグル。
+        // ポーズ（Task 181）：通常プレイ中（非撮影・非リプレイ・ラウンド進行中）に ESC / ゲームパッド START でトグル。
         // 撮影/リプレイでは無効（後方互換・決定性不変）。
         if (!screenshot.isEnabled() && !replay.isReplaying() && !replay.isRecording()
                 && !round.isFinished()
-                && Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                && (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || gamepad.consumeStart())) {
+            // consumeStart() は START エッジを消費するため、同フレームの menuConfirm() と二重発火しない
+            // （開いた直後にメニュー決定が走って即座に閉じる、を防ぐ）。
             paused = !paused;
             pauseSelection = 0; // 開くたびに RESUME を選択
         }
@@ -2042,7 +2046,7 @@ public class PhantomNexusGame extends ApplicationAdapter {
         return "P1 " + p1Input.describe()
                 + "   [F1] hitboxes  [F2] P2 AI(" + aiDifficultyLabel() + ")  [F3] difficulty"
                 + "  [F4] training(" + (trainingMode ? "on" : "off") + ")  [F5] moves(" + (moveListVisible ? "on" : "off") + ")"
-                + "  [M] SND(" + (sounds.isEnabled() ? "on" : "off") + ")  [ESC] pause"
+                + "  [M] SND(" + (sounds.isEnabled() ? "on" : "off") + ")  [ESC/START] pause"
                 + survival
                 + timeAttack;
     }

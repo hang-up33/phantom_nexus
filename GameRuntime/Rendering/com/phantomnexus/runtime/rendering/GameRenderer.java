@@ -28,6 +28,7 @@ import com.phantomnexus.shared.constants.GameConstants;
 import com.phantomnexus.shared.types.Character;
 import com.phantomnexus.shared.types.Hitbox;
 import com.phantomnexus.shared.types.Move;
+import com.phantomnexus.runtime.input.GamepadInput;
 import com.phantomnexus.runtime.input.InputAction;
 import com.phantomnexus.runtime.input.PlayerInput;
 import com.phantomnexus.shared.types.Stage;
@@ -231,6 +232,9 @@ public class GameRenderer {
     private static final Color CHARSEL_P2_COLOR = new Color(1f, 0.62f, 0.30f, 1f); // キャラ選択 P2（橙・Task 117）
     private static final Color INPUT_DISPLAY_COLOR = new Color(0.85f, 0.90f, 0.55f, 0.9f); // 入力表示 HUD の文字色（Task 96）
     private static final float INPUT_DISPLAY_SCALE = 0.9f; // 入力表示 HUD の文字倍率（Task 96）
+    private static final Color PAD_ON_COLOR = new Color(1f, 0.92f, 0.30f, 1f);   // 押下ボタンのライブ表示：点灯（押下中）
+    private static final Color PAD_OFF_COLOR = new Color(0.45f, 0.48f, 0.52f, 0.85f); // 同：消灯（未押下）
+    private static final float PAD_DISPLAY_SCALE = 0.9f; // 押下ボタンのライブ表示の文字倍率
     private static final String TEXT_GUARD_BREAK = "GUARD BREAK!";        // 頭上のフローティング表示（同上）
 
     private final SpriteBatch batch;
@@ -297,6 +301,9 @@ public class GameRenderer {
     // 画面の微振動（hit shake・Task 132）：残りフレームと振幅。接触時に triggerShake で立ち、毎フレーム減衰する。
     private int shakeFrames;
     private float shakeMagnitude;
+    // 押下ボタンのライブ表示 HUD：接続中コントローラー（slot 0）の物理ボタン押下を画面左下に点灯表示する。
+    // 未接続/未 poll（撮影・リプレイ）時は isConnected(0)=false で何も描かない＝既存レシピに非干渉。
+    private GamepadInput gamepad;
     // 現在のステージ色（Task 17）。未設定時はフォールバックを使う。
     private final Color skyTop = new Color(SKY_TOP_FALLBACK);
     private final Color skyBottom = new Color(SKY_BOTTOM_FALLBACK);
@@ -358,6 +365,11 @@ public class GameRenderer {
     /** セッション最大コンボ数を設定する（Task 194）。2 以上で HUD 上部に「MAX COMBO n」を表示する。 */
     public void setMaxCombo(int combo) {
         this.maxCombo = combo;
+    }
+
+    /** 押下ボタンのライブ表示 HUD 用にコントローラー入力を接続する（null で非表示）。 */
+    public void setGamepad(GamepadInput gamepad) {
+        this.gamepad = gamepad;
     }
 
     /** 描画に用いるステージ（背景グラデ + 地面色 + 名前）を設定する（Task 17）。 */
@@ -636,6 +648,7 @@ public class GameRenderer {
             drawCentered(statusLine, GameConstants.WORLD_WIDTH / 2f, 40f);
         }
         drawInputDisplay(p1Inputs); // P1 入力表示 HUD（Task 96）
+        drawGamepadDisplay(); // 押下ボタンのライブ表示 HUD（接続中コントローラーのみ）
         if (moveListVisible) {
             drawMoveList(p1, p2); // コマンド表 HUD（技/コマンド一覧・F5・Task 112）
         }
@@ -1874,6 +1887,47 @@ public class GameRenderer {
         }
         font.setColor(Color.WHITE);
         font.getData().setScale(1.0f);
+    }
+
+    /**
+     * 接続中コントローラー（slot 0＝1P）の物理ボタン押下を画面左下に点灯表示する（押下ボタンのライブ表示 HUD）。
+     * 押下中を明色（{@link #PAD_ON_COLOR}）、未押下を暗色（{@link #PAD_OFF_COLOR}）で描く。
+     * 未接続/未 poll（撮影・リプレイ）時は {@code isConnected(0)=false} で何も描かない＝既存レシピに非干渉。
+     * テキストパス内で呼び、フォント色/倍率は描画後に既定へ戻す（共有状態リーク防止）。
+     */
+    private void drawGamepadDisplay() {
+        if (gamepad == null || !gamepad.isConnected(0)) {
+            return;
+        }
+        font.getData().setScale(PAD_DISPLAY_SCALE);
+        float baseX = 16f;
+        drawPadRow(baseX, 120f, "DIR ",
+                new String[]{"U", "D", "L", "R"},
+                new GamepadInput.PadButton[]{GamepadInput.PadButton.UP, GamepadInput.PadButton.DOWN,
+                        GamepadInput.PadButton.LEFT, GamepadInput.PadButton.RIGHT});
+        drawPadRow(baseX, 98f, "BTN ",
+                new String[]{"A", "B", "X", "Y", "L1", "R1", "ST"},
+                new GamepadInput.PadButton[]{GamepadInput.PadButton.A, GamepadInput.PadButton.B,
+                        GamepadInput.PadButton.X, GamepadInput.PadButton.Y, GamepadInput.PadButton.L1,
+                        GamepadInput.PadButton.R1, GamepadInput.PadButton.START});
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1.0f);
+    }
+
+    /** 押下ボタン表示の 1 行：prefix を暗色、各トークンを押下状態で明/暗に色分けして横に並べる。 */
+    private void drawPadRow(float x, float y, String prefix, String[] labels, GamepadInput.PadButton[] buttons) {
+        font.setColor(PAD_OFF_COLOR);
+        font.draw(batch, prefix, x, y);
+        layout.setText(font, prefix);
+        float cx = x + layout.width;
+        for (int i = 0; i < labels.length; i++) {
+            boolean on = gamepad.isButtonDown(0, buttons[i]);
+            font.setColor(on ? PAD_ON_COLOR : PAD_OFF_COLOR);
+            String tok = labels[i] + " ";
+            font.draw(batch, tok, cx, y);
+            layout.setText(font, tok);
+            cx += layout.width;
+        }
     }
 
     /**
