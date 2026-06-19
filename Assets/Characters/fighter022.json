@@ -102,8 +102,6 @@
       "id": "kings_decree",
       "command": "SUPER",
       "superMove": true,
-      "hardKnockdown": true,
-      "causesDizzy": true,
       "damage": 240,
       "startup": 8,
       "active": 4,
