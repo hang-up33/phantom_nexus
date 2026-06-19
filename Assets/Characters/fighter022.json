@@ -6,7 +6,6 @@
   "jumpPower": 12.8,
   "airJumps": 0,
   "stunThreshold": 320,
-  "rageThreshold": 0.35,
   "width": 80,
   "height": 210,
   "color": [0.49, 0.30, 0.84],
