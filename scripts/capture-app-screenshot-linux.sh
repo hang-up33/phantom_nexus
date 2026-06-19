@@ -21,6 +21,10 @@ DISPLAY_NUM="99"
 # 追加の撮影プロパティ（-x key=val を繰り返すと -Dphantom.screenshot.key=val を渡す）。
 # 近接が必要な被弾スクショ等で p1x / p2x の初期位置オーバーライドに使う。
 EXTRA_PROPS=()
+# 連番（範囲）撮影モードの終了フレーム（-x frameEnd=... 指定時に控える）。
+# > FRAME のとき ScreenshotController は base ファイルでなく out-NNNN.png を書き出すため、
+# 末尾の成功判定をその連番に切り替える（base の有無で exit 1 にしない）。
+FRAME_END=""
 
 while getopts "o:f:k:W:H:d:x:" opt; do
   case "$opt" in
@@ -30,7 +34,10 @@ while getopts "o:f:k:W:H:d:x:" opt; do
     W) SCREEN_W="$OPTARG" ;;
     H) SCREEN_H="$OPTARG" ;;
     d) DISPLAY_NUM="$OPTARG" ;;
-    x) EXTRA_PROPS+=("-Dphantom.screenshot.${OPTARG%%=*}=${OPTARG#*=}") ;;
+    x)
+      EXTRA_PROPS+=("-Dphantom.screenshot.${OPTARG%%=*}=${OPTARG#*=}")
+      [ "${OPTARG%%=*}" = "frameEnd" ] && FRAME_END="${OPTARG#*=}"
+      ;;
     *) echo "usage: $0 [-o out.png] [-f frame] [-k hold] [-W width] [-H height] [-d display] [-x key=val]" >&2; exit 2 ;;
   esac
 done
@@ -88,9 +95,26 @@ HOLD_PROP=()
   "${HOLD_PROP[@]}" \
   "${EXTRA_PROPS[@]}"
 
-if [ ! -s "$OUT_ABS" ]; then
-  echo "[capture] 失敗: PNG が生成されませんでした (${OUT_ABS})" >&2
-  exit 1
+if [[ "$FRAME_END" =~ ^[0-9]+$ ]] && [ "$FRAME_END" -gt "$FRAME" ]; then
+  # 連番（範囲）撮影モード：base ファイルは作らず out-NNNN.png を書き出すので、その連番の有無で判定する。
+  # 命名は ScreenshotController.numberedPath と対応（拡張子の直前に -NNNN を挿入。拡張子無しは末尾付与）。
+  if [ "${OUT_ABS##*.}" = "${OUT_ABS}" ]; then
+    SEQ_PATTERN="${OUT_ABS}-"*
+  else
+    SEQ_PATTERN="${OUT_ABS%.*}-"*".${OUT_ABS##*.}"
+  fi
+  SEQ_COUNT="$(ls $SEQ_PATTERN 2>/dev/null | wc -l)"
+  if [ "$SEQ_COUNT" -eq 0 ]; then
+    echo "[capture] 失敗: 連番 PNG が生成されませんでした (${SEQ_PATTERN})" >&2
+    exit 1
+  fi
+  echo "[capture] 完了: 連番 ${SEQ_COUNT} 枚 (${SEQ_PATTERN})"
+  ls -l $SEQ_PATTERN | head -n 3
+else
+  if [ ! -s "$OUT_ABS" ]; then
+    echo "[capture] 失敗: PNG が生成されませんでした (${OUT_ABS})" >&2
+    exit 1
+  fi
+  echo "[capture] 完了: ${OUT_ABS}"
+  ls -l "$OUT_ABS"
 fi
-echo "[capture] 完了: ${OUT_ABS}"
-ls -l "$OUT_ABS"
