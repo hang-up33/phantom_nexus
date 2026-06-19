@@ -47,6 +47,26 @@ cd "$(dirname "$0")/.."
 mkdir -p "$(dirname "$OUT")"
 OUT_ABS="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 
+# 連番（範囲）撮影モードか（frameEnd が整数で frame より大きいとき）。
+# このとき ScreenshotController は base ではなく out-NNNN.png を書き出す。
+RANGE_MODE=0
+if [[ "$FRAME_END" =~ ^[0-9]+$ ]] && [ "$FRAME_END" -gt "$FRAME" ]; then
+  RANGE_MODE=1
+fi
+
+# 連番出力（out-NNNN.png）を nullglob で配列 SEQ_FILES に集める。範囲モードの事前掃除と事後検証で共用。
+# 命名は ScreenshotController.numberedPath と対応（拡張子の直前に 4 桁ゼロ詰め -NNNN を挿入。拡張子無しは末尾付与）。
+# nullglob + 配列で件数判定する（パスに空白/特殊文字が入っても安全・未クオート ls 展開を避ける）。
+collect_seq_files() {
+  shopt -s nullglob
+  if [ "${OUT_ABS##*.}" = "${OUT_ABS}" ]; then
+    SEQ_FILES=( "${OUT_ABS}"-[0-9][0-9][0-9][0-9] )
+  else
+    SEQ_FILES=( "${OUT_ABS%.*}"-[0-9][0-9][0-9][0-9]."${OUT_ABS##*.}" )
+  fi
+  shopt -u nullglob
+}
+
 # 依存チェック（apt 追加は不要。Ubuntu 標準で Xvfb / Mesa swrast を想定）。
 command -v Xvfb >/dev/null 2>&1 || { echo "Xvfb が見つかりません（apt-get install -y xvfb）" >&2; exit 1; }
 
@@ -86,6 +106,14 @@ export MESA_GLSL_VERSION_OVERRIDE="330"
 
 echo "[capture] アプリを起動して frame=${FRAME}${HOLD:+ hold=${HOLD}} で撮影 -> ${OUT_ABS}"
 rm -f "$OUT_ABS"
+# 範囲モードは前回の連番（out-NNNN.png）も先に消す。残骸を拾って「成功」誤判定したり、
+# 今回の生成失敗時に GIF が古い/混在フレームを使うのを防ぐ（base の rm だけでは不十分）。
+if [ "$RANGE_MODE" -eq 1 ]; then
+  collect_seq_files
+  if [ "${#SEQ_FILES[@]}" -gt 0 ]; then
+    rm -f -- "${SEQ_FILES[@]}"
+  fi
+fi
 # 撮影モードのシステムプロパティを渡して起動。撮影後にアプリが自動終了する。
 HOLD_PROP=()
 [ -n "$HOLD" ] && HOLD_PROP=(-Dphantom.screenshot.hold="${HOLD}")
@@ -95,17 +123,9 @@ HOLD_PROP=()
   "${HOLD_PROP[@]}" \
   "${EXTRA_PROPS[@]}"
 
-if [[ "$FRAME_END" =~ ^[0-9]+$ ]] && [ "$FRAME_END" -gt "$FRAME" ]; then
-  # 連番（範囲）撮影モード：base ファイルは作らず out-NNNN.png を書き出すので、その連番の有無で判定する。
-  # 命名は ScreenshotController.numberedPath と対応（拡張子の直前に 4 桁ゼロ詰め -NNNN を挿入。拡張子無しは末尾付与）。
-  # nullglob + 配列で件数判定する（パスに空白/特殊文字が入っても安全・未クオート ls 展開を避ける）。
-  shopt -s nullglob
-  if [ "${OUT_ABS##*.}" = "${OUT_ABS}" ]; then
-    SEQ_FILES=( "${OUT_ABS}"-[0-9][0-9][0-9][0-9] )
-  else
-    SEQ_FILES=( "${OUT_ABS%.*}"-[0-9][0-9][0-9][0-9]."${OUT_ABS##*.}" )
-  fi
-  shopt -u nullglob
+if [ "$RANGE_MODE" -eq 1 ]; then
+  # 連番（範囲）撮影モード：起動前に旧連番を消してあるので、今回生成された out-NNNN.png の有無で判定する。
+  collect_seq_files
   if [ "${#SEQ_FILES[@]}" -eq 0 ]; then
     echo "[capture] 失敗: 連番 PNG が生成されませんでした (${OUT_ABS%.*}-NNNN...)" >&2
     exit 1
