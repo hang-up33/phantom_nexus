@@ -326,6 +326,7 @@ docs/          DataFormat.md / BattleSystem.md / screenshots
 | 198 | 確定スタン技（`Move.causesDizzy`＝ヒットでスタンゲージを一気に蓄積させる技・データ化） | ✅ 完了 |
 | 199 | 第15ステージ追加（stage015 Celestial Gate・JSON `layers` のみで追加） | ✅ 完了 |
 | 200 | ドキュメント総整備（統合フェーズと Task 191〜199 を反映・kaizen 反映） | ✅ 完了 |
+| 201 | ゲームパッド操作性向上（バトル中に START でポーズ開閉＝従来 ESC のパッド版・`consumeStart` で menuConfirm との二重発火を防止／押下ボタンのライブ表示 HUD＝接続中コントローラーの物理ボタン押下を画面左下に点灯表示・未接続/撮影/リプレイでは非表示で後方互換） | ✅ 完了 |
 
 状態：⬜ 未着手 / 🟦 進行中 / ✅ 完了（「＋」は設計書外の任意追加機能）
 

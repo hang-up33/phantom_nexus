@@ -55,6 +55,14 @@ public class GamepadInput {
     /** コントローラー拡張/ネイティブの読み込みに失敗したら true（以後ポーリングをスキップ）。 */
     private boolean failed = false;
 
+    /** 押下ボタンのライブ表示 HUD 用の物理ボタン種別（論理アクションではなく実ボタン）。 */
+    public enum PadButton { UP, DOWN, LEFT, RIGHT, A, B, X, Y, L1, R1, START, BACK }
+
+    /** 各スロットの物理ボタン押下スナップショット（ライブ表示用・{@link #poll()} で更新）。 */
+    private final boolean[][] padDown = new boolean[SLOTS][PadButton.values().length];
+    /** 各スロットにコントローラーが接続されているか（{@link #poll()} で更新）。 */
+    private final boolean[] connected = new boolean[SLOTS];
+
     public GamepadInput() {
         for (int s = 0; s < SLOTS; s++) {
             down[s] = EnumSet.noneOf(InputAction.class);
@@ -89,6 +97,8 @@ public class GamepadInput {
                 boolean backNow = m != null && readButton(c, m.buttonBack);
                 backEdge[s] = backNow && !backDown[s];
                 backDown[s] = backNow;
+
+                captureButtons(s, c, m); // ライブ表示用に物理ボタンの押下スナップショットを更新
             }
         } catch (Throwable t) {
             // 拡張未導入 / ネイティブ読込失敗 / ヘッドレス等：以後はキーボードのみ（従来挙動）。
@@ -141,6 +151,38 @@ public class GamepadInput {
         return set;
     }
 
+    /**
+     * スロット {@code slot} の物理ボタン押下スナップショットを更新する（押下ボタンのライブ表示 HUD 用）。
+     * 個別コントローラーの読み取り失敗は当該スロットを全 false 扱いにして他スロットへ波及させない。
+     */
+    private void captureButtons(int slot, Controller c, ControllerMapping m) {
+        boolean[] arr = padDown[slot];
+        java.util.Arrays.fill(arr, false);
+        connected[slot] = c != null && m != null;
+        if (c == null || m == null) {
+            return;
+        }
+        try {
+            float ax = readAxis(c, m.axisLeftX);
+            float ay = readAxis(c, m.axisLeftY);
+            arr[PadButton.LEFT.ordinal()] = readButton(c, m.buttonDpadLeft) || ax < -DEADZONE;
+            arr[PadButton.RIGHT.ordinal()] = readButton(c, m.buttonDpadRight) || ax > DEADZONE;
+            arr[PadButton.UP.ordinal()] = readButton(c, m.buttonDpadUp) || ay < -DEADZONE;
+            arr[PadButton.DOWN.ordinal()] = readButton(c, m.buttonDpadDown) || ay > DEADZONE;
+            arr[PadButton.A.ordinal()] = readButton(c, m.buttonA);
+            arr[PadButton.B.ordinal()] = readButton(c, m.buttonB);
+            arr[PadButton.X.ordinal()] = readButton(c, m.buttonX);
+            arr[PadButton.Y.ordinal()] = readButton(c, m.buttonY);
+            arr[PadButton.L1.ordinal()] = readButton(c, m.buttonL1);
+            arr[PadButton.R1.ordinal()] = readButton(c, m.buttonR1);
+            arr[PadButton.START.ordinal()] = readButton(c, m.buttonStart);
+            arr[PadButton.BACK.ordinal()] = readButton(c, m.buttonBack);
+        } catch (Throwable t) {
+            java.util.Arrays.fill(arr, false);
+            connected[slot] = false;
+        }
+    }
+
     private boolean readButton(Controller c, int code) {
         return c != null && code >= 0 && c.getButton(code);
     }
@@ -158,6 +200,31 @@ public class GamepadInput {
     /** スロット {@code slot} のコントローラーでアクションが押された瞬間か（ジャンプ / 攻撃向け）。 */
     public boolean isJustPressed(int slot, InputAction action) {
         return slot >= 0 && slot < SLOTS && edges[slot].contains(action);
+    }
+
+    /** スロット {@code slot} にコントローラーが接続されているか（押下ボタンのライブ表示 HUD 用）。 */
+    public boolean isConnected(int slot) {
+        return slot >= 0 && slot < SLOTS && connected[slot];
+    }
+
+    /** スロット {@code slot} の物理ボタン {@code b} が現フレーム押下中か（押下ボタンのライブ表示 HUD 用）。 */
+    public boolean isButtonDown(int slot, PadButton b) {
+        return slot >= 0 && slot < SLOTS && b != null && padDown[slot][b.ordinal()];
+    }
+
+    /**
+     * START の立ち上がりエッジを「1 回だけ」消費して返す（バトル中のポーズ開閉用）。
+     *
+     * <p>{@link #menuConfirm()} も START エッジを見るため、同一フレームでポーズを開いた直後に
+     * メニュー決定が二重発火して即座に閉じてしまう。これを防ぐため、ポーズ開閉では本メソッドで
+     * エッジを消費（クリア）し、同フレームの {@code menuConfirm()} には START を見せない。
+     * エッジは毎フレームの {@link #poll()} で再計算されるので、消費は当該フレームのみに効く。
+     */
+    public boolean consumeStart() {
+        boolean edge = startEdge[0] || startEdge[1];
+        startEdge[0] = false;
+        startEdge[1] = false;
+        return edge;
     }
 
     // --- メニュー操作（どのスロットのコントローラーでも操作できるよう全スロットを OR） ---
