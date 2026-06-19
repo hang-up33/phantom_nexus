@@ -97,19 +97,21 @@ HOLD_PROP=()
 
 if [[ "$FRAME_END" =~ ^[0-9]+$ ]] && [ "$FRAME_END" -gt "$FRAME" ]; then
   # 連番（範囲）撮影モード：base ファイルは作らず out-NNNN.png を書き出すので、その連番の有無で判定する。
-  # 命名は ScreenshotController.numberedPath と対応（拡張子の直前に -NNNN を挿入。拡張子無しは末尾付与）。
+  # 命名は ScreenshotController.numberedPath と対応（拡張子の直前に 4 桁ゼロ詰め -NNNN を挿入。拡張子無しは末尾付与）。
+  # nullglob + 配列で件数判定する（パスに空白/特殊文字が入っても安全・未クオート ls 展開を避ける）。
+  shopt -s nullglob
   if [ "${OUT_ABS##*.}" = "${OUT_ABS}" ]; then
-    SEQ_PATTERN="${OUT_ABS}-"*
+    SEQ_FILES=( "${OUT_ABS}"-[0-9][0-9][0-9][0-9] )
   else
-    SEQ_PATTERN="${OUT_ABS%.*}-"*".${OUT_ABS##*.}"
+    SEQ_FILES=( "${OUT_ABS%.*}"-[0-9][0-9][0-9][0-9]."${OUT_ABS##*.}" )
   fi
-  SEQ_COUNT="$(ls $SEQ_PATTERN 2>/dev/null | wc -l)"
-  if [ "$SEQ_COUNT" -eq 0 ]; then
-    echo "[capture] 失敗: 連番 PNG が生成されませんでした (${SEQ_PATTERN})" >&2
+  shopt -u nullglob
+  if [ "${#SEQ_FILES[@]}" -eq 0 ]; then
+    echo "[capture] 失敗: 連番 PNG が生成されませんでした (${OUT_ABS%.*}-NNNN...)" >&2
     exit 1
   fi
-  echo "[capture] 完了: 連番 ${SEQ_COUNT} 枚 (${SEQ_PATTERN})"
-  ls -l $SEQ_PATTERN | head -n 3
+  echo "[capture] 完了: 連番 ${#SEQ_FILES[@]} 枚"
+  ls -l -- "${SEQ_FILES[@]:0:3}"
 else
   if [ ! -s "$OUT_ABS" ]; then
     echo "[capture] 失敗: PNG が生成されませんでした (${OUT_ABS})" >&2
