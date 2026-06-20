@@ -180,9 +180,9 @@ public class PhantomNexusGame extends ApplicationAdapter {
     private static final String[] ROSTER_IDS = {
         "fighter001", "fighter002", "fighter003", "fighter004", "fighter005",
         "fighter006", "fighter007", "fighter008", "fighter009", "fighter021",
-        "fighter022"
+        "fighter022", "fighter023"
     };
-    /** キャラクター選択グリッドの列数（Task 117）。11体＝5列×2行＋1。 */
+    /** キャラクター選択グリッドの列数（Task 117）。12体＝5列×2行＋2。 */
     private static final int ROSTER_COLS = 5;
     private String[] rosterNames;   // ロスターの表示名（遅延ロード・charselect に入ったとき構築・Task 117）
     private Character[] rosterDefs;  // ロスターのキャラ定義（選択画面でスプライト立ち絵を描くためキャッシュ・Task 161）
