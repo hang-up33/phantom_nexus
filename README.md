@@ -16,7 +16,7 @@
 | タイトル（デモリール背景） | キャラクター選択（立ち絵プレビュー） |
 |---|---|
 | ![タイトル](docs/screenshots/160-title.png) | ![キャラクター選択](docs/screenshots/161-charselect.png) |
-| 全 14 ステージの実背景をデモリール巡回＋ **VERSUS / TRAINING / ARCADE / SURVIVAL / TIME ATTACK / KEY CONFIG / VIEWER / REPLAY LAST** 選択 | 全 11 キャラからスプライト立ち絵を見ながら P1 / P2 を選択 |
+| 全 14 ステージの実背景をデモリール巡回＋ **VERSUS / TRAINING / ARCADE / SURVIVAL / TIME ATTACK / KEY CONFIG / VIEWER**（＋保存済みリプレイがある時のみ **REPLAY LAST**）選択 | 全 11 キャラからスプライト立ち絵を見ながら P1 / P2 を選択 |
 
 | ステージ選択（実背景ライブプレビュー） | 対戦画面（モダンな見た目） |
 |---|---|
