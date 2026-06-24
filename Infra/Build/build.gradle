@@ -96,7 +96,8 @@ tasks.named('run', JavaExec) {
         jvmArgs '-XstartOnFirstThread'
     }
 
-    ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.hold',
+    ['phantom.screenshot.path', 'phantom.screenshot.frame', 'phantom.screenshot.frameEnd',
+     'phantom.screenshot.frameStep', 'phantom.screenshot.hold',
      'phantom.screenshot.p1x', 'phantom.screenshot.p2x', 'phantom.screenshot.timelimit',
      'phantom.screenshot.debug', 'phantom.screenshot.script', 'phantom.screenshot.ai',
      'phantom.screenshot.stage', 'phantom.screenshot.p1char', 'phantom.screenshot.p2char',

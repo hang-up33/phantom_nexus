@@ -51,6 +51,12 @@ public final class ScreenshotController {
 
     private final String outputPath;
     private final int targetFrame;
+    /** 範囲撮影の終了フレーム（{@code phantom.screenshot.frameEnd}）。&gt; targetFrame なら連番撮影モード。 */
+    private final int frameEnd;
+    /** 範囲撮影のフレーム間隔（{@code phantom.screenshot.frameStep}・既定 1）。GIF のコマ間引きに使う。 */
+    private final int frameStep;
+    /** 連番撮影で書き出したコマ数（出力ファイル名のインデックスに使う）。 */
+    private int sequenceIndex;
     private final EnumSet<InputAction> p1Hold;
     private final EnumSet<InputAction> p2Hold;
     private final Float p1SpawnX;
@@ -79,6 +85,9 @@ public final class ScreenshotController {
     public ScreenshotController() {
         this.outputPath = trimToNull(System.getProperty("phantom.screenshot.path"));
         this.targetFrame = parsePositiveInt(System.getProperty("phantom.screenshot.frame"), DEFAULT_FRAME);
+        // 連番（範囲）撮影モード：frameEnd > frame のとき frame〜frameEnd を frameStep おきに書き出す（GIF 用）。
+        this.frameEnd = parsePositiveInt(System.getProperty("phantom.screenshot.frameEnd"), 0);
+        this.frameStep = Math.max(1, parsePositiveInt(System.getProperty("phantom.screenshot.frameStep"), 1));
         this.p1Hold = EnumSet.noneOf(InputAction.class);
         this.p2Hold = EnumSet.noneOf(InputAction.class);
         // 初期 X オーバーライド（撮影モード時のみ）。近接が必要な過渡状態（被弾など）を再現するため。
@@ -460,19 +469,41 @@ public final class ScreenshotController {
         if (frameCount < targetFrame) {
             return;
         }
-        capture();
+        // 連番（範囲）撮影モード：frame〜frameEnd を frameStep おきに別名で書き出し、最後に終了する。
+        if (frameEnd > targetFrame) {
+            if ((frameCount - targetFrame) % frameStep == 0) {
+                captureTo(numberedPath(sequenceIndex));
+                sequenceIndex++;
+            }
+            if (frameCount >= frameEnd) {
+                done = true;
+                Gdx.app.exit();
+            }
+            return;
+        }
+        captureTo(outputPath);
         done = true;
         // 撮影が済んだらゲームループを終了（JVM もそのまま終了する）。
         Gdx.app.exit();
     }
 
-    /** 実バックバッファ全体を取得し、PNG（上下反転補正あり）で保存する。 */
-    private void capture() {
+    /** 連番撮影の出力パス。{@code out.png} → {@code out-0000.png} のように拡張子の前へ index を挟む。 */
+    private String numberedPath(int index) {
+        String suffix = String.format("-%04d", index);
+        int dot = outputPath.lastIndexOf('.');
+        if (dot < 0) {
+            return outputPath + suffix;
+        }
+        return outputPath.substring(0, dot) + suffix + outputPath.substring(dot);
+    }
+
+    /** 実バックバッファ全体を取得し、指定パスへ PNG（上下反転補正あり）で保存する。 */
+    private void captureTo(String path) {
         int width = Gdx.graphics.getBackBufferWidth();
         int height = Gdx.graphics.getBackBufferHeight();
         Pixmap pixmap = ScreenUtils.getFrameBufferPixmap(0, 0, width, height);
         try {
-            FileHandle file = Gdx.files.absolute(outputPath);
+            FileHandle file = Gdx.files.absolute(path);
             // GL のフレームバッファは原点が左下のため flipY=true で上下を補正して書き出す。
             PixmapIO.writePNG(file, pixmap, java.util.zip.Deflater.DEFAULT_COMPRESSION, true);
             Gdx.app.log("Screenshot", "保存しました: " + file.path() + " (" + width + "x" + height + ")");
